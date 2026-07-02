@@ -84,21 +84,18 @@ fn Node*? parse_type_expr(ContextScope scope, Node* path_expr = null)
 		data.expr = parse_expr(scope)!;
 		current_type.offset.end = data.expr.offset.end;
 		expect(ctx, RPAREN)!;
-		return current_type;
 	}
-
-	if (consume(ctx, CT_TYPEOF)!)
+	else if (consume(ctx, CT_TYPEOF)!)
 	{
 		data.kind = TYPE_TYPEOF;
 		expect(ctx, LPAREN)!;
 		data.expr = parse_expr(scope)!;
 		current_type.offset.end = data.expr.offset.end;
 		expect(ctx, RPAREN)!;
-		return current_type;
 	}
 
 	// Check for built-in primitive keywords (int, void, double, etc.)
-	if IS_PRIM: (is_type_primitive(ctx.current().kind))
+	else if IS_PRIM: (is_type_primitive(ctx.current().kind))
 	{
 		Token t = ctx.current();
 		advance(ctx)!;
