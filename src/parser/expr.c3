@@ -963,13 +963,21 @@ fn Node*? parse_try_unwrap_chain_expr(ContextScope scope)
 			next_expr = parse_try_chain_expr(scope)!;
 		}
 
-		if (current.kind == NodeKind.TRY_EXPR)
+		if (current.kind == TRY_EXPR)
 		{
 			current.as(TRY_EXPR).next = next_expr;
 		}
 		else
 		{
-			current_try.next = next_expr;
+			Node* walker = first_try;
+			while (walker.kind == TRY_EXPR && walker.as(TRY_EXPR).next != null)
+			{
+				walker = walker.as(TRY_EXPR).next;
+			}
+			if (walker.kind == TRY_EXPR)
+			{
+				walker.as(TRY_EXPR).next = next_expr;
+			}
 		}
 
 		current = next_expr;

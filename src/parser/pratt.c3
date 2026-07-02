@@ -414,5 +414,5 @@ fn Node*? parse_constant_expr(ContextScope scope)
 fn Node*? parse_try_chain_expr(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
-	return parse_expr(scope, RELATIONAL + 1)!;
+	return parse_expr(scope, AND + 1)!;
 }
