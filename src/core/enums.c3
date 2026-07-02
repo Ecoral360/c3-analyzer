@@ -104,7 +104,7 @@ enum VaargKind
 	VAARG_INDEX
 }
 
-enum VarDeclKind
+enum VarDeclKind : char
 {
 	VAR_LOCAL,
 	VAR_GLOBAL,
@@ -116,7 +116,7 @@ enum VarDeclKind
 	VAR_PARAM_CT_TYPE, // Compile-time type parameter ($Type)
 }
 
-enum UnaryOpKind
+enum UnaryOpKind : char
 {
 	UNARYOP_ERROR,
 	UNARYOP_DEREF,

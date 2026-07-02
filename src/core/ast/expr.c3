@@ -53,6 +53,7 @@ fn String? PathExpr.full_path(&self, StringPool* pool, Allocator allocator) => @
  Payloads:
 - unresolved: TYPE_IDENTIFIER name and optional module path.
 - modify: TYPE_POINTER and TYPE_SLICE base type.
+- expr: $Typeof(expr) || $Typeof(expr)
 - array: TYPE_ARRAY and TYPE_VECTOR base type plus length expression.
   `len_expr` is null for inferred arrays such as `Type[*]`.
 - generic: TYPE_GENERIC base type and generic argument expressions.
@@ -75,6 +76,8 @@ struct TypeExpr
 		{
 			Node* base;
 		}
+
+		Node* expr;
 
 		struct array
 		{
