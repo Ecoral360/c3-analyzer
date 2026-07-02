@@ -194,3 +194,53 @@ fn void const_var_private_if()
 		test::eq(pool.get(callee_ident_expr.ident)!!, "MY_FEATURE");
 	}
 }
+
+fn void op_overloads()
+{
+	String source_code = `
+		module hello;
+		struct Foo
+		{	
+			float a;
+			double[] x;
+		}
+
+		fn Foo Foo.minus_float(self, float f) @operator(-) => { .a = self.a - f };
+		fn Foo Foo.minus_double(self, double d) @operator(-) => { .a = self.a - d };
+		fn Foo Foo.add(self, Foo other) @operator(+) => { .a = self.a + other.a };
+		fn Foo Foo.add_self(&self, Foo other) @operator(+=)
+		{
+			self.a += other.a;
+			return *self;
+		}
+		fn bool Foo.eq(self, Foo other) @operator(==)
+		{
+			return self.a == other.a;
+		}
+		fn double Foo.get(&self, sz i) @operator([])
+		{
+			return self.x[i];
+		}
+		fn double* Foo.get_ref(&self, sz i) @operator(&[])
+		{
+			return &self.x[i];
+		}
+		fn void Foo.set(&self, sz i, double new_val) @operator([]=)
+		{
+			return self.x[i] = new_val;
+		}
+	`;
+
+	Workspace ws;
+	ws.init(mem, { .use_sema = true });
+	defer ws.free();
+	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
+	defer res.free();
+	test::eq(res.has_errors, false);
+
+	Module* mod      = ws.modules.get("hello")!!;
+	ModuleSection* s = mod.sections[0];
+	StringPool* pool = &s.source_file.ast.string_pool;
+
+
+}

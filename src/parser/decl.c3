@@ -821,9 +821,18 @@ fn Node*? parse_var_decl(ContextScope scope, Node* type = null)
 	return head_node;
 }
 
+fn Node* make_overload(ParseContext* ctx, Token t)
+{
+	Node* expr = ctx.ast.alloc_node(OVERLOAD_EXPR, t.pos, t.end_pos());
+	OverloadExpr* ov_expr = expr.as(OVERLOAD_EXPR);
+	ov_expr.kind = core::get_overload_kind(t.kind);
+	(void)advance(ctx);
+	return expr;
+}
+
 <*
  attributes ::= attribute attribute*
-  attribute  ::= AT_IDENT ("(" expression_list? ")")?
+  attribute  ::= (AT_IDENT | path? AT_TYPE_IDENT) ("(" expression_list? ")")?
  @require(scope.ctx != null)
 *>
 fn NodeArray? parse_attributes(ContextScope scope, Node* parent_node, AttributeParseFlags flags = { }) => @pool()
@@ -855,11 +864,78 @@ fn NodeArray? parse_attributes(ContextScope scope, Node* parent_node, AttributeP
 
 		if (consume(ctx, LPAREN)!)
 		{
-			List{Node*} exprs;
-			exprs.init(tmem, 4);
+			List{Node*} exprs; exprs.init(tmem, 4);
 			while (!ctx.is(RPAREN) && !ctx.eof())
 			{
-				exprs.push(parse_constant_expr(scope)!);
+				Node* expr;
+				bool next_is_rparen = ctx.can_peek(1) && ctx.peek(1)!.kind == RPAREN;
+
+				switch (ctx.current().kind)
+				{
+					case PLUS:
+					case MINUS:
+					case ASTERISK:
+					case DIV:
+					case MOD:
+					case BIT_NOT:
+					case BIT_OR:
+					case BIT_XOR:
+					case LSHIFT:
+					case RSHIFT:
+					case EQEQ:
+					case LESS:
+					case BIT_AND_ASSIGN:
+					case BIT_OR_ASSIGN:
+					case BIT_XOR_ASSIGN:
+					case PLUS_ASSIGN:
+					case MINUS_ASSIGN:
+					case MULT_ASSIGN:
+					case DIV_ASSIGN:
+					case MOD_ASSIGN:
+					case RSHIFT_ASSIGN:
+					case LSHIFT_ASSIGN:
+						if (!next_is_rparen) nextcase default;
+						expr = make_overload(ctx, ctx.current());
+						plog::debug("parse_attributes - found op overload: %s", expr.overload_expr.kind.description);
+						break;
+					case AMP:
+						if (next_is_rparen)
+						{
+							expr = make_overload(ctx, ctx.current());
+							break;
+						}
+						expr = ctx.ast.alloc_node(OVERLOAD_EXPR, t.pos, t.end_pos());
+						OverloadExpr* ov_expr = expr.as(OVERLOAD_EXPR);
+						advance(ctx)!;
+						expect(ctx, LBRACKET)!;
+						expr.offset.end = ctx.current_pos();
+						expect(ctx, RBRACKET)!;
+						ov_expr.kind = OV_ELEMENT_REF;
+						break;
+					case LBRACKET:
+						expr = ctx.ast.alloc_node(OVERLOAD_EXPR, t.pos, t.end_pos());
+						OverloadExpr* ov_expr = expr.as(OVERLOAD_EXPR);
+						advance(ctx)!;
+						expect(ctx, RBRACKET)!;
+						ov_expr.kind = consume(ctx, EQ)! ? OV_ELEMENT_SET : OV_ELEMENT_AT;
+						expr.offset.end = ctx.peek(-1)!.end_pos();
+						break;
+					case NOT_EQUAL:
+					case LESS_EQ:
+					case GREATER:
+					case GREATER_EQ:
+						unexpected(ctx, "use '<' and '==', other comparison operations will be derived from those")!;
+					case PLUSPLUS:
+					case MINUSMINUS:
+						unexpected(ctx, "Increment and decrement operators '++' and '--' cannot be directly overloaded, use '+=' and '-=' instead")!;
+					case DOT:
+						unexpected(ctx, "Cannot overload '.'")!;
+					default:
+						expr = parse_constant_expr(scope)!;
+						break;
+				}
+				
+				exprs.push(expr);
 				if (!consume(ctx, COMMA)!) break;
 			}
 			attr_node.offset.end = ctx.current_pos();

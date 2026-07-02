@@ -261,38 +261,6 @@ fn bool is_type_primitive(TokenKind kind)
 	}
 }
 
-fn OverloadKind get_overload_from_token(TokenKind kind)
-{
-	switch (kind)
-	{
-		case PLUS: return OV_PLUS;
-		case PLUS_ASSIGN: return OV_PLUS_ASSIGN;
-		case MINUS: return OV_MINUS;
-		case MINUS_ASSIGN: return OV_MINUS_ASSIGN;
-		case ASTERISK: return OV_MULTIPLY;
-		case MULT_ASSIGN: return OV_MULTIPLY_ASSIGN;
-		case DIV: return OV_DIVIDE;
-		case DIV_ASSIGN: return OV_DIVIDE_ASSIGN;
-		case MOD: return OV_REMINDER;
-		case MOD_ASSIGN: return OV_REMINDER_ASSIGN;
-		case AMP: return OV_AND;
-		case BIT_AND_ASSIGN: return OV_AND_ASSIGN;
-		case BIT_OR: return OV_OR;
-		case BIT_OR_ASSIGN: return OV_OR_ASSIGN;
-		case BIT_XOR: return OV_XOR;
-		case BIT_XOR_ASSIGN: return OV_XOR_ASSIGN;
-		case LSHIFT: return OV_SHL;
-		case LSHIFT_ASSIGN: return OV_SHL_ASSIGN;
-		case RSHIFT: return OV_SHR;
-		case RSHIFT_ASSIGN: return OV_SHR_ASSIGN;
-		case BIT_NOT: return OV_NEGATE;
-		case EQEQ: return OV_EQUAL;
-		case NOT_EQUAL: return OV_NOT_EQUAL;
-		default:
-			unreachable();
-	}
-}
-
 fn bool? is_declaration_followup(ParseContext* ctx)
 {
 	int i;

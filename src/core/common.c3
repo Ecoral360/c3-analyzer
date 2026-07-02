@@ -4,6 +4,8 @@ import std::collections::list;
 
 typedef FileID = ushort;
 
+faultdef UNKNOWN_OP_OVERLOAD;
+
 struct Location
 {
 	sz line;
@@ -247,6 +249,7 @@ enum AsmRegisterKind : char
 
 enum OverloadKind : char
 {
+	UNKNOWN,
 	OV_ELEMENT_AT,
 	OV_ELEMENT_REF,
 	OV_ELEMENT_SET,
@@ -254,7 +257,6 @@ enum OverloadKind : char
 	OV_NEGATE,
 	OV_UNARY_MINUS,
 	OV_PLUS,
-	OV_TYPED_START,
 	OV_MINUS,
 	OV_MULTIPLY,
 	OV_DIVIDE,
@@ -265,7 +267,7 @@ enum OverloadKind : char
 	OV_SHL,
 	OV_SHR,
 	OV_EQUAL,
-	OV_NOT_EQUAL,
+	OV_LESS_THAN,
 	OV_PLUS_ASSIGN,
 	OV_MINUS_ASSIGN,
 	OV_MULTIPLY_ASSIGN,
@@ -276,6 +278,37 @@ enum OverloadKind : char
 	OV_XOR_ASSIGN,
 	OV_SHL_ASSIGN,
 	OV_SHR_ASSIGN,
+}
+
+fn OverloadKind get_overload_kind(TokenKind kind)
+{
+	switch (kind)
+	{
+		case PLUS:           return OV_PLUS;
+		case PLUS_ASSIGN:    return OV_PLUS_ASSIGN;
+		case MINUS:          return OV_MINUS;
+		case MINUS_ASSIGN:   return OV_MINUS_ASSIGN;
+		case ASTERISK:       return OV_MULTIPLY;
+		case MULT_ASSIGN:    return OV_MULTIPLY_ASSIGN;
+		case DIV:            return OV_DIVIDE;
+		case MOD:            return OV_REMINDER;
+		case MOD_ASSIGN:     return OV_REMINDER_ASSIGN;
+		case AMP:            return OV_AND;
+		case BIT_AND_ASSIGN: return OV_AND_ASSIGN;
+		case BIT_OR:         return OV_OR;
+		case BIT_OR_ASSIGN:  return OV_OR_ASSIGN;
+		case BIT_XOR:        return OV_XOR;
+		case BIT_XOR_ASSIGN: return OV_XOR_ASSIGN;
+		case LSHIFT:         return OV_SHL;
+		case LSHIFT_ASSIGN:  return OV_SHL_ASSIGN;
+		case RSHIFT:         return OV_SHR;
+		case RSHIFT_ASSIGN:  return OV_SHR_ASSIGN;
+		case BIT_NOT:        return OV_NEGATE;
+		case EQEQ:           return OV_EQUAL;
+		case LESS:           return OV_LESS_THAN;
+		default:
+			return UNKNOWN;
+	}
 }
 
 enum InOutModifier : char

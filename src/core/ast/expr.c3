@@ -360,3 +360,8 @@ struct VaargExpr
 	VaargKind kind;
 	bool start_from_end;
 }
+
+struct OverloadExpr
+{
+	OverloadKind kind;
+}

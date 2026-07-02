@@ -120,6 +120,7 @@ struct Node
 		LengthofExpr lengthof_expr;
 		CtStringifyExpr ct_stringify_expr;
 		VaargExpr vaarg_expr;
+		OverloadExpr overload_expr;
 
 		// UNIT
 		ContractParam contract_param;
