@@ -56,7 +56,7 @@ fn Node*? parse_alias_type_target(ContextScope scope) => @pool()
 		return parse_fn_type_expr(scope)!;
 	}
 
-	return parse_type_expr(scope)!;
+	return parse_expr(scope)!;
 }
 
 <*
@@ -402,8 +402,13 @@ fn Node*? parse_literal_expr(ContextScope scope) => @pool()
 			literal.kind = BYTES_LITERAL;
 			if (token_text.starts_with("b64"))
 			{
-				String clean = token_text[4:^5];
-				char[]? b64  = base64::decode(tmem, clean);
+				String payload = token_text[4:^5];
+				String clean = payload.treplace(" ", "")
+						.treplace("\t", "")
+						.treplace("\n", "")
+						.treplace("\r", "");
+				plog::debug(clean);
+				char[]? b64 = base64::decode(tmem, clean);
 				if (catch err = b64)
 				{
 					ctx.error("Failed to decode Base64(%s): %s", clean, err);
@@ -415,23 +420,26 @@ fn Node*? parse_literal_expr(ContextScope scope) => @pool()
 			}
 			else if (token_text.starts_with("x"))
 			{
-				String clean = token_text.treplace(" ", "");
-				String final = clean[2:^3];
-				plog::debug("%s", final);
-				if (final.len % 2 != 0)
+				String payload = token_text[2:^3];
+				String clean = payload.treplace(" ", "")
+						.treplace("\t", "")
+						.treplace("\n", "")
+						.treplace("\r", "");
+				plog::debug("%s", clean);
+				if (clean.len % 2 != 0)
 				{
 					ctx.error(
 						"Hex literal payload must have an even number of digits (got %s chars in '%s')",
-						final.len,
-						final
+						clean.len,
+						clean
 					);
 					advance(ctx)!;
 					return ctx.ast.error(start);
 				}
-				char[]? hex = hex::decode(tmem, final);
+				char[]? hex = hex::decode(tmem, clean);
 				if (catch err = hex)
 				{
-					ctx.error("Failed to decode hex(%s): %s", final, err);
+					ctx.error("Failed to decode hex(%s): %s", clean, err);
 					advance(ctx)!;
 					return ctx.ast.error(start);
 				}
@@ -685,7 +693,7 @@ fn Node*? parse_contract_expr(ContextScope scope)
 	defer node.offset.end = ctx.current().pos;
 	ContractExpr* expr = node.as(CONTRACT_EXPR);
 
-	expr.exprs = parse_expr_list(scope)!;
+	expr.exprs = parse_expr_list(scope.with_only_flags({ .is_contract = true }))!;
 
 	if (!ctx.eof() && consume(ctx, COLON)!)
 	{
@@ -730,7 +738,7 @@ fn Node*? parse_call_expr(ContextScope scope, Node* callee)
 	node.offset.end = ctx.current_pos();
 	expect(ctx, RPAREN)!;
 	
-	if (ctx.is(AT_IDENT))
+	if (ctx.is(AT_IDENT) && !scope.flags.is_contract)
 	{
 		Token t = ctx.current();
 		call.attributes = parse_attributes(scope, node)!;
@@ -1358,12 +1366,12 @@ fn Node*? parse_access_expr(ContextScope scope, Node* left)
 
 	if (member_token.kind == LBRACKET)
 	{
+		plog::debug("parse_access - found maybe_deref");
 		advance(ctx)!;
 		Node* deref_node      = ctx.ast.alloc_node(MAYBE_DEREF_EXPR, member_token.pos, ctx.current().pos);
 		MaybeDeferExpr* deref = deref_node.as(MAYBE_DEREF_EXPR);
 		deref.left = left;
-		// TODO: parse range
-		return deref_node;
+		return parse_range_expr(scope, deref_node, deref_node.offset.start)!;
 	}
 
 	Node* node = ctx.ast.alloc_node(ACCESS_EXPR, start_pos);
