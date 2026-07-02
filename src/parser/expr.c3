@@ -77,6 +77,26 @@ fn Node*? parse_type_expr(ContextScope scope, Node* path_expr = null)
 	Node* current_type = ctx.ast.alloc_node(TYPE_EXPR, start, ctx.current().pos);
 	TypeExpr* data     = current_type.as(TYPE_EXPR);
 
+	if (consume(ctx, CT_TYPEFROM)!)
+	{
+		data.kind = TYPE_TYPEFROM;
+		expect(ctx, LPAREN)!;
+		data.expr = parse_expr(scope)!;
+		current_type.offset.end = data.expr.offset.end;
+		expect(ctx, RPAREN)!;
+		return current_type;
+	}
+
+	if (consume(ctx, CT_TYPEOF)!)
+	{
+		data.kind = TYPE_TYPEOF;
+		expect(ctx, LPAREN)!;
+		data.expr = parse_expr(scope)!;
+		current_type.offset.end = data.expr.offset.end;
+		expect(ctx, RPAREN)!;
+		return current_type;
+	}
+
 	// Check for built-in primitive keywords (int, void, double, etc.)
 	if IS_PRIM: (is_type_primitive(ctx.current().kind))
 	{

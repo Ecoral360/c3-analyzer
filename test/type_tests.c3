@@ -259,3 +259,36 @@ fn void global_vec()
 			assert(false, "Expected root declaration type to be parsed as a TYPE_VECTOR branch");
 	}
 }
+
+fn void typeof_typefrom()
+{
+	String source_code = `
+		module hello;
+		macro void foo()
+		{
+			$Typefrom($Typeof(value)::inner) $fallback;
+		}
+	`;
+
+	Workspace ws;
+	ws.init(mem, { .use_sema = true });
+	defer ws.free();
+	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
+	defer res.free();
+	test::eq(res.has_errors, false);
+
+	Module* mod      = ws.modules.get("hello")!!;
+	ModuleSection* s = mod.sections[0];
+	StringPool* pool = &s.source_file.ast.string_pool;
+
+	MacroDecl* mac =  s.nodes[1].as(MACRO_DECL);
+	CompoundStmt* comp = mac.body.as(COMPOUND_STMT);
+	VarDecl* vardecl = comp.statements[0].as(VAR_DECL);
+	TypeExpr* type = vardecl.type.as(TYPE_EXPR);
+	test::eq(type.kind, TypeKind.TYPE_TYPEFROM);
+
+	AccessExpr* access = type.expr.as(ACCESS_EXPR);
+	TypeExpr* left = access.left.as(TYPE_EXPR);
+	test::eq(left.kind, TypeKind.TYPE_TYPEOF);
+}
+
