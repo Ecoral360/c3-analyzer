@@ -1219,6 +1219,11 @@ fn Node*? parse_attrdef_decl(ContextScope scope) => @pool()
 		def.params = parse_parameter_list(scope)!;//, { .is_attrdef = true })!;
 	}
 
+	if (ctx.is(AT_IDENT))
+	{
+		def.defined_attributes = parse_attributes(scope, node)!;
+	}
+
 	if (consume(ctx, EOS)!)
 	{
 		return node;
@@ -1226,7 +1231,7 @@ fn Node*? parse_attrdef_decl(ContextScope scope) => @pool()
 
 	expect(ctx, EQ)!;
 
-	def.attributes = parse_attributes(scope, node, { .use_comma = true })!;
+	def.defined_attributes = parse_attributes(scope, node, { .use_comma = true })!;
 
 	node.offset.end = ctx.current_pos();
 	expect(ctx, EOS)!;
