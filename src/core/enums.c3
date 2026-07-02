@@ -98,6 +98,12 @@ fn OperatorKind binaryop_from_token(TokenKind kind)
 	}
 }
 
+enum VaargKind
+{
+	VACOUNT,
+	VAARG_INDEX
+}
+
 enum VarDeclKind
 {
 	VAR_LOCAL,

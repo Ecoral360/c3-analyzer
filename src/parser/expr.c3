@@ -1261,7 +1261,11 @@ fn Node*? parse_initializer_list_expr(ContextScope scope) => @pool()
 
 		if (ctx.is(ELLIPSIS))
 		{
-			expr = parse_vasplat_expr(scope)!;
+			if (ctx.peek(1)!.kind == CT_VAARG)
+			{
+				expr = parse_vasplat_expr(scope)!;
+			}
+			expr = parse_constant_expr(scope)!;
 		}
 		if (ctx.is(DOT) || ctx.is(LBRACKET))
 		{
@@ -1552,21 +1556,60 @@ fn Node*? parse_lengthof_expr(ContextScope scope)
 }
 
 <*
- ct_expand_stmt :: CT_EXPAND '(' expr ')'
+ ct_stringify ::= $stringify '(' expr ')'
 *>
-fn Node*? parse_ct_expand_stmt(ContextScope scope)
+fn Node*? parse_ct_stringify_expr(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
-	expect(ctx, CT_EXPAND)!;
-
 	int start_pos = ctx.current().pos;
-	Node* node    = ctx.ast.alloc_node(CT_EXPAND_STMT, start_pos);
-	CtExpandStmt* exp = node.as(CT_EXPAND_STMT);
+	expect(ctx, CT_STRINGIFY)!;
+	Node* node    = ctx.ast.alloc_node(CT_STRINGIFY_EXPR, start_pos);
+	CtStringifyExpr* str = node.as(CT_STRINGIFY_EXPR);
 
 	expect(ctx, LPAREN)!;
-	exp.expr = parse_expr(scope)!;
+	str.inner_expr = parse_expr(scope)!;
+	if (str.inner_expr)
+	{
+		node.offset.end = str.inner_expr.offset.end;
+	}
+	else
+	{
+		node.offset.end = ctx.current_pos();
+	}
 	expect(ctx, RPAREN)!;
-	node.offset.end = ctx.current_pos();
-	expect(ctx, EOS)!;
 	return node;
 }
+
+<*
+ vaarg ::= '$vaarg' ('.' len) | ('[' '^'? expr ']')
+*>
+fn Node*? parse_vaarg_expr(ContextScope scope)
+{
+	ParseContext* ctx = scope.ctx;
+	int start_pos = ctx.current().pos;
+	expect(ctx, CT_VAARG)!;
+	Node* node    = ctx.ast.alloc_node(VAARG_EXPR, start_pos);
+	VaargExpr* varg = node.as(VAARG_EXPR);
+
+	if (consume(ctx, DOT)!)
+	{
+		String token_text = ctx.token_text(ctx.current());
+		if (!ctx.is(IDENT) || token_text != constants::KW_LEN)
+		{
+			unexpected(ctx, "Expected '.%s' after '$vaarg'", constants::KW_LEN)!;
+		}
+		node.offset.end = ctx.current_pos();
+		advance(ctx)!;
+		varg.kind = VACOUNT;
+		return node;
+	}
+
+	expect(ctx, LBRACKET)!;
+	varg.start_from_end = consume(ctx, BIT_XOR)!;
+	varg.expr = parse_expr(scope)!;
+	node.offset.end = ctx.current_pos();
+	expect(ctx, RBRACKET)!;
+	return node;
+}
+
+

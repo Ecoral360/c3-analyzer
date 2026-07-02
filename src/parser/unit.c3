@@ -43,7 +43,10 @@ fn NodeArray? parse_parameter_list(ContextScope scope) => @pool()
 
 	if (ctx.is(RPAREN))
 	{
-		advance(ctx)!;
+		if (!flags.is_macro)
+		{
+			advance(ctx)!;
+		}
 		return alloc::clone_slice(ctx.arena, temp_params.array_view());
 	}
 

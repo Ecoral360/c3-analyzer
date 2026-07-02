@@ -711,7 +711,7 @@ fn Node*? parse_var_decl(ContextScope scope, Node* type = null)
 		{
 			unexpected(ctx, "Constants must use an uppercase CONST_IDENT, found '%s'", ctx.current().kind.description);
 		}
-		if (!flags.is_const && t.kind != IDENT && !flags.is_local)
+		if (!flags.is_const && t.kind != IDENT && !flags.is_local && !flags.is_comptime)
 		{
 			unexpected(ctx, "Global variables must use lower-case IDENT, found '%s'", ctx.current().kind.description);
 		}

@@ -606,3 +606,58 @@ fn void lengthof_expr()
 	test::eq(parser_tests::count_kind(s, MODULE_DECL), 1);
 	test::eq(parser_tests::count_kind(s, FN_DECL), 1);
 }
+
+fn void ct_stringify_expr()
+{
+	String source_code = `
+		module hello;
+	
+		macro void foo()
+		{
+			var $out = "";
+			$out +++= $eval($stringify($vaarg[$i]))($typename);
+		}
+	`;
+
+	Workspace ws;
+	ws.init(mem, { .use_sema = true });
+	defer ws.free();
+	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
+	defer res.free();
+	test::eq(res.has_errors, false);
+
+	Module* mod      = ws.modules.get("hello")!!;
+	ModuleSection* s = mod.sections[0];
+
+	test::eq(parser_tests::count_kind(s, MODULE_DECL), 1);
+	test::eq(parser_tests::count_kind(s, MACRO_DECL), 1);
+}
+
+fn void vaarg_expr()
+{
+	String source_code = `
+		module hello;
+	
+		macro compile_time_sum(...)
+		{
+			var $x = 0;
+			$for var $i = 0; $i < $vaarg.len; $i++:
+				$x += $vaarg[$i];
+			$endfor
+			return $x;
+		}
+	`;
+
+	Workspace ws;
+	ws.init(mem, { .use_sema = true });
+	defer ws.free();
+	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
+	defer res.free();
+	test::eq(res.has_errors, false);
+
+	Module* mod      = ws.modules.get("hello")!!;
+	ModuleSection* s = mod.sections[0];
+
+	test::eq(parser_tests::count_kind(s, MODULE_DECL), 1);
+	test::eq(parser_tests::count_kind(s, MACRO_DECL), 1);
+}

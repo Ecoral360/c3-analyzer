@@ -187,7 +187,7 @@ fn Node*? parse_compound_stmt(ContextScope scope) => @pool()
 	while (!ctx.is(RBRACE) && !ctx.eof())
 	{
 		Node*? stmt = parse_stmt(scope);
-		if (catch stmt)
+		if (catch err = stmt)
 		{
 			ctx.error("Malformed statement inside block");
 			Node* err_node = ctx.ast.error(ctx.current().pos);
@@ -720,9 +720,10 @@ fn Node*? parse_for_stmt(ContextScope scope)
 }
 
 <*
- ct_for_stmt ::= '$for' ct_expression_list? ';' ct_cond? ';' ct_expression_list? ':' statement
+ ct_for_stmt ::= "$for" for_condition ":" statement* "$endfor"
+ for_condition ::= init_list? ";" condition? ";" update_list?
 *>
-fn Node*? parse_ct_for_stmt(ContextScope scope)
+fn Node*? parse_ct_for_stmt(ContextScope scope) => @pool()
 {
 	ParseContext* ctx = scope.ctx;
 
@@ -731,46 +732,38 @@ fn Node*? parse_ct_for_stmt(ContextScope scope)
 	{
 		return err;
 	}!;
-
+	
 	Node* node        = ctx.ast.alloc_node(CT_FOR_STMT, start_pos);
 	CtForStmt* for_stmt = node.as(CT_FOR_STMT);
 	defer node.offset.end = ctx.current().pos;
 
 	if (!consume(ctx, EOS)!)
 	{
-		for_stmt.init.set(parse_expr_list(scope))!;
-		@expect_else(ctx, EOS ; err)
-		{
-			return err;
-		}!;
+		for_stmt.init.set(parse_expr_list(scope.with_only_flags({ .is_comptime = true })))!;
+		expect(ctx, EOS)!;
 	}
 
-	if (!consume(ctx, EOS)!)
+	for_stmt.cond = parse_expr(scope.with_only_flags({ .is_comptime = true }))!;
+	expect(ctx, EOS)!;
+	
+	if (!ctx.is(COLON))
 	{
-		for_stmt.cond.set(parse_cond_expr(scope))!;
-		@expect_else(ctx, EOS ; err)
-		{
-			return err;
-		}!;
+		for_stmt.incr.set(parse_expr_list(scope.with_only_flags({ .is_comptime = true })))!;
+	}
+	expect(ctx, COLON)!;
+
+	Node* comp_node = ctx.ast.alloc_node(COMPOUND_STMT, ctx.current_pos());
+	for_stmt.body = comp_node;
+	CompoundStmt* comp = comp_node.as(COMPOUND_STMT);
+	
+	List{Node*} stmts; stmts.tinit();
+	while (!ctx.eof() && !consume(ctx, CT_ENDFOR)!)
+	{
+		Node* stmt = parse_stmt(scope)!;
+		stmts.push(stmt);
 	}
 
-	if (!consume(ctx, RPAREN)!)
-	{
-		for_stmt.incr.set(parse_expr_list(scope))!;
-		@expect_else(ctx, RPAREN ; err)
-		{
-			return err;
-		}!;
-	}
-
-	Location prev_loc = ctx.line_map.resolve((sz)ctx.current().pos);
-	for_stmt.body = parse_stmt(scope)!;
-	Location body_loc = ctx.line_map.resolve((sz)for_stmt.body.offset.start);
-	if (for_stmt.body.kind != COMPOUND_STMT && prev_loc.line != body_loc.line)
-	{
-		ctx.error("A single statement after 'for' must be placed on the same line, or be enclosed in {}");
-		return ctx.ast.error(ctx.current().pos);
-	}
+	comp.statements = alloc::clone_slice(ctx.arena, stmts.array_view());
 
 	return node;
 }
@@ -1229,5 +1222,25 @@ fn Node*? parse_ct_foreach_var(ContextScope scope)
 	}!;
 
 	var_decl.name = ctx.ast.string_pool.internalize(ctx.token_text(token));
+	return node;
+}
+
+<*
+ ct_expand_stmt :: CT_EXPAND '(' expr ')'
+*>
+fn Node*? parse_ct_expand_stmt(ContextScope scope)
+{
+	ParseContext* ctx = scope.ctx;
+	expect(ctx, CT_EXPAND)!;
+
+	int start_pos = ctx.current().pos;
+	Node* node    = ctx.ast.alloc_node(CT_EXPAND_STMT, start_pos);
+	CtExpandStmt* exp = node.as(CT_EXPAND_STMT);
+
+	expect(ctx, LPAREN)!;
+	exp.expr = parse_expr(scope)!;
+	expect(ctx, RPAREN)!;
+	node.offset.end = ctx.current_pos();
+	expect(ctx, EOS)!;
 	return node;
 }

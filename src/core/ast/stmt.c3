@@ -105,7 +105,7 @@ struct ForStmt
 struct CtForStmt
 {
 	NullableNode init;
-	NullableNode cond;
+	Node* cond;
 	NullableNode incr;
 	Node* body;
 }

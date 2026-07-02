@@ -426,3 +426,26 @@ fn Node* alloc_any_type_expr(ParseContext* ctx)
 
 	return type_node;
 }
+
+<*
+ @return? OVERFLOW_PARSING : "if at top-level token"
+*>
+fn void? check_top_level_boundary(TokenKind kind)
+{
+	switch (kind)
+	{
+		case FN:
+		case MACRO:
+		case MODULE:
+		case IMPORT:
+		case ATTRDEF:
+		case TYPEDEF:
+		case ALIAS:
+		case CONSTDEF:
+		case ENUM:
+		case EXTERN:
+			return OVERFLOW_PARSING~;
+		default: 
+			break;
+	}
+}

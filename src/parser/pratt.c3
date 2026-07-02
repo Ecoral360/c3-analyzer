@@ -211,6 +211,10 @@ fn Node*? parse_prefix_expr(ContextScope scope)
 			return parse_ct_feature(scope)!;
 		case LENGTHOF:
 			return parse_lengthof_expr(scope)!;
+		case CT_STRINGIFY:
+			return parse_ct_stringify_expr(scope)!;
+		case CT_VAARG:
+			return parse_vaarg_expr(scope)!;
 		case IDENT:
 		case CONST_IDENT:
 		case AT_IDENT:
@@ -353,7 +357,7 @@ fn Node*? parse_decl_or_expr(ContextScope scope)
 	ParseContext* ctx = scope.ctx;
 	if (ctx.is(VAR))
 	{
-		return parse_var_decl({ .ctx = ctx, .flags =  { .is_expr = true, .is_local = true, .skip_eos = true, .is_var = true }}, null)!;
+		return parse_var_decl(scope.with_flags({ .is_expr = true, .is_local = true, .skip_eos = true, .is_var = true }), null)!;
 	}
 
 	Node* expr = parse_expr(scope)!;
@@ -377,7 +381,7 @@ fn Node*? parse_decl_or_expr(ContextScope scope)
 			break;
 	}
 
-	return parse_var_decl({ .ctx = ctx, .flags = { .is_expr = true, .is_local = true, .skip_eos = true }}, expr)!;
+	return parse_var_decl(scope.with_flags({ .is_expr = true, .is_local = true, .skip_eos = true }), expr)!;
 }
 
 <*

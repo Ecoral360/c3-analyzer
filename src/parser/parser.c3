@@ -16,6 +16,7 @@ faultdef
 	PATH_TOO_LONG, 
 	EXPECTED_EXPRESSION, 
 	UNEXPECTED_TOKEN, 
+	OVERFLOW_PARSING,
 	EOT;
 
 alias NewSectionCallback = fn ModuleSection* (void* user_data, String module_name);
@@ -101,7 +102,7 @@ fn void? synchronize(ParseContext* ctx)
 			brace_depth = (brace_depth > 0) ? brace_depth - 1 : 0;
 		}
 
-		if (brace_depth <= 0 && loc.column == 1)
+		if (brace_depth <= 0 && loc.column == 0)
 		{
 			switch (t.kind)
 			{
@@ -442,6 +443,8 @@ fn void? parse(ParseContext* ctx) => @pool()
 				plog::error("End of Token!");
 				break;
 			}
+
+			plog::error("Got error: %s", err);
 
 			int before = ctx.pos;
 			synchronize(ctx)!;
