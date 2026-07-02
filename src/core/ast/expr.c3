@@ -345,3 +345,15 @@ struct LengthofExpr
 {
 	Node* inner_expr;
 }
+
+struct CtStringifyExpr
+{
+	Node* inner_expr;
+}
+
+struct VaargExpr 
+{
+	Node* expr;
+	VaargKind kind;
+	bool start_from_end;
+}

@@ -77,6 +77,7 @@ struct Node
 		CtEchoStmt ct_echo_stmt;
 		DeferStmt defer_stmt;
 		AssertStmt assert_stmt;
+		CtExpandStmt ct_expand_stmt;
 
 		// EXPR
 		LiteralExpr literal_expr;
@@ -117,7 +118,8 @@ struct Node
 		CtFeatureExpr ct_feature_expr;
 		BodyParamDecl body_param_decl;
 		LengthofExpr lengthof_expr;
-		CtExpandStmt ct_expand_stmt;
+		CtStringifyExpr ct_stringify_expr;
+		VaargExpr vaarg_expr;
 
 		// UNIT
 		ContractParam contract_param;
@@ -209,13 +211,13 @@ fn void Ast.free(&self)
 fn Node* Ast.alloc_node(&self, NodeKind kind, int start, int end = -1)
 {
 	Node* node = alloc::new(&self.arena, Node);
-
+	
 	node.kind = kind;
 	node.offset.start = start;
 	node.offset.end = end == -1 ? node.offset.start : end;
 	node.id = next_node_id++;
 
 	self.node_ids.push(node.id);
-
+	
 	return node;
 }
