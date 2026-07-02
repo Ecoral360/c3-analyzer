@@ -1290,9 +1290,12 @@ fn Node*? parse_initializer_list_expr(ContextScope scope) => @pool()
 			{
 				expr = parse_vasplat_expr(scope)!;
 			}
-			expr = parse_constant_expr(scope)!;
+			else
+			{
+				expr = parse_prefix_expr_only(scope)!;
+			}
 		}
-		if (ctx.is(DOT) || ctx.is(LBRACKET))
+		else if (ctx.is(DOT) || ctx.is(LBRACKET))
 		{
 			Token path_token = ctx.current();
 			Node* des_expr   = parse_designator_expr(scope)!;

@@ -402,6 +402,16 @@ fn Node*? parse_expr_resuming_with_left(ContextScope scope, Node* left, Preceden
 	return left;
 }
 
+<*
+ Parses only the leading prefix/atom expression and returns immediately 
+ without binding any trailing infix operators.
+*>
+fn Node*? parse_prefix_expr_only(ContextScope scope)
+{
+	// Pass HIGHEST so the Pratt loop breaks immediately on any trailing infix token
+	return parse_expr(scope, Precedence.HIGHEST)!;
+}
+
 fn Node*? parse_constant_expr(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
