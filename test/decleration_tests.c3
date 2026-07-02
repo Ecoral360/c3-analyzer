@@ -99,7 +99,7 @@ fn void macro_with_params()
 {
 	String source_code = `
 		module hello; 
-		macro void greet(int foo, Bar baz) {}
+		macro void greet(int foo, Bar baz) <Foo> {}
 		macro foo(int foo, Bar baz) {}
 		macro bar(int foo, Bar baz) => 2;
 	`;
