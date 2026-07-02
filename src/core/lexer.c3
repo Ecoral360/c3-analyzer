@@ -630,10 +630,18 @@ fn Token? Lexer.lex_raw_string(Lexer* self, int start)
 
 	while (self.index < self.buffer.len)
 	{
-		if (self.peek() == '`') // Only stop at a backtick
+		if (self.peek() == '`')
 		{
-			self.index++;
-			return (Token) { STRING_LITERAL, start, self.index - start };
+			if (self.peek_next() == '`')
+			{
+				self.index += 2;
+				continue;
+			}
+			else
+			{
+				self.index++;
+				return (Token) { STRING_LITERAL, start, self.index - start };
+			}
 		}
 		self.index++;
 	}
