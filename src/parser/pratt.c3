@@ -244,6 +244,8 @@ fn Node*? parse_prefix_expr(ContextScope scope)
 		case AMP:
 		case AND:
 		case ASTERISK:
+		case PLUSPLUS:
+		case MINUSMINUS:
 			return parse_unary_expr(scope)!;
 		case LBRACE:
 			return parse_initializer_list_expr(scope)!;

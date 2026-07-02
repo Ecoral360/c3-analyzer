@@ -6,6 +6,7 @@ import std::collections::list;
 
 bitstruct ParseFlags : ulong
 {
+	bool is_contract;
 	bool is_interface; // Skip function bodies, disallow fields
 	bool is_struct;
 	bool is_macro;

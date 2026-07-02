@@ -277,7 +277,7 @@ fn Node*? parse_case_stmts(ContextScope scope, sz row) => @pool()
 
 	while (!ctx.eof() && !token_type_ends_case(ctx.current().kind))
 	{
-		Node* child_stmt = parse_stmt(scope)!;
+		Node* child_stmt = parse_stmt(scope.with_only_flags({}))!;
 		if (child_stmt.kind == ERROR) return child_stmt;
 		stmts.push(child_stmt);
 	}
@@ -299,10 +299,7 @@ fn Node*? parse_case_stmt(ContextScope scope) => @pool()
 
 	int pos            = ctx.current().pos;
 	TokenKind expected = flags.is_comptime ? CT_CASE : CASE;
-	@expect_else(ctx, expected ; err)
-	{
-		return err;
-	}!;
+	expect(ctx, expected);
 
 	Location loc = ctx.line_map.resolve((sz)pos);
 	sz case_row  = loc.line;

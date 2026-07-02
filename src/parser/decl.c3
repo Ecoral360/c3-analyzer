@@ -246,13 +246,6 @@ fn Node*? parse_import_decl(ContextScope scope) => @pool()
  alias_type_decl ::= 'alias' TYPE_IDENT generic_decl? attributes? '=' type_expr ';'
  module_alias_decl ::= 'alias' IDENT attributes? '=' 'module' module_path ';'
  alias_decl ::= 'alias' alias_name generic_decl? attributes? '=' alias_source ';'
-
- Alias names are classified by lexer token kind. A TYPE_IDENT name parses a
- type-expression target, `module` after '=' parses a module path target, and
- identifier-style aliases require the target path's final token kind to match
- the alias name kind. Alias generics and attributes use the shared declaration
- parsers and are represented on AliasDecl.
- @require(scope.ctx != null) : "Parser context positioned at the alias keyword."
 *>
 fn Node*? parse_alias_decl(ContextScope scope)
 {
@@ -726,7 +719,7 @@ fn Node*? parse_var_decl(ContextScope scope, Node* type = null)
 
 
 		StringID name_id = ctx.ast.string_pool.internalize(ctx.token_text(t));
-		log::debug("var name: %s", ctx.token_text(t));
+		plog::debug("var name: %s", ctx.token_text(t));
 		advance(ctx)!;
 
 		Node* var_node    = ctx.ast.alloc_node(VAR_DECL, t.pos);
