@@ -1306,9 +1306,9 @@ fn Node*? parse_enum_constdef_decl(ContextScope scope) => @pool()
 		}
 	}
 
-	if (ctx.is(AT_IDENT))
+	if (ctx.is(AT_IDENT) || ctx.is(AT_TYPE_IDENT))
 	{
-		enum_decl.attributes = parse_attributes(scope, node)!;
+		enum_decl.attributes = parse_attributes(scope, node, { .allow_type_ident = true })!;
 	}
 
 	expect(ctx, LBRACE)!;
