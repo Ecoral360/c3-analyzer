@@ -1090,6 +1090,7 @@ fn Node*? parse_bitstruct_decl(ContextScope scope, bool is_nested = false) => @p
 
 	if COND: (true)
 	{
+		if (is_nested && !ctx.is(IDENT)) break COND;
 		Token t = @expect_some_else(ctx, { IDENT, TYPE_IDENT } ; err)
 		{
 			ctx.error("Bitstructs must have a name identifier");
