@@ -75,6 +75,14 @@ fn ChildVisitResult build_section_scopes_callback(Cursor cursor, Cursor parent, 
 				foreach (param_node : func.params)
 				{
 					if (!param_node) continue;
+					if (param_node.kind != VAR_DECL) continue;
+
+					VarDecl* vardecl = param_node.as(VAR_DECL);
+					if (vardecl.flags.is_self || vardecl.flags.is_self_by_ref)
+					{
+						vardecl.type = func.associated_type;
+					}
+
 					SemaVar param_entry = {
 						.def = param_node,
 						.lifetime = { 
