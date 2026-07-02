@@ -365,3 +365,8 @@ struct OverloadExpr
 {
 	OverloadKind kind;
 }
+
+struct CtReflectExpr
+{
+	Node* inner_expr;
+}

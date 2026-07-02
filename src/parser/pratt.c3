@@ -192,7 +192,7 @@ fn Node*? parse_prefix_expr(ContextScope scope)
 
 	if (is_type(ctx))
 	{
-		return parse_type_expr({...scope, .flags = { .type_as_expression = true }}, null)!;
+		return parse_type_expr(scope, null)!;
 	}
 
 	switch (t.kind)
@@ -215,6 +215,8 @@ fn Node*? parse_prefix_expr(ContextScope scope)
 			return parse_ct_stringify_expr(scope)!;
 		case CT_VAARG:
 			return parse_vaarg_expr(scope)!;
+		case CT_REFLECT:
+			return parse_ct_reflect_expr(scope)!;
 		case IDENT:
 		case CONST_IDENT:
 		case AT_IDENT:

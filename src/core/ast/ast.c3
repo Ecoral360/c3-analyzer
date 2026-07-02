@@ -121,6 +121,7 @@ struct Node
 		CtStringifyExpr ct_stringify_expr;
 		VaargExpr vaarg_expr;
 		OverloadExpr overload_expr;
+		CtReflectExpr ct_reflect_expr;
 
 		// UNIT
 		ContractParam contract_param;

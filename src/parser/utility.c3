@@ -327,6 +327,8 @@ fn bool? is_declaration_followup(ParseContext* ctx)
 
 fn bool can_start_expression(TokenKind kind)
 {
+	plog::debug("can_start_expr: %s", kind.description);
+
 	if (is_keyword_ident(kind) || is_base_type(kind))
 	{
 		return true;

@@ -210,7 +210,6 @@ fn Node*? parse_type_expr(ContextScope scope, Node* path_expr = null)
 		if (t.kind == LBRACE)
 		{
 			if (flags.no_generics) break;
-			if (flags.type_as_expression) break;
 
 			Node* gen_node     = ctx.ast.alloc_node(TYPE_EXPR, start, ctx.current().pos);
 			TypeExpr* gen_data = gen_node.as(TYPE_EXPR);
@@ -1185,6 +1184,7 @@ fn Node*? parse_generic_expr(ContextScope scope) => @pool()
 
 fn Node*? parse_group_expr(ContextScope scope)
 {
+	plog::debug("parse_group_expr");
 	ParseContext* ctx = scope.ctx;
 	int start_pos = ctx.current().pos;
 
@@ -1196,6 +1196,7 @@ fn Node*? parse_group_expr(ContextScope scope)
 	// can_start_expression might miss some cases
 	if ((inner.kind == TYPE_EXPR || inner.kind == COMPOUND_LITERAL_EXPR) && can_start_expression(ctx.current().kind))
 	{
+		plog::debug("parse_cast_expr");
 		Node* operand = parse_expr(scope, UNARY)!;
 
 		Node* node = ctx.ast.alloc_node(CAST_EXPR, start_pos, end_pos);
@@ -1640,4 +1641,21 @@ fn Node*? parse_vaarg_expr(ContextScope scope)
 	return node;
 }
 
+<*
+ ct_refect ::= CT_REFLECT '(' expr ')'
+*>
+fn Node*? parse_ct_reflect_expr(ContextScope scope)
+{
+	ParseContext* ctx = scope.ctx;
+	int start_pos = ctx.current().pos;
+	expect(ctx, CT_REFLECT)!;
+	Node* node    = ctx.ast.alloc_node(CT_REFLECT_EXPR, start_pos);
+	CtReflectExpr* refl = node.as(CT_REFLECT_EXPR);
+
+	expect(ctx, LPAREN)!;
+	refl.inner_expr = parse_expr(scope)!;
+	expect(ctx, RPAREN)!;
+	node.offset.end = ctx.peek(-1)!.pos;
+	return node;
+}
 
