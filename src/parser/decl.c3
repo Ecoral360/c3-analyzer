@@ -393,17 +393,28 @@ fn Node*? parse_macro_decl(ContextScope scope)
 	Node* node     = ctx.ast.alloc_node(MACRO_DECL, start_pos);
 	MacroDecl* mac = node.as(MACRO_DECL);
 
-	if (is_type(ctx) && ctx.peek(1)!.kind != DOT)
+	if (is_type(ctx))
+    {
+        Node* first_type = parse_type_expr(scope)!;
+
+        if (consume(ctx, DOT)!)
+        {
+            mac.associated_type.set(first_type);
+        }
+        else
+        {
+            mac.ret_type.set(first_type);
+
+            if (is_type(ctx))
+            {
+                mac.associated_type.set(parse_type_expr(scope)!);
+                expect(ctx, DOT)!;
+            }
+        }
+    }
+	
+	do NAME:
 	{
-		mac.ret_type.set(parse_type_expr(scope)!);
-	}
-
-	if IS_TYPE: (is_type(ctx))
-	{
-		mac.associated_type.set(parse_type_expr(scope)!);
-
-		expect(ctx, DOT)!;
-
 		Token t;
 		if (ctx.is(AT_IDENT))
 		{
@@ -414,25 +425,14 @@ fn Node*? parse_macro_decl(ContextScope scope)
 		{
 			t = @expect_else_skip(ctx, IDENT, { EOS, LPAREN } ; err)
 			{
-				ctx.error("Expected member function name identifier");
+				ctx.error("Expected macro name identifier");
 				mac.name = string_pool::EMPTY_STR;
-				break IS_TYPE;
+				break NAME;
 			}!;
 		}
 
 		mac.name = ctx.ast.string_pool.internalize(ctx.token_text(t));
-	}
-	else
-	{
-		// Standalone Function: No associated type prefix
-		Token t = @expect_some_else(ctx, { AT_IDENT, IDENT } ; err)
-		{
-			ctx.error("Expected member function name identifier");
-			mac.name = string_pool::EMPTY_STR;
-			break IS_TYPE;
-		}!;
-		mac.name = ctx.ast.string_pool.internalize(ctx.token_text(t));
-	}
+	};
 
 	parse_macro_params(scope, node)!;
 
