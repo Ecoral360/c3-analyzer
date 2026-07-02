@@ -7,6 +7,8 @@ const String KW_AT_REQUIRE    = "@require";
 const String KW_AT_PARAM      = "@param";
 const String KW_AT_RETURN     = "@return";
 
+const String KW_LEN = "len";
+
 constdef Primitives : inline String
 {
 	PRIM_BOOL   = "bool",
