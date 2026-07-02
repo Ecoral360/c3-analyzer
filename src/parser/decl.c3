@@ -443,6 +443,11 @@ fn Node*? parse_macro_decl(ContextScope scope)
 
 	parse_macro_params(scope, node)!;
 
+	if (ctx.is(LESS))
+	{
+		mac.generics = parse_generic_decl(scope)!;
+	}
+
 	if (ctx.is(AT_IDENT))
 	{
 		mac.attributes = parse_attributes(scope, node)!;
