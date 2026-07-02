@@ -128,6 +128,7 @@ fn Node*? parse_type_expr(ContextScope scope, Node* path_expr = null)
 
 		if (t.kind == QUESTION)
 		{
+			if (flags.type_as_expression) break;
 			advance(ctx)!;
 			plog::debug("set type to optional");
 			current_type.as(TYPE_EXPR).optional = true;
@@ -266,6 +267,32 @@ fn Node*? parse_ident_expr(ContextScope scope)
 	}
 }
 
+<*
+ @param [&inout] list
+*>
+fn void? parse_join_strings(ContextScope scope, StringID* list)
+{	
+	ParseContext* ctx = scope.ctx;
+
+	if (ctx.eof() || !ctx.is(STRING_LITERAL)) return;
+
+	Token first_tok = ctx.current();
+	String current_str = ctx.token_text(first_tok);
+	advance(ctx)!;
+
+	while (!ctx.eof() && ctx.is(STRING_LITERAL))
+	{
+		Token next_tok = ctx.current();
+		String next_str = ctx.token_text(next_tok);
+		
+		current_str = current_str.tconcat(next_str);
+		
+		advance(ctx)!;
+	}
+
+	*list = ctx.ast.string_pool.internalize(current_str);
+}	
+
 fn Node*? parse_literal_expr(ContextScope scope) => @pool()
 {
 	ParseContext* ctx = scope.ctx;
@@ -324,7 +351,7 @@ fn Node*? parse_literal_expr(ContextScope scope) => @pool()
 			}
 
 			String body = clean_string[start_idx..];
-			usz end_idx = body.len;
+			sz end_idx = body.len;
 			while (end_idx > 0)
 			{
 				char last_char = body[end_idx - 1];
@@ -343,7 +370,7 @@ fn Node*? parse_literal_expr(ContextScope scope) => @pool()
 				}
 			}
 			String pure_digits = body[0:end_idx];
-			ulong? value = pure_digits.to_ulong(base);
+			uint128? value = pure_digits.to_uint128(base);
 			if (catch err = value)
 			{
 				ctx.error("Failed to parse int literal (%s): %s", pure_digits, err);
@@ -355,7 +382,6 @@ fn Node*? parse_literal_expr(ContextScope scope) => @pool()
 			break;
 		case FLOAT_DECIMAL_LITERAL:
 		case FLOAT_HEX_LITERAL:
-
 			{
 				literal.kind = REAL_LITERAL;
 				String clean_string = token_text.treplace("_", "");
@@ -364,7 +390,7 @@ fn Node*? parse_literal_expr(ContextScope scope) => @pool()
 				{
 					if (clean_string.ends_with("f32") || clean_string.ends_with("f64"))
 					{
-						clean_string = clean_string[0:len - 3];
+						clean_string = clean_string[:^3];
 					}
 					if (clean_string.ends_with("f") || clean_string.ends_with("d"))
 					{
@@ -372,19 +398,19 @@ fn Node*? parse_literal_expr(ContextScope scope) => @pool()
 						{
 							if (clean_string.contains("p") || clean_string.contains("P"))
 							{
-								clean_string = clean_string[0:len - 1];
+								clean_string = clean_string[:^1];
 							}
 						}
 						else
 						{
-							clean_string = clean_string[0:len - 1];
+							clean_string = clean_string[:^1];
 						}
 					}
 				}
 				double? real = clean_string.to_double();
 				if (catch err = real)
 				{
-					ctx.error("Failed to decode float literal (%s): %s", token_text, err);
+					ctx.error("Failed to decode float literal (%s): %s", clean_string, err);
 					advance(ctx)!;
 					return ctx.ast.error(start);
 				}
@@ -394,9 +420,8 @@ fn Node*? parse_literal_expr(ContextScope scope) => @pool()
 			}
 		case STRING_LITERAL:
 			literal.kind = STRING_LITERAL;
-			String text = token_text[1:^2]; // remove trailing "
-			literal.string = ctx.ast.string_pool.internalize(text);
-			advance(ctx)!;
+			literal.string = string_pool::EMPTY_STR;
+			parse_join_strings(scope, &literal.string)!;
 			break;
 		case BYTES_LITERAL:
 			literal.kind = BYTES_LITERAL;
@@ -472,17 +497,17 @@ fn Node*? parse_literal_expr(ContextScope scope) => @pool()
 				
 				switch (clean_char[1])
 				{
-					case 'n': literal.integer = (ulong)'\n'; break;
-					case 'r': literal.integer = (ulong)'\r'; break;
-					case 't': literal.integer = (ulong)'\t'; break;
-					case '\\': literal.integer = (ulong)'\\'; break;
-					case '\'': literal.integer = (ulong)'\''; break;
-					case '"': literal.integer = (ulong)'"'; break;
-					case '0': literal.integer = (ulong)'\0'; break;
-					case 'a':  literal.integer = (ulong)0x07; break; // Alert
-					case 'b':  literal.integer = (ulong)0x08; break; // Backspace
-					case 'f':  literal.integer = (ulong)0x0C; break; // Form feed
-					case 'v':  literal.integer = (ulong)0x0B; break; // Vertical tab
+					case 'n': literal.integer = (uint128)'\n'; break;
+					case 'r': literal.integer = (uint128)'\r'; break;
+					case 't': literal.integer = (uint128)'\t'; break;
+					case '\\': literal.integer = (uint128)'\\'; break;
+					case '\'': literal.integer = (uint128)'\''; break;
+					case '"': literal.integer = (uint128)'"'; break;
+					case '0': literal.integer = (uint128)'\0'; break;
+					case 'a':  literal.integer = (uint128)0x07; break; // Alert
+					case 'b':  literal.integer = (uint128)0x08; break; // Backspace
+					case 'f':  literal.integer = (uint128)0x0C; break; // Form feed
+					case 'v':  literal.integer = (uint128)0x0B; break; // Vertical tab
 					case 'x':
 						if (clean_char.len < 4) 
 						{
@@ -495,7 +520,7 @@ fn Node*? parse_literal_expr(ContextScope scope) => @pool()
 						
 						// Combine them into a single byte/integer value
 						// (hi << 4) | lo
-						literal.integer = (ulong)((char.from_hex(hi) << 4) | char.from_hex(lo));
+						literal.integer = (uint128)((char.from_hex(hi) << 4) | char.from_hex(lo));
 						break;
 					default:
 						ctx.error("Unsupported escape sequence '\\%c'", clean_char[1]);
@@ -506,7 +531,7 @@ fn Node*? parse_literal_expr(ContextScope scope) => @pool()
 			else
 			{
 				// Just grab the direct byte values
-				literal.integer = (long)clean_char[0];
+				literal.integer = (uint128)clean_char[0];
 			}
 			advance(ctx)!;
 			break;
@@ -590,7 +615,7 @@ fn Node*? parse_binary_expr(ContextScope scope, Node* left, Precedence prec)
 	int start      = ctx.current().pos;
 	TokenKind kind = ctx.current().kind;
 	advance(ctx)!;
-	Node* right = parse_expr(scope, prec)!;
+	Node* right = parse_expr(scope.with_flags({ .type_as_expression = true }), prec)!;
 
 	Node* node      = ctx.ast.alloc_node(BINARY_EXPR, start, ctx.current_pos());
 	BinaryExpr* bin = node.as(BINARY_EXPR);
@@ -1389,7 +1414,7 @@ fn Node*? parse_access_expr(ContextScope scope, Node* left)
 			break EVAL;
 		}!;
 
-		access.member = parse_expr(scope)!;
+		access.member = parse_expr(scope.with_only_flags({ .type_as_expression = true }))!;
 
 		expect(ctx, RPAREN)!;
 	}

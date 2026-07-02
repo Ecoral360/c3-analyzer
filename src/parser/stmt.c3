@@ -67,6 +67,8 @@ fn Node*? parse_stmt(ContextScope scope)
 			return parse_assert_stmt(scope)!;
 		case CT_EXPAND:
 			return parse_ct_expand_stmt(scope)!;
+		case ASM:
+			return parse_asm_block_stmt(scope)!;
 		case HASH_IDENT:
 		case IDENT:
 		case CONST_IDENT:
@@ -981,19 +983,23 @@ fn Node*? parse_ct_assert_stmt(ContextScope scope) => @pool()
 	ParseContext* ctx = scope.ctx;
 
 	int start_pos = ctx.current().pos;
-	@expect_else_skip(ctx, CT_ASSERT, { EOS } ; missing)
-	{
-		return missing;
-	}!;
-
+	expect(ctx, CT_ASSERT)!;
 	Node* node                   = ctx.ast.alloc_node(CT_ASSERT_STMT, start_pos);
 	CtAssertStmt* ct_assert_stmt = node.as(CT_ASSERT_STMT);
-	defer node.offset.end = ctx.current().pos;
 
 	ct_assert_stmt.expr = parse_constant_expr(scope)!;
 	if (consume(ctx, COLON)!)
 	{
 		ct_assert_stmt.msg_expr.set(parse_constant_expr(scope)!);
+		
+		List{Node*} args; args.tinit();
+
+		while (consume(ctx, COMMA)!)
+		{
+			args.push(parse_constant_expr(scope)!);
+		}
+
+		ct_assert_stmt.args = alloc::clone_slice(ctx.arena, args.array_view());
 	}
 
 	expect(ctx, EOS)!;

@@ -98,6 +98,7 @@ struct FnDecl
 	Node* associated_type;
 	Node* ret_type;
 	Node* body;
+	Node* generics;
 	NullableNode contract;
 	NodeArray params;
 	NodeArray attributes;

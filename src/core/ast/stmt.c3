@@ -148,6 +148,7 @@ struct CtAssertStmt
 {
 	Node* expr;
 	NullableNode msg_expr;
+	NodeArray args;
 }
 
 struct CtErrorStmt
@@ -177,4 +178,13 @@ struct AssertStmt
 struct CtExpandStmt
 {
 	Node* expr;
+}
+
+struct AsmBlockStmt
+{
+	bool is_volatile;
+	bool is_inline;
+	bool is_goto;
+	bool is_string;
+	bool is_aligned;
 }

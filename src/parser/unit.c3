@@ -50,23 +50,17 @@ fn NodeArray? parse_parameter_list(ContextScope scope) => @pool()
 		return alloc::clone_slice(ctx.arena, temp_params.array_view());
 	}
 
-	while (true)
+	while (!ctx.eof() && !ctx.is(RPAREN))
 	{
 		if (flags.is_macro && ctx.is(EOS))
 		{
 			break;
 		}
-
+		
 		Node* param = parse_param_decl(scope)!;
 		temp_params.push(param);
 
 		if (!consume(ctx, COMMA)!) break;
-
-		if (ctx.is(RPAREN))
-		{
-			temp_params.push(unexpected_at(ctx, ctx.current(), "Expected parameter declaration after ','")!);
-			break;
-		}
 	}
 	if (!flags.is_call && !flags.is_macro)
 	{
@@ -89,8 +83,11 @@ fn void? parse_macro_params(ContextScope scope, Node* macro_node)
 
 		Node* body_param_node     = ctx.ast.alloc_node(BODY_PARAM_DECL, at_tok.pos);
 		BodyParamDecl* body_param = body_param_node.as(BODY_PARAM_DECL);
-
-		body_param.params = parse_parameter_list(scope)!;
+		
+		if (ctx.is(LPAREN))
+		{
+			body_param.params = parse_parameter_list(scope)!;
+		}
 	}
 
 	expect(ctx, RPAREN)!;
@@ -171,6 +168,7 @@ fn Node*? parse_contract_param(ContextScope scope)
 		case TYPE_IDENT:
 		case CT_TYPE_IDENT:
 		case HASH_IDENT:
+		case ELLIPSIS:
 			break;
 		default:
 			ctx.error("Expected parameter name");
@@ -178,7 +176,10 @@ fn Node*? parse_contract_param(ContextScope scope)
 			return ctx.ast.error(ctx.current().pos);
 	}
 
-	param.name = parse_expr(scope)!;
+	if (ctx.current().kind != ELLIPSIS)
+	{
+		param.name = parse_expr(scope)!;
+	}
 
 	if (ctx.is(COLON))
 	{
@@ -221,7 +222,7 @@ fn NodeArray? parse_arg_list(ContextScope scope) => @pool()
 		}
 		else
 		{
-			expr = parse_expr(scope)!;
+			expr = parse_expr(scope.with_only_flags({ .type_as_expression = true }))!;
 
 			if (expr.kind == IDENT_EXPR && consume(ctx, COLON)!)
 			{

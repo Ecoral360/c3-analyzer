@@ -27,9 +27,14 @@ fn Node*? parse_fn_decl(ContextScope scope)
 
 	func.params = parse_parameter_list(scope.with_flags({ .is_function = true }))!;
 
-	if (ctx.is(AT_IDENT))
+	if (ctx.is(LESS))
 	{
-		func.attributes = parse_attributes(scope, node)!;
+		func.generics = parse_generic_decl(scope)!;
+	}
+
+	if (ctx.is(AT_IDENT) || ctx.is(AT_TYPE_IDENT))
+	{
+		func.attributes = parse_attributes(scope, node, { .allow_type_ident = true })!;
 	}
 
 	if (catch parse_fn_body(scope, func, node))

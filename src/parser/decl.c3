@@ -657,6 +657,11 @@ fn Node*? parse_var_decl(ContextScope scope, Node* type = null)
 	if (ctx.is(CONTRACT))
 	{
 		contract = parse_contract_decl(scope)!;
+
+		if (consume(ctx, INLINE)!)
+		{
+			flags.is_inline = true;
+		}
 	}
 
 	if (flags.is_local)
@@ -1189,11 +1194,11 @@ fn Node*? parse_faultdef_decl(ContextScope scope) => @pool()
 		fault_decl.attributes = parse_attributes(scope, node)!;
 
 		node.offset.end = ctx.current_pos();
-		if (consume(ctx, COMMA)!) continue;
-		node.offset.end = ctx.current_pos();
-		expect(ctx, EOS)!;
-		break;
+		if (!consume(ctx, COMMA)!) break;
 	}
+
+	node.offset.end = ctx.current_pos();
+	expect(ctx, EOS)!;
 
 	fd.faults = alloc::clone_slice(ctx.arena, faults.array_view());
 

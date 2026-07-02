@@ -78,6 +78,7 @@ struct Node
 		DeferStmt defer_stmt;
 		AssertStmt assert_stmt;
 		CtExpandStmt ct_expand_stmt;
+		AsmBlockStmt asm_block_stmt;
 
 		// EXPR
 		LiteralExpr literal_expr;

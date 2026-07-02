@@ -73,6 +73,8 @@ fn void? ParseContext.skip_until(ParseContext* ctx, TokenKind[] targets)
 	{
 		TokenKind current = ctx.current().kind;
 
+		if (current == EOF) return;
+
 		foreach (t : targets)
 		{
 			if (current == t) return;
@@ -460,6 +462,16 @@ fn void? parse(ParseContext* ctx) => @pool()
 	ctx.section.nodes = ctx.ast.top_level_nodes.array_view();
 }
 
+fn void add_node(ParseContext* ctx, Node* node)
+{
+	ctx.ast.top_level_nodes.push(node);
+	if (ctx.contract && node.kind != CONTRACT_DECL)
+	{
+		attach_contract(ctx, node, ctx.contract);
+		ctx.contract = null;
+	}
+}
+
 fn void? parse_top_level(ParseContext* ctx)
 {
 	plog::debug("parse_top_level: %s", ctx.token_text(ctx.current()));
@@ -501,7 +513,7 @@ fn void? parse_top_level(ParseContext* ctx)
 	if (is_type(ctx))
 	{
 		node = parse_var_decl(scope, null)!;
-		ctx.ast.top_level_nodes.push(node);
+		add_node(ctx, node);
 		return;
 	}
 
@@ -559,12 +571,7 @@ fn void? parse_top_level(ParseContext* ctx)
 			return UNEXPECTED_TOKEN~;
 	}
 
-	ctx.ast.top_level_nodes.push(node);
-	if (ctx.contract && node.kind != CONTRACT_DECL)
-	{
-		attach_contract(ctx, node, ctx.contract);
-		ctx.contract = null;
-	}
+	add_node(ctx, node);
 }
 
 <*
@@ -585,6 +592,9 @@ fn void attach_contract(ParseContext* ctx, Node* node, Node* contract)
 		case FAULTDEF_DECL:
 			FaultdefDecl* fd = node.as(FAULTDEF_DECL);
 			fd.contract.set(contract);
+		case VAR_DECL:
+			VarDecl* vd = node.as(VAR_DECL);
+			vd.contract.set(contract);
 		default:
 			break;
 	}

@@ -138,7 +138,7 @@ struct LiteralExpr
 
 	union
 	{
-		ulong integer;
+		uint128 integer;
 		double real;
 		StringID string;
 		char[] bytes;
