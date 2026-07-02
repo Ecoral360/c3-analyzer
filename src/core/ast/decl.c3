@@ -113,6 +113,7 @@ struct MacroDecl
 	Node* body_params;
 	NodeArray params;
 	NodeArray attributes;
+	Node* generics;
 }
 
 <*
@@ -205,11 +206,15 @@ struct InterfaceDecl
 	StringID name;
 }
 
+<*
+ - `defined_attributes` the attributes after the '='
+*>
 struct AttrdefDecl
 {
 	StringID name;
 	NodeArray params;
 	NodeArray attributes;
+	NodeArray defined_attributes;
 }
 
 struct CtAssertDecl
