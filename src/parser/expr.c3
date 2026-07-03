@@ -38,6 +38,8 @@ fn Node*? parse_fn_type_expr(ContextScope scope) => @pool()
 	fn_type.func.params = parse_parameter_list(scope)!;
 	node.offset.end = ctx.current().pos;
 
+	fn_type.func.attributes = parse_attributes(scope, node)!;
+
 	return node;
 }
 
@@ -361,7 +363,7 @@ fn Node*? parse_literal_expr(ContextScope scope) => @pool()
 					if (base == 10 && ascii::is_digit(last_char)) break;
 					if (base == 8 && ascii::is_odigit(last_char)) break;
 					if (base == 2 && ascii::is_bdigit(last_char)) break;
-
+					
 					end_idx--;
 				}
 				else
@@ -369,6 +371,7 @@ fn Node*? parse_literal_expr(ContextScope scope) => @pool()
 					break;
 				}
 			}
+			
 			String pure_digits = body[0:end_idx];
 			uint128? value = pure_digits.to_uint128(base);
 			if (catch err = value)

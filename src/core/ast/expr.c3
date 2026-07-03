@@ -95,6 +95,7 @@ struct TypeExpr
 		{
 			Node* ret_type;
 			NodeArray params;
+			NodeArray attributes;
 		}
 	}
 }
