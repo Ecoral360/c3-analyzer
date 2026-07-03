@@ -510,7 +510,7 @@ fn void? parse_top_level(ParseContext* ctx)
 		advance(ctx)!;
 	}
 
-	if (is_type(ctx))
+	if (is_type(ctx) || ctx.is(IDENT))
 	{
 		node = parse_var_decl(scope, null)!;
 		add_node(ctx, node);
