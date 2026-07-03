@@ -57,6 +57,15 @@ fn String? Cursor.spelling(&self, Allocator allocator) => @pool()
 		case MACRO_DECL:
 			MacroDecl* mac = self.node.as(MACRO_DECL);
 			return pool.get(mac.name)!;
+		case TYPEDEF_DECL:
+			TypedefDecl* td = self.node.as(TYPEDEF_DECL);
+			return pool.get(td.name)!;
+		case ALIAS_DECL:
+			AliasDecl* ad = self.node.as(ALIAS_DECL);
+			return pool.get(ad.name)!;
+		case INTERFACE_DECL:
+			InterfaceDecl* id = self.node.as(INTERFACE_DECL);
+			return pool.get(id.name)!;
 		case TYPE_EXPR:
 			TypeExpr* type_data = self.node.as(TYPE_EXPR);
 			if (type_data.kind == TYPE_IDENTIFIER)
@@ -102,7 +111,7 @@ fn bool Cursor.has_attribute(&self, AttributeKind kind, Node** out_attribute)
 		default:
 			return false;
 	}
-
+	
 	foreach (attr : temp)
 	{
 		AttributeDecl* attr_decl = attr.as(ATTRIBUTE_DECL);
