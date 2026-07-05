@@ -522,7 +522,6 @@ fn Node*? parse_param_decl(ContextScope scope, ParamParseFlags flags = {})
 		if (parsed_type.as(TYPE_EXPR).optional)
 		{
 			ctx.error("Parameters may not be optional");
-			return ctx.ast.error(start_pos);
 		}
 
 		if (consume(ctx, ELLIPSIS)!)
