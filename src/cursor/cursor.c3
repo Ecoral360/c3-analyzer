@@ -397,3 +397,48 @@ fn Cursor find_at(ModuleSection* sec, int offset)
 	
 	return ctx.best_match;
 }
+
+<*
+ Get the raw source code fragment corresponding exactly to this node.
+ @require self.section.source_file != null
+*>
+fn String? Cursor.source_text(&self)
+{
+	if (!self.is_valid()) return NOT_FOUND~;
+
+	SourceFile* sf = self.section.source_file;
+	if (sf == null) return NOT_FOUND~;
+
+	String full_source = sf.source; 
+
+	sz start = (sz)self.node.offset.start;
+	sz end   = (sz)self.node.offset.end;
+
+	if (start > full_source.len || end > full_source.len || start > end)
+	{
+		return INVALID_NODE~;
+	}
+
+	return full_source[start..end];
+}
+
+<*
+ Extracts just the signature part of a declaration node
+*>
+fn String? Cursor.signature_text(&self)
+{
+	String text = self.source_text()!;
+
+	sz end_idx = text.len;
+	for (sz i = 0; i < text.len; i++)
+	{
+		char c = text[i];
+		if (c == '{' || c == ';')
+		{
+			end_idx = i - 1;
+			break;
+		}
+	}
+
+	return text[..end_idx].trim();
+}
