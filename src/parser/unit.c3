@@ -178,13 +178,14 @@ fn Node*? parse_contract_param(ContextScope scope)
 
 	if (ctx.current().kind != ELLIPSIS)
 	{
-		param.name = parse_expr(scope)!;
+		param.ident = ctx.ident(ctx.current());
+		advance(ctx)!;
 	}
 
 	if (ctx.is(COLON))
 	{
 		advance(ctx)!;
-		param.description = ctx.ast.string_pool.internalize(ctx.current_text());
+		param.description = ctx.ident(ctx.current());
 		advance(ctx)!;
 	}
 	else if (ctx.is(STRING_LITERAL))
@@ -227,11 +228,9 @@ fn NodeArray? parse_arg_list(ContextScope scope) => @pool()
 			if (expr.kind == IDENT_EXPR && consume(ctx, COLON)!)
 			{
 				IdentExpr* ident  = expr.as(IDENT_EXPR);
-				StringID arg_name = ident.ident;
-
 				expr = ctx.ast.alloc_node(NAMED_ARG_EXPR, start_pos);
 				NamedArgExpr* named = expr.as(NAMED_ARG_EXPR);
-				named.name = arg_name;
+				named.name = ident.ident;
 
 				named.value = parse_expr(scope)!;
 				expr.offset.end = ctx.current().pos;

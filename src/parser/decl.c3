@@ -104,7 +104,11 @@ fn Node*? parse_contract_decl(ContextScope scope) => @pool()
 	Node* node             = ctx.ast.alloc_node(CONTRACT_DECL, ctx.current().pos);
 	ContractDecl* contract = node.as(CONTRACT_DECL);
 	plog::debug("comment : %s", cl.description);
-	contract.comment = ctx.ast.string_pool.internalize(cl.description);
+	contract.comment = ctx.ident({
+		.kind = IDENT,
+		.pos = contract_token.pos + 2,
+		.len = cl.desc_len
+	});
 
 	List{Node*} ensures;
 	ensures.tinit();
@@ -143,7 +147,7 @@ fn Node*? parse_contract_decl(ContextScope scope) => @pool()
 				contract.deprecated = n;
 				AttributeDecl* attribute = n.as(ATTRIBUTE_DECL);
 				attribute.path.set(ctx.ast.alloc_node(MISSING, ctx.current().pos));
-				attribute.name = constants::KW_AT_DEPRECATED;
+				attribute.name = ctx.ident_string(constants::KW_AT_DEPRECATED);
 				attribute.kind = DEPRECATED;
 				if (ctx.current().kind == EOS && ctx.peek(1)!.kind == STRING_LITERAL)
 				{
@@ -260,11 +264,11 @@ fn Node*? parse_alias_decl(ContextScope scope)
 		Token t = @expect_some_else(ctx, { TYPE_IDENT, IDENT, CONST_IDENT, AT_IDENT } ; err)
 		{
 			ctx.error("Expected alias name identifier");
-			alias_decl.name = string_pool::EMPTY_STR;
+			alias_decl.name = ctx.empty_ident();
 			break CHECK_NAME;
 		}!;
 
-		alias_decl.name = ctx.ast.string_pool.internalize(ctx.token_text(t));
+		alias_decl.name = ctx.ident(t);
 		alias_decl.name_kind = t.kind;
 	};
 
@@ -335,7 +339,7 @@ fn Node*? parse_typedef_decl(ContextScope scope)
 	}
 	else
 	{
-		typedef_decl.name = ctx.ast.string_pool.internalize(ctx.token_text(name));
+		typedef_decl.name = ctx.ident(name);
 		advance(ctx)!;
 	}
 
@@ -426,12 +430,12 @@ fn Node*? parse_macro_decl(ContextScope scope)
 			t = @expect_else_skip(ctx, IDENT, { EOS, LPAREN } ; err)
 			{
 				ctx.error("Expected macro name identifier");
-				mac.name = string_pool::EMPTY_STR;
+				mac.name = ctx.empty_ident();
 				break NAME;
 			}!;
 		}
 
-		mac.name = ctx.ast.string_pool.internalize(ctx.token_text(t));
+		mac.name = ctx.ident(t);
 	};
 
 	parse_macro_params(scope, node)!;
@@ -538,7 +542,7 @@ fn Node*? parse_param_decl(ContextScope scope, ParamParseFlags flags = {})
 			ctx.skip_until({ EOF, EOS, RPAREN, RBRACE })!;
 			return ctx.ast.error(start_pos);
 		case CT_IDENT:
-			param.name = ctx.ast.string_pool.internalize(ctx.token_text(t));
+			param.name = ctx.ident(t);
 			param.kind = VAR_PARAM_CT;
 			node.offset.end = ctx.current_pos();
 			advance(ctx)!;
@@ -551,7 +555,7 @@ fn Node*? parse_param_decl(ContextScope scope, ParamParseFlags flags = {})
 			break;
 		case IDENT:
 			String token_text = ctx.current_text();
-			param.name = ctx.ast.string_pool.internalize(token_text);
+			param.name = param.name = ctx.ident(ctx.current());
 			param.kind = VAR_PARAM;
 			param.flags.is_ref = is_ref;
 			node.offset.end = ctx.current_pos();
@@ -588,7 +592,7 @@ fn Node*? parse_param_decl(ContextScope scope, ParamParseFlags flags = {})
 				ctx.skip_until({ EOF, EOS, RPAREN, RBRACE })!;
 				return ctx.ast.error(start_pos);
 			}
-			param.name = ctx.ast.string_pool.internalize(ctx.token_text(t));
+			param.name = ctx.ident(t);
 			param.kind = VAR_PARAM_EXPR;
 			node.offset.end = ctx.current_pos();
 			advance(ctx)!;
@@ -600,7 +604,7 @@ fn Node*? parse_param_decl(ContextScope scope, ParamParseFlags flags = {})
 				ctx.skip_until({ EOF, EOS, RPAREN, RBRACE })!;
 				return ctx.ast.error(start_pos);
 			}
-			param.name = ctx.ast.string_pool.internalize(ctx.token_text(t));
+			param.name = ctx.ident(t);
 			param.kind = (parsed_type && parsed_type.kind != MISSING) ? VAR_PARAM : VAR_PARAM_CT_TYPE;
 			node.offset.end = ctx.current_pos();
 			advance(ctx)!;
@@ -613,7 +617,7 @@ fn Node*? parse_param_decl(ContextScope scope, ParamParseFlags flags = {})
 				ctx.skip_until({ EOF, EOS, RPAREN, RBRACE })!;
 				return ctx.ast.error(start_pos);
 			}
-			param.name = string_pool::EMPTY_STR;
+			param.name = ctx.empty_ident();
 			param.kind = VAR_PARAM;
 			break;
 
@@ -723,7 +727,7 @@ fn Node*? parse_var_decl(ContextScope scope, Node* type = null)
 		//}
 
 
-		StringID name_id = ctx.ast.string_pool.internalize(ctx.token_text(t));
+		Ident name = ctx.ident(t);
 		plog::debug("var name: %s", ctx.token_text(t));
 		advance(ctx)!;
 
@@ -762,7 +766,7 @@ fn Node*? parse_var_decl(ContextScope scope, Node* type = null)
 			unexpected(ctx, "Constants must be initialized at their declaration site")!;
 		}
 
-		var_decl.name = name_id;
+		var_decl.name = name;
 		var_decl.type = type_node; // Reused across the entire chain segment
 		var_decl.init_expr = init_expr;
 		var_decl.next = null; // Starts as terminal component
@@ -852,7 +856,7 @@ fn NodeArray? parse_attributes(ContextScope scope, Node* parent_node, AttributeP
 		Node* attr_node = ctx.ast.alloc_node(ATTRIBUTE_DECL, t.pos);
 		AttributeDecl* attr = attr_node.as(ATTRIBUTE_DECL);
 		String text         = ctx.token_text(t);
-		attr.name = text.copy(&ctx.ast.arena);
+		attr.name = ctx.ident(t);
 		attr.kind = core::get_attribute_from_string(text);
 
 		if (parent_node && attr.kind == AttributeKind.PRIVATE)
@@ -1006,17 +1010,17 @@ fn Node*? parse_struct_union_decl(ContextScope scope, bool is_sub = false) => @p
 			Token t = @expect_some_else(ctx, { TYPE_IDENT } ; err)
 			{
 				ctx.error("Structs must have a 'Type' identifier");
-				struct_decl.name = string_pool::EMPTY_STR;
+				struct_decl.name = ctx.empty_ident();
 				break NAME_CHECK;
 			}!;
 
-			struct_decl.name = ctx.ast.string_pool.internalize(ctx.token_text(t));
+			struct_decl.name = ctx.ident(t);
 			break NAME_CHECK;
 		}
 
 		if (ctx.is(IDENT))
 		{
-			struct_decl.name = ctx.ast.string_pool.internalize(ctx.token_text(ctx.current()));
+			struct_decl.name = ctx.ident(ctx.current());
 			advance(ctx)!;
 		}
 	};
@@ -1094,11 +1098,11 @@ fn Node*? parse_bitstruct_decl(ContextScope scope, bool is_nested = false) => @p
 		Token t = @expect_some_else(ctx, { IDENT, TYPE_IDENT } ; err)
 		{
 			ctx.error("Bitstructs must have a name identifier");
-			struct_decl.name = string_pool::EMPTY_STR;
+			struct_decl.name = ctx.empty_ident();
 			break COND;
 		}!;
 
-		struct_decl.name = ctx.ast.string_pool.internalize(ctx.token_text(t));
+		struct_decl.name = ctx.ident(t);
 	}
 
 	struct_decl.interfaces = parse_interface_type_list(scope.with_only_flags({ .no_generics = true }))!;
@@ -1132,11 +1136,11 @@ fn Node*? parse_bitstruct_decl(ContextScope scope, bool is_nested = false) => @p
 		{
 			Token t = @expect_else_skip(ctx, IDENT, { COLON, EOS, RBRACE } ; name_err)
 			{
-				field.name = string_pool::EMPTY_STR;
+				field.name = ctx.empty_ident();
 				break IF_IDENT;
 			}!;
 
-			field.name = ctx.ast.string_pool.internalize(ctx.token_text(t));
+			field.name = ctx.ident(t);
 		}
 
 		if (consume(ctx, COLON)!)
@@ -1185,11 +1189,11 @@ fn Node*? parse_faultdef_decl(ContextScope scope) => @pool()
 		{
 			Token t = @expect_else(ctx, CONST_IDENT ; err)
 			{
-				fault_decl.name = string_pool::EMPTY_STR;
+				fault_decl.name = ctx.empty_ident();
 				break CHECK_IDENT;
 			}!;
 
-			fault_decl.name = ctx.ast.string_pool.internalize(ctx.token_text(t));
+			fault_decl.name = ctx.ident(t);
 		}
 
 		fault_decl.attributes = parse_attributes(scope, node)!;
@@ -1221,11 +1225,11 @@ fn Node*? parse_interface_decl(ContextScope scope) => @pool()
 	{
 		Token t = @expect_else_skip(ctx, TYPE_IDENT, { EOS, AT_IDENT, COLON, LBRACE } ; err)
 		{
-			inter.name = string_pool::EMPTY_STR;
+			inter.name = ctx.empty_ident();
 			break CHECK_NAME;
 		}!;
 
-		inter.name = ctx.ast.string_pool.internalize(ctx.token_text(t));
+		inter.name = ctx.ident(t);
 	}
 
 	List{Node*} list;
@@ -1282,11 +1286,11 @@ fn Node*? parse_attrdef_decl(ContextScope scope) => @pool()
 	{
 		Token t = @expect_else_skip(ctx, AT_TYPE_IDENT, { EOS, EQ, LPAREN, RPAREN } ; err)
 		{
-			def.name = string_pool::EMPTY_STR;
+			def.name = ctx.empty_ident();
 			break CHECK_NAME;
 		}!;
 
-		def.name = ctx.ast.string_pool.internalize(ctx.token_text(t));
+		def.name = ctx.ident(t);
 	}
 
 	if (ctx.is(LPAREN))
@@ -1334,11 +1338,11 @@ fn Node*? parse_enum_constdef_decl(ContextScope scope) => @pool()
 	{
 		Token t = @expect_else_skip(ctx, TYPE_IDENT, { COLON, LBRACE, EOS } ; err)
 		{
-			enum_decl.name = string_pool::EMPTY_STR;
+			enum_decl.name = ctx.empty_ident();
 			break CHECK_IDENT;
 		}!;
 
-		enum_decl.name = ctx.ast.string_pool.internalize(ctx.token_text(t));
+		enum_decl.name = ctx.ident(t);
 	}
 
 	enum_decl.interfaces = parse_interface_type_list(scope)!;
@@ -1365,7 +1369,7 @@ fn Node*? parse_enum_constdef_decl(ContextScope scope) => @pool()
 				p.type = parse_type_expr(scope)!;
 				if (is_non_type_ident(ctx.current().kind))
 				{
-					p.name = ctx.ast.string_pool.internalize(ctx.token_text(ctx.current()));
+					p.name = ctx.ident(ctx.current());
 					advance(ctx)!;
 				}
 				if (ctx.is(AT_IDENT))
@@ -1410,7 +1414,7 @@ fn Node*? parse_enum_constdef_decl(ContextScope scope) => @pool()
 		v.kind = VAR_GLOBAL;
 		v.contract.set(contract);
 		v.flags.is_const = true;
-		v.name = ctx.ast.string_pool.internalize(ctx.token_text(ctx.current()));
+		v.name = ctx.ident(ctx.current());
 		advance(ctx)!;
 
 		// Optional per-variant attributes: @attr ...  (come before = and {})
