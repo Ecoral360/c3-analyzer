@@ -59,7 +59,7 @@ fn void reindex_module(SemaContext* ctx)
 			}
 
 			plog::debug("reindex_module: Set node: %s in module %s", node.kind.description, mod.name);
-			list.push({ .node = node, .condition = guard_expr });
+			list.push({ .node = node, .condition = guard_expr, .section_id = (sz)section.id });
 		}
 	}
 
