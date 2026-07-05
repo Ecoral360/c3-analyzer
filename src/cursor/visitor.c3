@@ -55,6 +55,32 @@ fn bool visit_children(Cursor parent, CursorVisitor visitor, void* data)
 			if (fndecl.body && !visit({sec, fndecl.body}, parent, visitor, data)) return false;
 			break;
 		}
+
+		case STRUCT_DECL:
+		{
+			StructDecl* structdecl = node.as(STRUCT_DECL);
+			foreach (inter : structdecl.interfaces)
+			{
+				if (!visit({sec, inter}, parent, visitor, data)) return false;
+			}
+			foreach (field : structdecl.fields)
+			{
+				if (!visit({sec, field}, parent, visitor, data)) return false;
+			}
+			foreach (attr : structdecl.attributes)
+			{
+				if (!visit({sec, attr}, parent, visitor, data)) return false;
+			}
+			if (structdecl.next)
+			{
+				if (!visit({sec, structdecl.next}, parent, visitor, data)) return false;
+			}
+			if (structdecl.type)
+			{
+				if (!visit({sec, structdecl.type}, parent, visitor, data)) return false;
+			}
+			break;
+		}
 		
 		case COMPOUND_STMT:
 		{
@@ -94,6 +120,8 @@ fn bool visit_children(Cursor parent, CursorVisitor visitor, void* data)
 			VarDecl* vardecl = node.as(VAR_DECL);
 			if (vardecl.type && !visit({sec, vardecl.type}, parent, visitor, data)) return false;
 			if (vardecl.init_expr && !visit({sec, vardecl.init_expr}, parent, visitor, data)) return false;
+			if (vardecl.next && !visit({sec, vardecl.next}, parent, visitor, data)) return false;
+
 			break;
 		}
 
