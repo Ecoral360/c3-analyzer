@@ -367,6 +367,19 @@ fn List{String} Workspace.lookup_symbol_in_section(&self, ModuleSection* section
 	return matching_modules;
 }
 
+fn ModuleSection* get_section_from_id(Workspace* ws, ulong id)
+{
+	ws.modules.@each(; name, mod)
+	{
+		foreach (section : mod.sections)
+		{
+			if (section.id == id) return section;
+		}
+	};
+
+	return null;
+}
+
 <*
  @param [&in] ws
  @param [&in] node
