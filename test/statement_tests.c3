@@ -837,3 +837,42 @@ fn void ct_foreach_stmt()
 	test::eq(foreach_body.statements.len, 1);
 	test::eq(foreach_body.statements[0].kind, NodeKind.EXPR_STMT);
 }
+
+fn void decl_stmt_ambiguity()
+{
+	String source_code = `
+		module hello;
+		fn void foo(int a)
+		{
+			String foo;
+			foo::Bar bar;
+
+			Status* my_ptr;
+            x * y;
+		}
+	`;
+
+	Workspace ws;
+	ws.init(mem, { .use_sema = true });
+	defer ws.free();
+	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
+	defer res.free();
+	test::eq(res.has_errors, false);
+
+	Module* mod      = ws.modules.get("hello")!!;
+	ModuleSection* s = mod.sections[0];
+	StringPool* pool = &s.source_file.ast.string_pool;
+
+	Node* node              = parser_tests::@node(ws.lookup("hello", "foo")!!);
+	FnDecl* fn_decl         = node.as(FN_DECL);
+	CompoundStmt* func_body = fn_decl.body.as(COMPOUND_STMT);
+	test::eq(func_body.statements.len, 4);
+
+	VarDecl* vardecl = func_body.statements[2].as(VAR_DECL);
+
+	ExprStmt* expr_stmt = func_body.statements[3].as(EXPR_STMT);
+	BinaryExpr* bin = expr_stmt.expr_stmt.as(BINARY_EXPR);
+
+	test::eq(parser_tests::count_kind(s, MODULE_DECL), 1);
+	test::eq(parser_tests::count_kind(s, FN_DECL), 1);
+}
