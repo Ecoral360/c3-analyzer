@@ -380,7 +380,7 @@ fn Node*? parse_nextcase_stmt(ContextScope scope)
 	}
 	if (ctx.is(CONST_IDENT) && ctx.peek(1)!.kind == COLON)
 	{
-		nc.label = ctx.ast.string_pool.internalize(ctx.current_text());
+		nc.label = ctx.ident(ctx.current());;
 		advance(ctx)!;
 		@expect_else(ctx, COLON ; err)
 		{
@@ -413,11 +413,11 @@ fn Node*? parse_continue_break_stmt(ContextScope scope)
 	ContinueBreakStmt* cb = node.as(CONTINUE_BREAK_STMT);
 
 	cb.is_continue = is_continue;
-	cb.label = string_pool::EMPTY_STR;
+	cb.label = ctx.empty_ident();
 
 	if (ctx.is(CONST_IDENT))
 	{
-		cb.label = ctx.ast.string_pool.internalize(ctx.current_text());
+		cb.label = ctx.ident(ctx.current());;
 		advance(ctx)!;
 	}
 
@@ -447,7 +447,7 @@ fn Node*? parse_switch_stmt(ContextScope scope) => @pool()
 	if (ctx.is(CONST_IDENT))
 	{
 		Token label_tok = ctx.current();
-		sw.label = ctx.ast.string_pool.internalize(ctx.token_text(label_tok));
+		sw.label = ctx.ident(label_tok);;
 		advance(ctx)!;
 		expect(ctx, COLON)!;
 	}
@@ -567,7 +567,7 @@ fn Node*? parse_if_stmt(ContextScope scope)
 
 	if (ctx.is(CONST_IDENT))
 	{
-		if_stmt.label = ctx.ast.string_pool.internalize(ctx.current_text());
+		if_stmt.label = ctx.ident(ctx.current());
 		advance(ctx)!;
 		expect(ctx, COLON)!;
 	}
@@ -660,7 +660,7 @@ fn Node*? parse_for_stmt(ContextScope scope)
 
 	if (ctx.is(CONST_IDENT))
 	{
-		for_stmt.label = ctx.ast.string_pool.internalize(ctx.current_text());
+		for_stmt.label = ctx.ident(ctx.current());
 		advance(ctx)!;
 		@expect_else(ctx, COLON ; err)
 		{
@@ -670,7 +670,7 @@ fn Node*? parse_for_stmt(ContextScope scope)
 	}
 	else
 	{
-		for_stmt.label = string_pool::EMPTY_STR;
+		for_stmt.label = ctx.empty_ident();
 	}
 
 	@expect_else(ctx, LPAREN ; err)
@@ -783,13 +783,13 @@ fn Node*? parse_while_stmt(ContextScope scope)
 
 	if (ctx.is(CONST_IDENT))
 	{
-		while_stmt.label = ctx.ast.string_pool.internalize(ctx.current_text());
+		while_stmt.label = ctx.ident(ctx.current());
 		advance(ctx)!;
 		expect(ctx, COLON)!;
 	}
 	else
 	{
-		while_stmt.label = string_pool::EMPTY_STR;
+		while_stmt.label = ctx.empty_ident();
 	}
 	expect(ctx, LPAREN)!;
 	while_stmt.cond = parse_cond_expr(scope)!;
@@ -826,7 +826,7 @@ fn Node*? parse_do_while_stmt(ContextScope scope)
 
 	if (ctx.is(CONST_IDENT))
 	{
-		do_while_stmt.label = ctx.ast.string_pool.internalize(ctx.current_text());
+		do_while_stmt.label = ctx.ident(ctx.current());
 		advance(ctx)!;
 		@expect_else(ctx, COLON ; err)
 		{
@@ -836,7 +836,7 @@ fn Node*? parse_do_while_stmt(ContextScope scope)
 	}
 	else
 	{
-		do_while_stmt.label = string_pool::EMPTY_STR;
+		do_while_stmt.label = ctx.empty_ident();
 	}
 
 	do_while_stmt.body = parse_compound_stmt(scope)!;
@@ -891,12 +891,12 @@ fn Node*? parse_foreach_var(ContextScope scope)
 			ctx.error("Expected an identifier or type.");
 		}
 		ctx.ast.missing(ctx.current().pos);
-		v.name = string_pool::EMPTY_STR;
+		v.name = ctx.empty_ident();
 		ctx.skip_until({ COMMA, COLON, RPAREN })!;
 		return var_node;
 	}
 
-	v.name = ctx.ast.string_pool.internalize(ctx.token_text(ctx.current()));
+	v.name = ctx.ident(ctx.current());
 	advance(ctx)!;
 
 	return var_node;
@@ -922,7 +922,7 @@ fn Node*? parse_foreach_stmt(ContextScope scope)
 
 	if (ctx.is(CONST_IDENT))
 	{
-		foreach_stmt.label = ctx.ast.string_pool.internalize(ctx.current_text());
+		foreach_stmt.label = ctx.ident(ctx.current());
 		advance(ctx)!;
 		@expect_else_skip(ctx, COLON, { EOS, EOF } ; err)
 		{
@@ -931,7 +931,7 @@ fn Node*? parse_foreach_stmt(ContextScope scope)
 	}
 	else
 	{
-		foreach_stmt.label = string_pool::EMPTY_STR;
+		foreach_stmt.label = ctx.empty_ident();
 	}
 
 	@expect_else_skip(ctx, LPAREN, { RPAREN, EOS, EOF } ; err)
@@ -1220,11 +1220,11 @@ fn Node*? parse_ct_foreach_var(ContextScope scope)
 
 	Token token = @expect_else_skip(ctx, CT_IDENT, { COMMA, COLON, EOS, EOF } ; err)
 	{
-		var_decl.name = string_pool::EMPTY_STR;
+		var_decl.name = ctx.empty_ident();
 		return node;
 	}!;
 
-	var_decl.name = ctx.ast.string_pool.internalize(ctx.token_text(token));
+	var_decl.name = ctx.ident(token);
 	return node;
 }
 

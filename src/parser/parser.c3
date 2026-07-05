@@ -161,6 +161,36 @@ fn void ParseContext.print_current(&self)
 	plog::debug("%s", self.token_text(self.current()));
 }
 
+<*
+ make a ident from token
+ Note: Does not advance
+*>
+fn Ident ParseContext.ident(&self, Token t) @inline
+{
+	Ident ident = {
+		.range = {
+			t.pos,
+			t.end_pos()
+		},
+		.id = self.ast.string_pool.internalize(self.token_text(t))
+	};
+
+	return ident;
+}
+
+fn Ident ParseContext.empty_ident(&self) @inline
+{
+	return { .range = { -1, -1 }, .id = string_pool::EMPTY_STR };
+}
+
+fn Ident ParseContext.ident_string(&self, String str) @inline
+{
+	return { 
+		.range = { -1, -1 },
+		.id = self.ast.string_pool.internalize(str) 
+	};
+}
+
 fn Token ParseContext.current(&self) @inline => self.peek(0)!!;
 
 fn void? reverse(ParseContext* ctx, int position)

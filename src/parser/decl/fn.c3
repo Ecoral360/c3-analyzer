@@ -71,7 +71,7 @@ fn void? parse_fn_name_and_type(ContextScope scope, FnDecl* func) @local
 			return UNEXPECTED_TOKEN~;
 		}!;
 
-		func.name = parse_identifier(scope, t);
+		func.name = ctx.ident(t);
 	}
 	else
 	{
@@ -80,7 +80,7 @@ fn void? parse_fn_name_and_type(ContextScope scope, FnDecl* func) @local
 			return UNEXPECTED_TOKEN~;
 		}!;
 
-		func.name = parse_identifier(scope, t);
+		func.name = ctx.ident(t);
 	}
 }
 

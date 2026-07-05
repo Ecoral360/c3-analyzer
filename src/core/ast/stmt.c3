@@ -8,7 +8,7 @@ struct IfStmt
 	Node* condition;
 	Node* then_body;
 	Node* else_body;
-	StringID label;
+	Ident label;
 }
 
 struct CtIfStmt
@@ -27,7 +27,7 @@ struct SwitchStmt
 {
 	NodeArray cases;
 	Node* cond;
-	StringID label;
+	Ident label;
 }
 
 <*
@@ -53,13 +53,13 @@ struct DefaultStmt
 struct NextcaseStmt
 {
 	Node* expr;
-	StringID label;
+	Ident label;
 	bool is_default;
 }
 
 struct ContinueBreakStmt
 {
-	StringID label;
+	Ident label;
 	bool is_continue;
 }
 
@@ -92,7 +92,7 @@ struct ForStmt
 	NullableNode cond;
 	NullableNode incr;
 	Node* body;
-	StringID label;
+	Ident label;
 }
 
 <*
@@ -114,26 +114,26 @@ struct WhileStmt
 {
 	Node* cond;
 	Node* body;
-	StringID label;
+	Ident label;
 }
 
 struct DoWhileStmt
 {
-	StringID label;
 	Node* body;
 	NullableNode cond;
+	Ident label;
 }
 
 struct ForeachStmt
 {
-	bool is_reverse;
-	StringID label;
-	bool index_by_ref;
-	bool value_by_ref;
 	Node* index;
 	Node* variable;
 	Node* enumeration;
 	Node* body;
+	Ident label;
+	bool is_reverse;
+	bool value_by_ref;
+	bool index_by_ref;
 }
 
 struct CtForeachStmt

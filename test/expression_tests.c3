@@ -76,7 +76,7 @@ fn void test_literals()
 
 		VarDecl* var_decl = node.as(VAR_DECL);
 		test::eq(var_decl.kind, VarDeclKind.VAR_GLOBAL);
-		String var_name = pool.get(var_decl.name)!!;
+		String var_name = pool.get(var_decl.name.id)!!;
 
 		test::ne(var_decl.init_expr, null);
 		Node* expr_node = var_decl.init_expr;

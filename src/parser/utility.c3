@@ -391,7 +391,8 @@ fn Node* alloc_any_type_expr(ParseContext* ctx)
 	TypeExpr* data  = type_node.as(TYPE_EXPR);
 
 	data.kind = TypeKind.TYPE_IDENTIFIER;
-	data.unresolved.name = ctx.ast.string_pool.internalize("any");
+	data.unresolved.name.id = ctx.ast.string_pool.internalize("any");
+	data.unresolved.name.range = { pos, pos + 3 };
 	data.unresolved.path = ctx.ast.alloc_node(MISSING, pos);
 
 	return type_node;

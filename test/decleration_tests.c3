@@ -177,19 +177,21 @@ fn void alias_declarations_parse()
 	Ast* ast         = s.source_file.ast;
 	test::eq(ast.top_level_nodes.len(), 10);
 
+	StringPool* pool = &s.source_file.ast.string_pool;
+
 	Node* type_node = ast.top_level_nodes[1];
 	test::eq(type_node.kind, NodeKind.ALIAS_DECL);
 	AliasDecl* type_alias = type_node.as(NodeKind.ALIAS_DECL);
 	test::eq(type_alias.alias_kind, AliasDeclKind.TYPE_ALIAS);
 	test::eq(type_alias.name_kind, TokenKind.TYPE_IDENT);
-	test::eq(ast.string_pool.get(type_alias.name)!!, "IntList");
+	test::eq(ast.string_pool.get(type_alias.name.id)!!, "IntList");
 	test::eq(type_alias.target.kind, NodeKind.TYPE_EXPR);
 	TypeExpr* type_target = type_alias.target.as(NodeKind.TYPE_EXPR);
 	test::eq(type_target.kind, TypeKind.TYPE_GENERIC);
 	test::eq(type_target.generic.params.len, 1);
 	TypeExpr* type_base = type_target.generic.base.as(NodeKind.TYPE_EXPR);
 	test::eq(type_base.kind, TypeKind.TYPE_IDENTIFIER);
-	test::eq(ast.string_pool.get(type_base.unresolved.name)!!, "List");
+	test::eq(ast.string_pool.get(type_base.unresolved.name.id)!!, "List");
 
 	AliasDecl* stack_node = ast.top_level_nodes[2].as(NodeKind.ALIAS_DECL);
 	test::eq(stack_node.alias_kind, AliasDeclKind.TYPE_ALIAS);
@@ -197,7 +199,7 @@ fn void alias_declarations_parse()
 	test::eq(generic.params.len, 1);
 	TypeExpr* first_type = generic.params[0].as(NodeKind.TYPE_EXPR);
 	test::eq(first_type.kind, TypeKind.TYPE_IDENTIFIER);
-	test::eq(ast.string_pool.get(first_type.unresolved.name)!!, "Ty");
+	test::eq(ast.string_pool.get(first_type.unresolved.name.id)!!, "Ty");
 	test::eq(stack_node.target.as(NodeKind.TYPE_EXPR).kind, TypeKind.TYPE_GENERIC);
 
 	Node* module_node       = ast.top_level_nodes[3];
@@ -207,8 +209,8 @@ fn void alias_declarations_parse()
 	test::eq(module_alias.target.kind, NodeKind.PATH_EXPR);
 	PathExpr* module_path = module_alias.target.as(NodeKind.PATH_EXPR);
 	test::eq(module_path.segments.len, 2);
-	test::eq(ast.string_pool.get(module_path.segments[0])!!, "my");
-	test::eq(ast.string_pool.get(module_path.segments[1])!!, "collection");
+	test::eq(ast.string_pool.get(module_path.segments[0].id)!!, "my");
+	test::eq(ast.string_pool.get(module_path.segments[1].id)!!, "collection");
 
 	Node* ident_node       = ast.top_level_nodes[4];
 	AliasDecl* ident_alias = ident_node.as(NodeKind.ALIAS_DECL);
@@ -226,20 +228,20 @@ fn void alias_declarations_parse()
 
 	AliasDecl* fn_ptr_alias = ast.top_level_nodes[8].as(NodeKind.ALIAS_DECL);
 	test::eq(fn_ptr_alias.alias_kind, AliasDeclKind.TYPE_ALIAS);
-	test::eq(ast.string_pool.get(fn_ptr_alias.name)!!, "ElementPredicate");
+	test::eq(ast.string_pool.get(fn_ptr_alias.name.id)!!, "ElementPredicate");
 	TypeExpr* fn_ptr_type = fn_ptr_alias.target.as(NodeKind.TYPE_EXPR);
 	test::eq(fn_ptr_type.kind, TypeKind.TYPE_FUNCTION);
 	TypeExpr* fn_ret_type = fn_ptr_type.func.ret_type.as(NodeKind.TYPE_EXPR);
 	test::eq(fn_ret_type.kind, TypeKind.TYPE_IDENTIFIER);
-	test::eq(ast.string_pool.get(fn_ret_type.unresolved.name)!!, "bool");
+	test::eq(ast.string_pool.get(fn_ret_type.unresolved.name.id)!!, "bool");
 	test::eq(fn_ptr_type.func.params.len, 1);
 	VarDecl* fn_param = fn_ptr_type.func.params[0].as(NodeKind.VAR_DECL);
 	test::eq(fn_param.kind, VarDeclKind.VAR_PARAM);
-	test::eq(ast.string_pool.get(fn_param.name)!!, "type");
+	test::eq(ast.string_pool.get(fn_param.name.id)!!, "type");
 	TypeExpr* param_type = fn_param.type.as(NodeKind.TYPE_EXPR);
 	test::eq(param_type.kind, TypeKind.TYPE_POINTER);
 	TypeExpr* param_base_type = param_type.modify.base.as(NodeKind.TYPE_EXPR);
-	test::eq(ast.string_pool.get(param_base_type.unresolved.name)!!, "Type");
+	test::eq(ast.string_pool.get(param_base_type.unresolved.name.id)!!, "Type");
 
 	Node* node            = ast.top_level_nodes[9];
 	AliasDecl* alias_decl = node.as(NodeKind.ALIAS_DECL);
@@ -247,7 +249,7 @@ fn void alias_declarations_parse()
 	test::eq(alias_decl.generics, null);
 	test::eq(alias_decl.attributes.len, 2);
 	test::eq(parser_tests::@attr(alias_decl, 0).kind, AttributeKind.PRIVATE);
-	test::eq(parser_tests::@attr(alias_decl, 1).name, "@AliasAttr");
+	test::eq(pool.get(parser_tests::@attr(alias_decl, 1).name.id)!!, "@AliasAttr");
 	test::eq(node.flags.has_attributes, true);
 	test::eq(node.visibility, Visibility.PRIVATE);
 }
@@ -277,51 +279,51 @@ fn void typedef_declarations_parse()
 	test::eq(ast.top_level_nodes.len(), 8);
 
 	TypedefDecl* my_id = ast.top_level_nodes[1].as(NodeKind.TYPEDEF_DECL);
-	test::eq(ast.string_pool.get(my_id.name)!!, "MyId");
+	test::eq(ast.string_pool.get(my_id.name.id)!!, "MyId");
 	test::eq(my_id.is_inline, false);
 	test::eq(my_id.attributes.len, 0);
 	TypeExpr* my_id_base = my_id.base_type.as(NodeKind.TYPE_EXPR);
 	test::eq(my_id_base.kind, TypeKind.TYPE_IDENTIFIER);
-	test::eq(ast.string_pool.get(my_id_base.unresolved.name)!!, "int");
+	test::eq(ast.string_pool.get(my_id_base.unresolved.name.id)!!, "int");
 
 	TypedefDecl* my_id2 = ast.top_level_nodes[2].as(NodeKind.TYPEDEF_DECL);
-	test::eq(ast.string_pool.get(my_id2.name)!!, "MyId2");
+	test::eq(ast.string_pool.get(my_id2.name.id)!!, "MyId2");
 	test::eq(my_id2.attributes.len, 1);
 
 	TypedefDecl* bcd = ast.top_level_nodes[3].as(NodeKind.TYPEDEF_DECL);
-	test::eq(ast.string_pool.get(bcd.name)!!, "Bcd");
+	test::eq(ast.string_pool.get(bcd.name.id)!!, "Bcd");
 	test::eq(bcd.is_inline, true);
 	test::eq(bcd.attributes.len, 1);
 
 	TypedefDecl* int_align = ast.top_level_nodes[4].as(NodeKind.TYPEDEF_DECL);
-	test::eq(ast.string_pool.get(int_align.name)!!, "IntAlign2");
+	test::eq(ast.string_pool.get(int_align.name.id)!!, "IntAlign2");
 	test::eq(int_align.attributes.len, 1);
 
 	TypedefDecl* float4 = ast.top_level_nodes[5].as(NodeKind.TYPEDEF_DECL);
-	test::eq(ast.string_pool.get(float4.name)!!, "Float4");
+	test::eq(ast.string_pool.get(float4.name.id)!!, "Float4");
 	test::eq(float4.attributes.len, 1);
 	TypeExpr* float4_base = float4.base_type.as(NodeKind.TYPE_EXPR);
 	test::eq(float4_base.kind, TypeKind.TYPE_VECTOR);
 	test::eq(float4_base.array.len_expr.kind, NodeKind.LITERAL_EXPR);
 
 	TypedefDecl* enum_set = ast.top_level_nodes[6].as(NodeKind.TYPEDEF_DECL);
-	test::eq(ast.string_pool.get(enum_set.name)!!, "EnumSet");
+	test::eq(ast.string_pool.get(enum_set.name.id)!!, "EnumSet");
 	test::eq(enum_set.interfaces.len, 1);
 	TypeExpr* interface_type = enum_set.interfaces[0].as(NodeKind.TYPE_EXPR);
-	test::eq(ast.string_pool.get(interface_type.unresolved.name)!!, "Printable");
+	test::eq(ast.string_pool.get(interface_type.unresolved.name.id)!!, "Printable");
 	TypeExpr* enum_set_base = enum_set.base_type.as(NodeKind.TYPE_EXPR);
-	test::eq(ast.string_pool.get(enum_set_base.unresolved.name)!!, "EnumSetType");
+	test::eq(ast.string_pool.get(enum_set_base.unresolved.name.id)!!, "EnumSetType");
 
 	TypedefDecl* option = ast.top_level_nodes[7].as(NodeKind.TYPEDEF_DECL);
-	test::eq(ast.string_pool.get(option.name)!!, "Option");
+	test::eq(ast.string_pool.get(option.name.id)!!, "Option");
 	GenericDecl* option_generics = option.generics.as(NodeKind.GENERIC_DECL);
 	test::eq(option_generics.params.len, 1);
 	TypeExpr* option_generic_param = option_generics.params[0].as(NodeKind.TYPE_EXPR);
-	test::eq(ast.string_pool.get(option_generic_param.unresolved.name)!!, "Type");
+	test::eq(ast.string_pool.get(option_generic_param.unresolved.name.id)!!, "Type");
 	TypeExpr* option_base = option.base_type.as(NodeKind.TYPE_EXPR);
 	test::eq(option_base.kind, TypeKind.TYPE_POINTER);
 	TypeExpr* option_inner = option_base.modify.base.as(NodeKind.TYPE_EXPR);
-	test::eq(ast.string_pool.get(option_inner.unresolved.name)!!, "Type");
+	test::eq(ast.string_pool.get(option_inner.unresolved.name.id)!!, "Type");
 }
 
 fn void function_pointer_types_are_alias_only()
@@ -396,22 +398,22 @@ fn void global_var_multi_decl()
 	VarDecl* decl     = target_node.as(VAR_DECL);
 	test::eq(decl.kind, VarDeclKind.VAR_GLOBAL);
 	test::eq(decl.type.kind, NodeKind.TYPE_EXPR);
-	test::eq(pool.get(decl.name)!!, "foo");
+	test::eq(pool.get(decl.name.id)!!, "foo");
 	test::eq(decl.init_expr, null);
-	test::eq(pool.get(decl.type.as(TYPE_EXPR).unresolved.name)!!, "int");
+	test::eq(pool.get(decl.type.as(TYPE_EXPR).unresolved.name.id)!!, "int");
 
 	test::ne(decl.next, null);
 	VarDecl* decl_2 = decl.next.as(VAR_DECL);
-	test::eq(pool.get(decl_2.name)!!, "bar");
+	test::eq(pool.get(decl_2.name.id)!!, "bar");
 	test::eq(decl_2.init_expr, null);
-	test::eq(pool.get(decl_2.type.as(TYPE_EXPR).unresolved.name)!!, "int");
+	test::eq(pool.get(decl_2.type.as(TYPE_EXPR).unresolved.name.id)!!, "int");
 
 	test::ne(decl_2.next, null);
 	VarDecl* decl_3 = decl_2.next.as(VAR_DECL);
-	test::eq(pool.get(decl_3.name)!!, "z");
+	test::eq(pool.get(decl_3.name.id)!!, "z");
 	test::eq(decl_3.next, null);
 	test::eq(decl_3.init_expr, null);
-	test::eq(pool.get(decl_3.type.as(TYPE_EXPR).unresolved.name)!!, "int");
+	test::eq(pool.get(decl_3.type.as(TYPE_EXPR).unresolved.name.id)!!, "int");
 }
 
 fn void global_var()
