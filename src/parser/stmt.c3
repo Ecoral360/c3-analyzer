@@ -10,7 +10,7 @@ fn Node*? parse_stmt(ContextScope scope)
 
 	plog::debug("parse_stmt: current = %s (%s)", ctx.token_text(t), t.kind.description);
 
-	if (is_type(ctx) || t.kind == TLOCAL || t.kind == STATIC)
+	if (is_type(ctx))
 	{
 		return parse_decl_stmt(scope)!;
 	}
@@ -63,6 +63,9 @@ fn Node*? parse_stmt(ContextScope scope)
 		case STATIC:
 			advance(ctx)!;
 			return parse_var_decl(scope.with_flags({ .is_static = true, .is_local = true }), null)!;
+		case TLOCAL:
+			advance(ctx)!;
+			return parse_var_decl(scope.with_flags({ .is_tlocal = true, .is_local = true }), null)!;
 		case ASSERT:
 			return parse_assert_stmt(scope)!;
 		case CT_EXPAND:
@@ -115,7 +118,7 @@ fn Node*? parse_stmt(ContextScope scope)
 		case ASTERISK:
 		case STRING_LITERAL:
 		case TRUE:
-			return parse_expr_stmt(scope)!;
+			return parse_decl_or_expr_stmt(scope)!;
 		case EOS:
 			advance(ctx)!;
 			return ctx.ast.alloc_node(NOP_STMT, t.pos);
@@ -125,6 +128,29 @@ fn Node*? parse_stmt(ContextScope scope)
 
 	advance(ctx)!;
 	return unexpected_at(ctx, t, "Unexpected '%s' found when expecting a statement", t.kind.description);
+}
+
+fn Node*? parse_decl_or_expr_stmt(ContextScope scope)
+{
+	ParseContext* ctx = scope.ctx;
+	Token t = ctx.current();
+
+	Node* expr = parse_expr(scope)!;
+	
+	int start_pos = t.pos;
+	if (expr.kind == TYPE_EXPR)
+	{
+		Node* decl = parse_var_decl(scope, expr)!;
+		return decl;
+	}
+
+	Node* node = ctx.ast.alloc_node(EXPR_STMT, start_pos);
+	ExprStmt* es = node.as(EXPR_STMT);
+	es.expr_stmt = expr;
+	node.offset.end = ctx.current_pos();
+
+	expect(ctx, EOS)!;
+	return node;
 }
 
 <*
@@ -153,16 +179,12 @@ fn Node*? parse_decl_stmt(ContextScope scope)
 
 	int start_pos = ctx.current().pos;
 
-	ParseFlags flags;
-	flags.is_static = consume(ctx, STATIC)!;
-	flags.is_tlocal = consume(ctx, TLOCAL)!;
-
 	Node* type = parse_type_expr(scope)!;
 	switch (ctx.current().kind)
 	{
 		case IDENT:
 		case CT_IDENT:
-			return parse_var_decl(scope.with_flags(flags), type);
+			return parse_var_decl(scope, type);
 		default:
 	}
 
@@ -1064,8 +1086,8 @@ fn Node*? parse_ct_echo_stmt(ContextScope scope) => @pool()
 <*
  defer_statement ::= "defer" defer_kind? statement
  defer_kind      ::= "try"
-                  |  "catch"
-                  |  "(" "catch" IDENTIFIER ")"
+				  |  "catch"
+				  |  "(" "catch" IDENTIFIER ")"
 *>
 fn Node*? parse_defer_stmt(ContextScope scope)
 {
