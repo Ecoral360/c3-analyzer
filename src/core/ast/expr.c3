@@ -13,15 +13,15 @@ struct BinaryExpr
 
 struct IdentExpr
 {
-	StringID ident;
+	Ident ident;
 	Node* path_expr;
 }
 
-fn String? IdentExpr.get_ident(&self, StringPool* pool) => pool.get(self.ident);
+fn String? IdentExpr.get_ident(&self, StringPool* pool) => pool.get(self.ident.id);
 
 struct PathExpr
 {
-	StringID[] segments;
+	Ident[] segments;
 	bool is_prefix;
 }
 
@@ -31,7 +31,7 @@ fn String? PathExpr.full_path(&self, StringPool* pool, Allocator allocator) => @
 	String result;
 	for (sz i = 0; i < len; i++)
 	{
-		String part = pool.get(self.segments[i])!;
+		String part = pool.get(self.segments[i].id)!;
 		result = result.tconcat(part);
 		if (i < len - 1)
 		{
@@ -68,7 +68,7 @@ struct TypeExpr
 	{
 		struct unresolved
 		{
-			StringID name;
+			Ident name;
 			Node* path;
 		}
 
@@ -112,11 +112,11 @@ struct CallExpr
 struct ContractExpr
 {
 	Node* exprs;
-	StringID comment;
+	Ident comment;
 	Node* expr_string;
 }
 
-fn String? ContractExpr.get_comment(&self, StringPool* pool) => pool.get(self.comment);
+fn String? ContractExpr.get_comment(&self, StringPool* pool) => pool.get(self.comment.id);
 
 struct ExprList
 {
@@ -207,7 +207,7 @@ struct MacroBodyExpr
 struct BuiltinExpr
 {
 	BuiltinFunction builtin;
-	StringID name;
+	Ident name;
 }
 
 struct CompilerConstExpr
@@ -227,7 +227,7 @@ struct VasplatExpr
 
 struct NamedArgExpr
 {
-	StringID name;
+	Ident name;
 	Node* value;
 }
 
