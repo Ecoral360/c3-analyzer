@@ -132,6 +132,67 @@ fn bool visit_children(Cursor parent, CursorVisitor visitor, void* data)
 			break;
 		}
 
+		case TYPE_EXPR:
+		{
+			TypeExpr* te = node.as(TYPE_EXPR);
+			switch (te.kind)
+			{
+				case TYPE_IDENTIFIER:
+				{
+					// Optional module path node (e.g., the 'foo::' in 'foo::MyStruct')
+					if (te.unresolved.path && !visit({sec, te.unresolved.path}, parent, visitor, data)) return false;
+					break;
+				}
+
+				case TYPE_POINTER:
+				case TYPE_SLICE:
+				{
+					if (te.modify.base && !visit({sec, te.modify.base}, parent, visitor, data)) return false;
+					break;
+				}
+
+				case TYPE_ARRAY:
+				case TYPE_VECTOR:
+				{
+					if (te.array.base && !visit({sec, te.array.base}, parent, visitor, data)) return false;
+					if (te.array.len_expr && !visit({sec, te.array.len_expr}, parent, visitor, data)) return false;
+					break;
+				}
+
+				case TYPE_GENERIC:
+				{
+					if (te.generic.base && !visit({sec, te.generic.base}, parent, visitor, data)) return false;
+					foreach (param : te.generic.params)
+					{
+						if (!visit({sec, param}, parent, visitor, data)) return false;
+					}
+					break;
+				}
+
+				case TYPE_TYPEOF:
+				case TYPE_TYPEFROM:
+				{
+					if (te.expr && !visit({sec, te.expr}, parent, visitor, data)) return false;
+					break;
+				}
+
+				case TYPE_FUNCTION:
+				{
+					if (te.func.ret_type && !visit({sec, te.func.ret_type}, parent, visitor, data)) return false;
+					foreach (param : te.func.params)
+					{
+						if (!visit({sec, param}, parent, visitor, data)) return false;
+					}
+					foreach (attr : te.func.attributes)
+					{
+						if (!visit({sec, attr}, parent, visitor, data)) return false;
+					}
+					break;
+				}
+			}
+			break;
+		}
+
 		default:
 			break;
 	}
