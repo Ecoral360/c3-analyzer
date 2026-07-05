@@ -47,30 +47,30 @@ fn String? Cursor.spelling(&self, Allocator allocator) => @pool()
 	{
 		case STRUCT_DECL:
 			StructDecl* s = self.node.as(STRUCT_DECL);
-			return pool.get(s.name)!;
+			return pool.get(s.name.id)!;
 		case VAR_DECL:
 			VarDecl* v = self.node.as(VAR_DECL);
-			return pool.get(v.name)!;
+			return pool.get(v.name.id)!;
 		case FN_DECL:
 			FnDecl* func = self.node.as(FN_DECL);
-			return pool.get(func.name)!;
+			return pool.get(func.name.id)!;
 		case MACRO_DECL:
 			MacroDecl* mac = self.node.as(MACRO_DECL);
-			return pool.get(mac.name)!;
+			return pool.get(mac.name.id)!;
 		case TYPEDEF_DECL:
 			TypedefDecl* td = self.node.as(TYPEDEF_DECL);
-			return pool.get(td.name)!;
+			return pool.get(td.name.id)!;
 		case ALIAS_DECL:
 			AliasDecl* ad = self.node.as(ALIAS_DECL);
-			return pool.get(ad.name)!;
+			return pool.get(ad.name.id)!;
 		case INTERFACE_DECL:
 			InterfaceDecl* id = self.node.as(INTERFACE_DECL);
-			return pool.get(id.name)!;
+			return pool.get(id.name.id)!;
 		case TYPE_EXPR:
 			TypeExpr* type_data = self.node.as(TYPE_EXPR);
 			if (type_data.kind == TYPE_IDENTIFIER)
 			{
-				String type_name = pool.get(type_data.unresolved.name)!;
+				String type_name = pool.get(type_data.unresolved.name.id)!;
 				if (type_data.unresolved.path != null)
 				{
 					PathExpr* prefix_path = type_data.unresolved.path.as(PATH_EXPR);
@@ -82,7 +82,7 @@ fn String? Cursor.spelling(&self, Allocator allocator) => @pool()
 			return "";
 		case IDENT_EXPR:
 			IdentExpr* ident = self.node.as(IDENT_EXPR);
-			return pool.get(ident.ident);
+			return pool.get(ident.ident.id);
 		default:
 			return "";
 	}
@@ -321,7 +321,7 @@ fn String? Cursor.raw_type_identifier(&self)
 			case TYPE_IDENTIFIER:
 			{
 				StringPool* pool = &self.section.source_file.ast.string_pool;
-				return pool.get(data.unresolved.name)!;
+				return pool.get(data.unresolved.name.id)!;
 			}
 			case TYPE_POINTER:
 			case TYPE_SLICE:
