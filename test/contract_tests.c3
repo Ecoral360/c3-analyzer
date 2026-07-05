@@ -49,7 +49,7 @@ fn void contract_with_expr_checks()
 		{
 			ContractDecl* decl = node.as(CONTRACT_DECL);
 			io::printfn("%s", string::from_struct(tmem, *decl));
-			test::eq(decl.get_comment(pool)!!, "Hello there");
+			test::eq(decl.get_comment(pool)!!.trim(), "Hello there");
 			test::eq(decl.deprecated, null);
 			test::eq(decl.ensures.len, 1);
 			test::eq(decl.requires.len, 1);
@@ -79,12 +79,10 @@ fn void contract_with_expr_checks()
 				test::eq(bin.right.as(LITERAL_EXPR).integer, 0u);
 			}
 
-
-
 			{
 				Node* param         = decl.params[0];
 				ContractParam* expr = param.as(CONTRACT_PARAM);
-				test::eq(expr.name.as(IDENT_EXPR).get_ident(pool)!!, "a");
+				test::eq(pool.get(expr.ident.id)!!, "a");
 				test::eq(expr.modifier, InOutModifier.IN);
 				test::eq(expr.get_description(pool)!!, "\"my param\"");
 			}
@@ -124,6 +122,36 @@ fn void function_duplicate_contract_error()
 	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
 	defer res.free();
 	test::eq(res.has_errors, true);
+}
+
+fn void contract_description()
+{
+	String source_code = `
+		module hello;
+
+		<* 
+		 this is a comment
+		*>
+		fn void foo() {}
+	`;
+	Workspace ws;
+	ws.init(mem, { .use_sema = true });
+	defer ws.free();
+	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
+	defer res.free();
+	test::eq(res.has_errors, false);
+
+	Module* mod = ws.modules.get("hello")!!;
+	test::ne(mod, null);
+
+	ModuleSection* s = mod.sections[0];
+	StringPool* pool = &s.source_file.ast.string_pool;
+
+	ContractDecl* decl = s.nodes[1].as(CONTRACT_DECL);
+	io::printfn("%s", string::from_struct(tmem, *decl));
+	test::eq(decl.get_comment(pool)!!.trim(), "this is a comment");
+	test::eq(decl.comment.range.start, 22);
+	test::eq(decl.comment.range.end, 47);
 }
 
 fn void contract_with_deprecated()
@@ -167,7 +195,7 @@ fn void contract_with_deprecated()
 		{
 			ContractDecl* decl = node.as(CONTRACT_DECL);
 			io::printfn("%s", string::from_struct(tmem, *decl));
-			test::eq(decl.get_comment(pool)!!, "Hello there");
+			test::eq(decl.get_comment(pool)!!.trim(), "Hello there");
 			test::eq(decl.ensures.len, 1);
 			test::eq(decl.requires.len, 1);
 			test::eq(decl.params.len, 1);
@@ -207,7 +235,7 @@ fn void contract_with_deprecated()
 			{
 				Node* param         = decl.params[0];
 				ContractParam* expr = param.as(CONTRACT_PARAM);
-				test::eq(expr.name.as(IDENT_EXPR).get_ident(pool)!!, "a");
+				test::eq(pool.get(expr.ident.id)!!, "a");
 				test::eq(expr.modifier, InOutModifier.IN);
 				test::eq(expr.get_description(pool)!!, "\"my param\"");
 			}

@@ -47,7 +47,7 @@ fn void global_array_pointer()
 
 	Node* target_node = s.nodes[1];
 	VarDecl* decl     = target_node.as(VAR_DECL);
-	test::eq(pool.get(decl.name)!!, "FOO");
+	test::eq(pool.get(decl.name.id)!!, "FOO");
 	test::eq(decl.kind, VarDeclKind.VAR_GLOBAL);
 	test::eq(decl.type.kind, NodeKind.TYPE_EXPR);
 	TypeExpr* type_data = decl.type.as(TYPE_EXPR);
@@ -143,7 +143,7 @@ fn void global_inferred_array_pointer()
 
 	Node* target_node = s.nodes[1];
 	VarDecl* decl     = target_node.as(VAR_DECL);
-	test::eq(pool.get(decl.name)!!, "FOO");
+	test::eq(pool.get(decl.name.id)!!, "FOO");
 	test::eq(decl.kind, VarDeclKind.VAR_GLOBAL);
 	test::eq(decl.type.kind, NodeKind.TYPE_EXPR);
 	TypeExpr* type_data = decl.type.as(TYPE_EXPR);
@@ -191,7 +191,7 @@ fn void global_generic()
 	StringPool* pool = &s.source_file.ast.string_pool;
 
 	VarDecl* decl = s.nodes[1].as(VAR_DECL);
-	test::eq(pool.get(decl.name)!!, "CHANNELS");
+	test::eq(pool.get(decl.name.id)!!, "CHANNELS");
 	test::eq(decl.kind, VarDeclKind.VAR_GLOBAL);
 	test::eq(decl.type.kind, NodeKind.TYPE_EXPR);
 	TypeExpr* type_data = decl.type.as(TYPE_EXPR);
@@ -243,7 +243,7 @@ fn void global_vec()
 	StringPool* pool = &s.source_file.ast.string_pool;
 
 	VarDecl* decl = s.nodes[1].as(VAR_DECL);
-	test::eq(pool.get(decl.name)!!, "CHANNELS");
+	test::eq(pool.get(decl.name.id)!!, "CHANNELS");
 	test::eq(decl.kind, VarDeclKind.VAR_GLOBAL);
 	test::eq(decl.type.kind, NodeKind.TYPE_EXPR);
 	TypeExpr* type_data = decl.type.as(TYPE_EXPR);

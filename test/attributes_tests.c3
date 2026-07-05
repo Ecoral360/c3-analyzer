@@ -99,7 +99,7 @@ fn void module_tag_if()
 
 	CtFeatureExpr* feat          = attr.exprs[0].as(CT_FEATURE_EXPR);
 	IdentExpr* callee_ident_expr = feat.inner_expr.as(IDENT_EXPR);
-	test::eq(pool.get(callee_ident_expr.ident)!!, "MY_FEATURE");
+	test::eq(pool.get(callee_ident_expr.ident.id)!!, "MY_FEATURE");
 }
 
 fn void function_if()
@@ -139,7 +139,7 @@ fn void function_if()
 
 	CtFeatureExpr* feat          = attr.exprs[0].as(CT_FEATURE_EXPR);
 	IdentExpr* callee_ident_expr = feat.inner_expr.as(IDENT_EXPR);
-	test::eq(pool.get(callee_ident_expr.ident)!!, "MY_FEATURE");
+	test::eq(pool.get(callee_ident_expr.ident.id)!!, "MY_FEATURE");
 }
 
 fn void const_var_private_if()
@@ -170,7 +170,7 @@ fn void const_var_private_if()
 		test::eq(node.visibility, Visibility.PRIVATE);
 		test::eq(node.flags.has_attributes, true);
 
-		String var_name = pool.get(var_decl.name)!!;
+		String var_name = pool.get(var_decl.name.id)!!;
 
 		test::eq(var_decl.kind, VarDeclKind.VAR_GLOBAL);
 		test::eq(var_decl.attributes.len, 2);
@@ -191,7 +191,7 @@ fn void const_var_private_if()
 		// $feature()
 		CtFeatureExpr* call          = attr.exprs[0].as(CT_FEATURE_EXPR);
 		IdentExpr* callee_ident_expr = call.inner_expr.as(IDENT_EXPR);
-		test::eq(pool.get(callee_ident_expr.ident)!!, "MY_FEATURE");
+		test::eq(pool.get(callee_ident_expr.ident.id)!!, "MY_FEATURE");
 	}
 }
 

@@ -32,13 +32,13 @@ fn void basic_enum()
 
 	Node* enum_node     = s.nodes[1];
 	EnumDecl* enum_decl = enum_node.as(ENUM_DECL);
-	test::eq(pool.get(enum_decl.name)!!, "MyEnum");
+	test::eq(pool.get(enum_decl.name.id)!!, "MyEnum");
 	test::eq(enum_decl.variants.len, 2);
 
 	foreach (variant : enum_decl.variants)
 	{
 		VarDecl* var_decl          = variant.as(VAR_DECL);
-		String variant_description = pool.get(var_decl.name)!!;
+		String variant_description = pool.get(var_decl.name.id)!!;
 		assert(variant_description == "AAA" || variant_description == "BBB", "Failed to parse variant description");
 	}
 }
@@ -65,13 +65,13 @@ fn void values()
 
 	Node* enum_node     = s.nodes[1];
 	EnumDecl* enum_decl = enum_node.as(ENUM_DECL);
-	test::eq(pool.get(enum_decl.name)!!, "MyEnum");
+	test::eq(pool.get(enum_decl.name.id)!!, "MyEnum");
 	test::eq(enum_decl.variants.len, 2);
 
 	foreach (variant : enum_decl.variants)
 	{
 		VarDecl* var_decl          = variant.as(VAR_DECL);
-		String variant_description = pool.get(var_decl.name)!!;
+		String variant_description = pool.get(var_decl.name.id)!!;
 		assert(variant_description == "AAA" || variant_description == "BBB", "Failed to parse variant description");
 		test::ne(var_decl.init_expr, null);
 		LiteralExpr* enum_value = var_decl.init_expr.as(LITERAL_EXPR);
@@ -102,12 +102,12 @@ fn void char_backing_type()
 
 	Node* enum_node     = s.nodes[1];
 	EnumDecl* enum_decl = enum_node.as(ENUM_DECL);
-	test::eq(pool.get(enum_decl.name)!!, "MyEnum");
+	test::eq(pool.get(enum_decl.name.id)!!, "MyEnum");
 
 	TypeExpr* backing_type_expr = enum_decl.backing_type.as(TYPE_EXPR);
 	test::eq(backing_type_expr.kind, TypeKind.TYPE_IDENTIFIER);
 
-	String type_name = pool.get(backing_type_expr.unresolved.name)!!;
+	String type_name = pool.get(backing_type_expr.unresolved.name.id)!!;
 	test::eq(type_name, "char");
 
 	test::eq(enum_decl.variants.len, 2);
@@ -115,7 +115,7 @@ fn void char_backing_type()
 	foreach (variant : enum_decl.variants)
 	{
 		VarDecl* var_decl          = variant.as(VAR_DECL);
-		String variant_description = pool.get(var_decl.name)!!;
+		String variant_description = pool.get(var_decl.name.id)!!;
 		assert(variant_description == "AAA" || variant_description == "BBB", "Failed to parse variant description");
 	}
 }
@@ -142,27 +142,27 @@ fn void assoc_param_values()
 
 	Node* enum_node     = s.nodes[1];
 	EnumDecl* enum_decl = enum_node.as(ENUM_DECL);
-	test::eq(pool.get(enum_decl.name)!!, "MyEnum");
+	test::eq(pool.get(enum_decl.name.id)!!, "MyEnum");
 	test::eq(enum_decl.backing_type == null, true);
 
 	test::eq(enum_decl.assoc_params.len, 2);
 
 	VarDecl* a_param = enum_decl.assoc_params[0].as(VAR_DECL);
 	TypeExpr* a_type = a_param.type.as(TYPE_EXPR);
-	test::eq(pool.get(a_type.unresolved.name)!!, "int");
-	test::eq(pool.get(a_param.name)!!, "a");
+	test::eq(pool.get(a_type.unresolved.name.id)!!, "int");
+	test::eq(pool.get(a_param.name.id)!!, "a");
 
 	VarDecl* b_param = enum_decl.assoc_params[1].as(VAR_DECL);
 	TypeExpr* b_type = b_param.type.as(TYPE_EXPR);
-	test::eq(pool.get(b_type.unresolved.name)!!, "String");
-	test::eq(pool.get(b_param.name)!!, "b");
+	test::eq(pool.get(b_type.unresolved.name.id)!!, "String");
+	test::eq(pool.get(b_param.name.id)!!, "b");
 
 	test::eq(enum_decl.variants.len, 2);
 
 	foreach (variant : enum_decl.variants)
 	{
 		VarDecl* variant_decl      = variant.as(VAR_DECL);
-		String variant_description = pool.get(variant_decl.name)!!;
+		String variant_description = pool.get(variant_decl.name.id)!!;
 		assert(variant_description == "AAA" || variant_description == "BBB", "Failed to parse variant description");
 		InitializerListExpr* assoc_values = variant_decl.assoc_values.as(INITIALIZER_LIST_EXPR);
 		test::eq(assoc_values.exprs.len, 2);
@@ -205,20 +205,20 @@ fn void interfaces()
 
 	Node* enum_node     = s.nodes[1];
 	EnumDecl* enum_decl = enum_node.as(ENUM_DECL);
-	test::eq(pool.get(enum_decl.name)!!, "MyEnum");
+	test::eq(pool.get(enum_decl.name.id)!!, "MyEnum");
 
 	test::eq(enum_decl.interfaces.len, 2);
 	TypeExpr* interface_type = enum_decl.interfaces[0].as(TYPE_EXPR);
-	test::eq(pool.get(interface_type.unresolved.name)!!, "Printable");
+	test::eq(pool.get(interface_type.unresolved.name.id)!!, "Printable");
 	interface_type = enum_decl.interfaces[1].as(TYPE_EXPR);
-	test::eq(pool.get(interface_type.unresolved.name)!!, "OutStream");
+	test::eq(pool.get(interface_type.unresolved.name.id)!!, "OutStream");
 
 	test::eq(enum_decl.variants.len, 2);
 
 	foreach (variant : enum_decl.variants)
 	{
 		VarDecl* var_decl          = variant.as(VAR_DECL);
-		String variant_description = pool.get(var_decl.name)!!;
+		String variant_description = pool.get(var_decl.name.id)!!;
 		assert(variant_description == "AAA" || variant_description == "BBB", "Failed to parse variant description");
 	}
 }
@@ -247,21 +247,21 @@ fn void constdef_interfaces_inline_backing()
 
 	Node* enum_node     = s.nodes[1];
 	EnumDecl* enum_decl = enum_node.as(ENUM_DECL);
-	test::eq(pool.get(enum_decl.name)!!, "MyConstdef");
+	test::eq(pool.get(enum_decl.name.id)!!, "MyConstdef");
 	test::eq(enum_decl.interfaces.len, 2);
 
 	TypeExpr* interface_type = enum_decl.interfaces[0].as(TYPE_EXPR);
-	test::eq(pool.get(interface_type.unresolved.name)!!, "Printable");
+	test::eq(pool.get(interface_type.unresolved.name.id)!!, "Printable");
 	interface_type = enum_decl.interfaces[1].as(TYPE_EXPR);
-	test::eq(pool.get(interface_type.unresolved.name)!!, "OutStream");
+	test::eq(pool.get(interface_type.unresolved.name.id)!!, "OutStream");
 
 	TypeExpr* backing_type_expr = enum_decl.backing_type.as(TYPE_EXPR);
-	test::eq(pool.get(backing_type_expr.unresolved.name)!!, "uint");
+	test::eq(pool.get(backing_type_expr.unresolved.name.id)!!, "uint");
 	test::eq(enum_decl.is_inline_backing, true);
 
 	test::eq(enum_decl.variants.len, 1);
 	VarDecl* var_decl = enum_decl.variants[0].as(VAR_DECL);
-	test::eq(pool.get(var_decl.name)!!, "AAA");
+	test::eq(pool.get(var_decl.name.id)!!, "AAA");
 	test::eq(var_decl.attributes.len, 1);
 	test::eq(parser_tests::@attr(var_decl, 0).kind, AttributeKind.TAG);
 	test::ne(var_decl.init_expr, null);
@@ -296,20 +296,20 @@ fn void basic_constdef()
 
 	Node* enum_node     = s.nodes[1];
 	EnumDecl* enum_decl = enum_node.as(ENUM_DECL);
-	test::eq(pool.get(enum_decl.name)!!, "MyConstdef");
+	test::eq(pool.get(enum_decl.name.id)!!, "MyConstdef");
 	test::eq(enum_decl.interfaces.len, 0);
 	test::eq(enum_decl.backing_type == null, true);
 	test::eq(enum_decl.is_inline_backing, false);
 	test::eq(enum_decl.variants.len, 3);
 
 	VarDecl* var_decl = enum_decl.variants[0].as(VAR_DECL);
-	test::eq(pool.get(var_decl.name)!!, "AAA");
+	test::eq(pool.get(var_decl.name.id)!!, "AAA");
 	test::ne(var_decl.init_expr, null);
 	LiteralExpr* value = var_decl.init_expr.as(LITERAL_EXPR);
 	test::eq(value.integer, 1u);
 
 	var_decl = enum_decl.variants[1].as(VAR_DECL);
-	test::eq(pool.get(var_decl.name)!!, "BBB");
+	test::eq(pool.get(var_decl.name.id)!!, "BBB");
 	test::eq(var_decl.init_expr == null, true);
 }
 
@@ -337,18 +337,18 @@ fn void constdef_backing_type_and_attributes()
 
 	Node* enum_node     = s.nodes[1];
 	EnumDecl* enum_decl = enum_node.as(ENUM_DECL);
-	test::eq(pool.get(enum_decl.name)!!, "MyConstdef");
+	test::eq(pool.get(enum_decl.name.id)!!, "MyConstdef");
 	test::eq(enum_decl.is_inline_backing, false);
 
 	TypeExpr* backing_type_expr = enum_decl.backing_type.as(TYPE_EXPR);
-	test::eq(pool.get(backing_type_expr.unresolved.name)!!, "uint");
+	test::eq(pool.get(backing_type_expr.unresolved.name.id)!!, "uint");
 	test::eq(enum_decl.attributes.len, 2);
 	test::eq(parser_tests::@attr(enum_decl, 0).kind, AttributeKind.TAG);
 	test::eq(parser_tests::@attr(enum_decl, 1).kind, AttributeKind.IF);
 
 	test::eq(enum_decl.variants.len, 1);
 	VarDecl* var_decl = enum_decl.variants[0].as(VAR_DECL);
-	test::eq(pool.get(var_decl.name)!!, "AAA");
+	test::eq(pool.get(var_decl.name.id)!!, "AAA");
 	test::eq(var_decl.attributes.len, 1);
 	test::eq(parser_tests::@attr(var_decl, 0).kind, AttributeKind.TAG);
 	LiteralExpr* value = var_decl.init_expr.as(LITERAL_EXPR);
@@ -379,21 +379,21 @@ fn void enum_interfaces_backing_type()
 
 	Node* enum_node     = s.nodes[1];
 	EnumDecl* enum_decl = enum_node.as(ENUM_DECL);
-	test::eq(pool.get(enum_decl.name)!!, "MyEnum");
+	test::eq(pool.get(enum_decl.name.id)!!, "MyEnum");
 	test::eq(enum_decl.interfaces.len, 2);
 
 	TypeExpr* interface_type = enum_decl.interfaces[0].as(TYPE_EXPR);
-	test::eq(pool.get(interface_type.unresolved.name)!!, "Printable");
+	test::eq(pool.get(interface_type.unresolved.name.id)!!, "Printable");
 	interface_type = enum_decl.interfaces[1].as(TYPE_EXPR);
-	test::eq(pool.get(interface_type.unresolved.name)!!, "OutStream");
+	test::eq(pool.get(interface_type.unresolved.name.id)!!, "OutStream");
 
 	TypeExpr* backing_type_expr = enum_decl.backing_type.as(TYPE_EXPR);
-	test::eq(pool.get(backing_type_expr.unresolved.name)!!, "uint");
+	test::eq(pool.get(backing_type_expr.unresolved.name.id)!!, "uint");
 	test::eq(enum_decl.is_inline_backing, false);
 
 	test::eq(enum_decl.variants.len, 1);
 	VarDecl* var_decl = enum_decl.variants[0].as(VAR_DECL);
-	test::eq(pool.get(var_decl.name)!!, "BBB");
+	test::eq(pool.get(var_decl.name.id)!!, "BBB");
 	test::eq(var_decl.attributes.len, 1);
 	test::eq(parser_tests::@attr(var_decl, 0).kind, AttributeKind.TAG);
 	test::eq(var_decl.init_expr == null, true);
@@ -427,13 +427,13 @@ fn void private_if_attributes()
 	test::eq(parser_tests::@attr(enum_decl, 0).kind, AttributeKind.PRIVATE);
 	test::eq(parser_tests::@attr(enum_decl, 1).kind, AttributeKind.IF);
 
-	test::eq(pool.get(enum_decl.name)!!, "MyEnum");
+	test::eq(pool.get(enum_decl.name.id)!!, "MyEnum");
 	test::eq(enum_decl.variants.len, 2);
 
 	foreach (variant : enum_decl.variants)
 	{
 		VarDecl* var_decl          = variant.as(VAR_DECL);
-		String variant_description = pool.get(var_decl.name)!!;
+		String variant_description = pool.get(var_decl.name.id)!!;
 		assert(variant_description == "AAA" || variant_description == "BBB", "Failed to parse variant description");
 	}
 }
@@ -461,13 +461,13 @@ fn void values_if_attribute()
 	Node* enum_node     = s.nodes[1];
 	EnumDecl* enum_decl = enum_node.as(ENUM_DECL);
 
-	test::eq(pool.get(enum_decl.name)!!, "MyEnum");
+	test::eq(pool.get(enum_decl.name.id)!!, "MyEnum");
 	test::eq(enum_decl.variants.len, 2);
 
 	foreach (variant : enum_decl.variants)
 	{
 		VarDecl* var_decl          = variant.as(VAR_DECL);
-		String variant_description = pool.get(var_decl.name)!!;
+		String variant_description = pool.get(var_decl.name.id)!!;
 		assert(variant_description == "AAA" || variant_description == "BBB", "Failed to parse variant description");
 
 		test::eq(var_decl.attributes.len, 1);
@@ -501,25 +501,25 @@ fn void complex()
 	Node* enum_node     = s.nodes[1];
 	EnumDecl* enum_decl = enum_node.as(ENUM_DECL);
 
-	test::eq(pool.get(enum_decl.name)!!, "MyEnum");
+	test::eq(pool.get(enum_decl.name.id)!!, "MyEnum");
 
 	test::eq(enum_decl.interfaces.len, 2);
 	TypeExpr* interface_type = enum_decl.interfaces[0].as(TYPE_EXPR);
-	test::eq(pool.get(interface_type.unresolved.name)!!, "Printable");
+	test::eq(pool.get(interface_type.unresolved.name.id)!!, "Printable");
 	interface_type = enum_decl.interfaces[1].as(TYPE_EXPR);
-	test::eq(pool.get(interface_type.unresolved.name)!!, "OutStream");
+	test::eq(pool.get(interface_type.unresolved.name.id)!!, "OutStream");
 
 	test::eq(enum_decl.assoc_params.len, 2);
 
 	VarDecl* a_param = enum_decl.assoc_params[0].as(VAR_DECL);
 	TypeExpr* a_type = a_param.type.as(TYPE_EXPR);
-	test::eq(pool.get(a_type.unresolved.name)!!, "int");
-	test::eq(pool.get(a_param.name)!!, "a");
+	test::eq(pool.get(a_type.unresolved.name.id)!!, "int");
+	test::eq(pool.get(a_param.name.id)!!, "a");
 
 	VarDecl* b_param = enum_decl.assoc_params[1].as(VAR_DECL);
 	TypeExpr* b_type = b_param.type.as(TYPE_EXPR);
-	test::eq(pool.get(b_type.unresolved.name)!!, "String");
-	test::eq(pool.get(b_param.name)!!, "b");
+	test::eq(pool.get(b_type.unresolved.name.id)!!, "String");
+	test::eq(pool.get(b_param.name.id)!!, "b");
 
 	test::eq(enum_decl.attributes.len, 2);
 	test::eq(parser_tests::@attr(enum_decl, 0).kind, AttributeKind.TAG);
@@ -530,7 +530,7 @@ fn void complex()
 	foreach (variant : enum_decl.variants)
 	{
 		VarDecl* var_decl          = variant.as(VAR_DECL);
-		String variant_description = pool.get(var_decl.name)!!;
+		String variant_description = pool.get(var_decl.name.id)!!;
 		assert(variant_description == "AAA" || variant_description == "BBB", "Failed to parse variant description");
 
 		test::eq(var_decl.attributes.len, 2);
@@ -558,7 +558,7 @@ fn void err_missing_name()
 
 	Node* enum_node     = s.nodes[1];
 	EnumDecl* enum_decl = enum_node.as(ENUM_DECL);
-	test::eq(enum_decl.name, string_pool::EMPTY_STR);
+	test::eq(enum_decl.name.id, string_pool::EMPTY_STR);
 	test::eq(enum_decl.variants.len, 2);
 }
 
@@ -587,7 +587,7 @@ fn void err_invalid_variant_name()
 	test::eq(enum_decl.variants[0].kind, NodeKind.MISSING);
 
 	VarDecl* good = enum_decl.variants[1].as(VAR_DECL);
-	test::eq(pool.get(good.name)!!, "GOOD");
+	test::eq(pool.get(good.name.id)!!, "GOOD");
 }
 
 fn void err_missing_rbrace()
@@ -617,7 +617,7 @@ fn void err_missing_rbrace()
 	test::eq(enum_decl.variants.len, 2);
 
 	VarDecl* aaa = enum_decl.variants[0].as(VAR_DECL);
-	test::eq(pool.get(aaa.name)!!, "AAA");
+	test::eq(pool.get(aaa.name.id)!!, "AAA");
 	VarDecl* bbb = enum_decl.variants[1].as(VAR_DECL);
-	test::eq(pool.get(bbb.name)!!, "BBB");
+	test::eq(pool.get(bbb.name.id)!!, "BBB");
 }
