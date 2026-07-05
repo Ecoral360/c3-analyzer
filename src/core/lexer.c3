@@ -1305,6 +1305,7 @@ struct ContractLexer
 {
 	Lexer lexer;
 	String description;
+	int desc_len;
 }
 
 <*
@@ -1316,9 +1317,9 @@ fn void ContractLexer.init(&self, String contract)
 	String inner = contract[2:^4];
 	plog::debug("ContractLexer - string = %s", inner);
 
-	usz i              = 0;
+	sz i              = 0;
 	bool line_start    = true;
-	usz first_at_index = inner.len;
+	sz first_at_index = inner.len;
 
 	// Scan for the first '@' that starts a line
 	while (i < inner.len)
@@ -1344,6 +1345,7 @@ fn void ContractLexer.init(&self, String contract)
 	}
 
 	self.description = inner[0:first_at_index].trim();
+	self.desc_len = (int)first_at_index;
 
 	self.lexer = { .buffer = inner[first_at_index..], .index = 0 };
 	plog::debug("ContractLexer - buffer = %s", self.lexer.buffer);
