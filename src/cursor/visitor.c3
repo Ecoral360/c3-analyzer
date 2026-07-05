@@ -41,8 +41,38 @@ fn bool visit_children(Cursor parent, CursorVisitor visitor, void* data)
 	Node* node = parent.node;
 	ModuleSection* sec = parent.section;
 
+	// TODO:
+ 
 	switch (node.kind)
 	{
+		case MODULE_DECL:
+		{
+			ModuleDecl* md = node.as(MODULE_DECL);
+			if (md.path && visit({sec, md.path}, parent, visitor, data)) return false;
+			foreach (attr : md.attributes)
+			{
+				if (!visit({sec, attr}, parent, visitor, data)) return false;
+			}
+			if (md.generics && visit({sec, md.generics}, parent, visitor, data)) return false;
+			if (try contract = md.contract.get())
+			{
+				if (!visit({sec, contract}, parent, visitor, data)) return false;
+			}
+			break;
+		}
+		case IMPORT_DECL:
+		{
+			ImportDecl* id = node.as(IMPORT_DECL);
+			foreach (attr : id.attributes)
+			{
+				if (!visit({sec, attr}, parent, visitor, data)) return false;
+			}
+			foreach (path : id.paths)
+			{
+				if (!visit({sec, path}, parent, visitor, data)) return false;
+			}
+			break;
+		}
 		case FN_DECL:
 		{
 			FnDecl* fndecl = node.as(FN_DECL);
@@ -78,6 +108,48 @@ fn bool visit_children(Cursor parent, CursorVisitor visitor, void* data)
 			if (structdecl.type)
 			{
 				if (!visit({sec, structdecl.type}, parent, visitor, data)) return false;
+			}
+			break;
+		}
+
+		case ATTRIBUTE_DECL:
+		{
+			AttributeDecl* attr = node.as(ATTRIBUTE_DECL);
+			if (try val = attr.path.get())
+			{
+				if (!visit({sec, val}, parent, visitor, data)) return false;
+			}
+			
+			foreach (expr : attr.exprs)
+			{
+				if (!visit({sec, expr}, parent, visitor, data)) return false;
+			}
+
+			break;
+		}
+
+		case ENUM_DECL:
+		{
+			EnumDecl* ed = node.as(ENUM_DECL);
+			if (ed.backing_type)
+			{
+				if (!visit({sec, ed.backing_type}, parent, visitor, data)) return false;
+			}
+			foreach (inter : ed.interfaces)
+			{
+				if (!visit({sec, inter}, parent, visitor, data)) return false;
+			}
+			foreach (vari : ed.variants)
+			{
+				if (!visit({sec, vari}, parent, visitor, data)) return false;
+			}
+			foreach (attr : ed.attributes)
+			{
+				if (!visit({sec, attr}, parent, visitor, data)) return false;
+			}
+			foreach (param : ed.assoc_params)
+			{
+				if (!visit({sec, param}, parent, visitor, data)) return false;
 			}
 			break;
 		}
@@ -193,6 +265,32 @@ fn bool visit_children(Cursor parent, CursorVisitor visitor, void* data)
 			break;
 		}
 
+		case INTERFACE_DECL:
+		{
+			InterfaceDecl* inter = node.as(INTERFACE_DECL);
+			foreach (val : inter.interfaces)
+			{
+				if (!visit({sec, val}, parent, visitor, data)) return false;
+			}
+			foreach (val : inter.attributes)
+			{
+				if (!visit({sec, val}, parent, visitor, data)) return false;
+			}
+			foreach (val : inter.methods)
+			{
+				if (!visit({sec, val}, parent, visitor, data)) return false;
+			}
+			break;
+		}
+
+		case GENERIC_DECL:
+		{
+			GenericDecl* gd = node.as(GENERIC_DECL);
+			foreach (val : gd.params)
+			{
+				if (!visit({sec, val}, parent, visitor, data)) return false;
+			}
+		}
 		default:
 			break;
 	}
