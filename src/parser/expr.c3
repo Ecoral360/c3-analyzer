@@ -76,7 +76,7 @@ fn Node*? parse_type_expr(ContextScope scope, Node* path_expr = null)
 
 	plog::debug("parse_type_expr");
 
-	Node* current_type = ctx.ast.alloc_node(TYPE_EXPR, start, ctx.current().pos);
+	Node* current_type = ctx.ast.alloc_node(TYPE_EXPR, start, ctx.current().end_pos());
 	TypeExpr* data     = current_type.as(TYPE_EXPR);
 
 	if (consume(ctx, CT_TYPEFROM)!)
