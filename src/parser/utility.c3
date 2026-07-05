@@ -376,10 +376,19 @@ fn bool check_if_typed_parameter(ParseContext* ctx)
 {
 	TokenKind first  = ctx.current().kind;
 
-	if (is_type_primitive(first) || first == TYPE_IDENT)
+	if (is_type(ctx))
 	{
 		return true;
 	}
+
+	if (first == IDENT)
+	{
+		if (ctx.can_peek(1) && ctx.peek(1)!!.kind == SCOPE)
+		{
+			return true;
+		}
+	}
+
 	return false;
 }
 
