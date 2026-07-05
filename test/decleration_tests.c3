@@ -51,6 +51,7 @@ fn void function_with_params()
 		fn void untyped_variadic(...) {}
 		fn void with_attributes(Type name @noalias) {}
 		fn void untyped(args...) {}
+		fn void path_prefixed(bar::Foo* foo) {}
 	`;
 	Workspace ws;
 	ws.init(mem, { .use_sema = true });
@@ -63,7 +64,7 @@ fn void function_with_params()
 	ModuleSection* s = mod.sections[0];
 
 	test::eq(parser_tests::count_kind(s, MODULE_DECL), 1);
-	test::eq(parser_tests::count_kind(s, FN_DECL), 7);
+	test::eq(parser_tests::count_kind(s, FN_DECL), 8);
 }
 
 fn void method_with_params()
