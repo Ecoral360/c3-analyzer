@@ -302,6 +302,94 @@ fn Node* find_innermost_node(Node* node, int offset, SourceFile* sf)
 	return node;
 }
 
+fn List{Node*} get_node_path(Node* node, int offset, SourceFile* sf)
+{
+	List{Node*} node_path; node_path.tinit();
+	get_node_path_impl(node, offset, sf, &node_path);
+	return node_path;
+}
+
+macro void get_node_path_from_nodes(SourceFile* sf, int offset, List{Node*}* node_path, ...) @local 
+{
+	$for int $i = 0; $i < $vaarg.len; $i++:
+		$if $Typeof($vaarg[$i]) == NodeArray:
+			foreach (node : $vaarg[$i])
+			{
+				if (get_node_path_impl(node, offset, sf, node_path)) break;
+			}
+		$else
+			get_node_path_impl($vaarg[$i], offset, sf, node_path);
+		$endif
+	$endfor
+}
+
+fn bool get_node_path_impl(Node* node, int offset, SourceFile* sf, List{Node*}* node_path) @local
+{
+	if (node == null) return false;
+
+	if (offset < node.offset.start || offset > node.offset.end) return false;
+
+	node_path.push(node);
+
+	switch (node.kind)
+	{
+		case FN_DECL:
+			FnDecl* fndecl = node.as(FN_DECL);
+			get_node_path_from_nodes(sf, offset, node_path, fndecl.associated_type, fndecl.ret_type, fndecl.params, fndecl.attributes, fndecl.body);
+
+		case COMPOUND_STMT:
+			CompoundStmt* comp = node.as(COMPOUND_STMT);
+			get_node_path_from_nodes(sf, offset, node_path, comp.statements);
+
+		case VAR_DECL:
+			VarDecl* vardecl = node.as(VAR_DECL);
+			get_node_path_from_nodes(sf, offset, node_path, vardecl.type, vardecl.init_expr, vardecl.bit_end, vardecl.attributes, vardecl.assoc_values, vardecl.next);
+
+		case IF_STMT:
+			IfStmt* if_stmt = node.as(IF_STMT);
+			get_node_path_from_nodes(sf, offset, node_path, if_stmt.condition, if_stmt.then_body, if_stmt.else_body);
+
+		case RETURN_STMT:
+			ReturnStmt* ret = node.as(RETURN_STMT);
+			if (ret.expr != null)
+			{
+				get_node_path_from_nodes(sf, offset, node_path, ret.expr);
+			}
+		
+		case EXPR_STMT:
+			get_node_path_from_nodes(sf, offset, node_path, node.as(EXPR_STMT).expr_stmt);
+
+		case COND_EXPR:
+			get_node_path_from_nodes(sf, offset, node_path, node.as(COND_EXPR).exprs);
+
+		case CALL_EXPR:
+			CallExpr* call_expr = node.as(CALL_EXPR);
+			get_node_path_from_nodes(sf, offset, node_path, call_expr.callee, call_expr.macro_body_expr, call_expr.args, call_expr.attributes);
+
+		case BINARY_EXPR:
+			BinaryExpr* bin = node.as(BINARY_EXPR);
+			get_node_path_from_nodes(sf, offset, node_path, bin.left, bin.right);
+
+		case ACCESS_EXPR:
+			AccessExpr* access = node.as(ACCESS_EXPR);
+			get_node_path_from_nodes(sf, offset, node_path, access.left);
+			
+			if (access.member != null && access.member.kind != MISSING)
+			{
+				get_node_path_from_nodes(sf, offset, node_path, access.member);
+			}
+			
+			if (offset >= (int)access.left.offset.end)
+			{
+				get_node_path_from_nodes(sf, (int)access.left.offset.end, node_path, access.left);
+			}
+
+		default:
+			break;
+	}
+
+	return true;
+}
 <*
  Extracts the raw, un-prefixed identifier string from a TYPE_EXPR node.
  Example: 'List*' -> 'List'

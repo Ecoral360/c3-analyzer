@@ -54,6 +54,49 @@ fn void basic_cursor_test()
 	test::eq(hello_cursor.node.kind, NodeKind.FN_DECL);
 }
 
+fn void node_path()
+{
+	String source_code = `
+		module hello;
+		fn Bar foo(FoFn x = fn () => abort(), Foo y = {}) {
+			if (x())
+			{
+				return y;
+			}
+		}    
+	`;
+
+	Workspace ws;
+	ws.init(mem, { .use_sema = true });
+	defer ws.free();
+
+	ProcessResult res = workspace::process_batch(&ws, mem, { 
+		{ .uri = "hello.c3", .source_text = source_code }, 
+	})!!;
+	defer res.free();
+	test::eq(res.has_errors, false);
+
+	Module* mod      = ws.modules.get("hello")!!;
+	ModuleSection* s = mod.sections[0];
+
+
+	Node* module_node       = s.nodes[0];
+	ModuleDecl* module_decl = module_node.as(MODULE_DECL);
+
+	List{Cursor} foo_cursors = ws.lookup_cursors("hello", "foo")!!;
+
+	Cursor foo = foo_cursors[0];
+
+
+	List{Node*} path = cursor::get_node_path(foo.node, 78, s.source_file);
+	foreach(n : path)
+	{
+		io::printfn("%s (%s)", (Cursor){.node = n, .section = s}.spelling(tmem)!!, n.kind);
+	}
+
+	test::eq(path.len(), 6);
+}
+
 fn void signature_test()
 {
 	String source_code = `
