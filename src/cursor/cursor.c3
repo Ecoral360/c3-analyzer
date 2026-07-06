@@ -429,16 +429,57 @@ fn String? Cursor.signature_text(&self)
 {
 	String text = self.source_text()!;
 
-	sz end_idx = text.len;
 	for (sz i = 0; i < text.len; i++)
 	{
 		char c = text[i];
 		if (c == '{' || c == ';')
 		{
-			end_idx = i - 1;
-			break;
+			return text[..i - 1].trim();
 		}
 	}
 
-	return text[..end_idx].trim();
+	return text.trim();
+}
+
+
+fn Node*? Cursor.contract(&self)
+{
+	switch (self.node.kind)
+	{
+		case FN_DECL:
+		{
+			FnDecl* decl = self.node.as(FN_DECL);
+			if (try val = decl.contract.get())
+			{
+				return val;
+			}
+		}
+		case MACRO_DECL:
+		{
+			MacroDecl* decl = self.node.as(MACRO_DECL);
+			if (try val = decl.contract.get())
+			{
+				return val;
+			}
+		}
+		default:
+			break;
+	}
+
+	return null;
+}
+
+<*
+*>
+fn String? Cursor.docs(&self)
+{
+	if (!self.node.is_valid()) return "";
+
+	if (try val = self.contract() && val)
+	{
+		StringPool* pool = &self.section.source_file.ast.string_pool;
+		return pool.get(val.as(CONTRACT_DECL).comment.id);
+	}
+
+	return "";
 }
