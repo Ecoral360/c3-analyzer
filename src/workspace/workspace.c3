@@ -308,6 +308,25 @@ fn Cursor Workspace.find_leaf_at_location(&self, String file_path, Location loc)
 	return {};
 }
 
+fn List{Cursor}? Workspace.lookup_cursors(&self, String module_name, String symbol_name) @if($feature(SEMA))
+{
+	Module* mod = self.modules.get(module_name)!;
+
+	List{SymbolEntry}* symbols = self.lookup_in_module(module_name, symbol_name)!;
+	List{Cursor} cursors;
+	cursors.tinit();
+	foreach (sym : symbols)
+	{
+		foreach (sec : mod.sections)
+		{
+			if (sec.id != (ulong) sym.section_id) continue;
+			cursors.push({ .node = sym.node, .section = sec });
+		}
+	}
+
+	return cursors;
+}
+
 fn List{SymbolEntry}*? Workspace.lookup(&self, String module_name, String symbol_name) @if($feature(SEMA)) @inline
 {
 	return self.lookup_in_module(module_name, symbol_name)!;

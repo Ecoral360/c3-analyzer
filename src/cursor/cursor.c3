@@ -429,14 +429,54 @@ fn String? Cursor.signature_text(&self)
 {
 	String text = self.source_text()!;
 
-	for (sz i = 0; i < text.len; i++)
+	switch (self.node.kind)
 	{
-		char c = text[i];
-		if (c == '{' || c == ';')
-		{
-			return text[..i - 1].trim();
-		}
+		case FN_DECL:
+			FnDecl* fn_decl = self.node.as(FN_DECL);
+			if (fn_decl.body)
+			{
+				return self.section.source_file.source[self.node.offset.start..fn_decl.body.offset.start - 1]
+					.trim()
+					.strip_suffix("{")
+					.strip_suffix("=>")
+					.trim();
+			}
+			else 
+			{
+				return self.section.source_file.source[self.node.offset.start..self.node.offset.end - 1].trim();
+			}
+
+
+		case MACRO_DECL:
+			MacroDecl* mac_decl = self.node.as(MACRO_DECL);
+			return self.section.source_file.source[self.node.offset.start..mac_decl.body.offset.start - 1]
+				.trim()
+				.strip_suffix("{")
+				.strip_suffix("=>")
+				.trim();
+
+		case ATTRDEF_DECL:
+		case ATTRIBUTE_DECL:
+		case CONTRACT_DECL:
+		case STRUCT_DECL:
+		case ENUM_DECL:
+		case VAR_DECL:
+		case MODULE_DECL:
+		case IMPORT_DECL:
+		case ALIAS_DECL:
+		case TYPEDEF_DECL:
+		case FAULT_DECL:
+		case FAULTDEF_DECL:
+		case GENERIC_DECL:
+		case INTERFACE_DECL:
+		case CT_EXPAND_DECL:
+		case CT_ASSERT_DECL:
+			break;
+
+		default:
+			return UNEXPECTED_KIND~;
 	}
+
 
 	return text.trim();
 }

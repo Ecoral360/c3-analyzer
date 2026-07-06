@@ -39,10 +39,10 @@ struct ModSection
 fn void ModSection.init(&self, Module* mod, SourceFile* sf, Allocator alloc)
 {
 	self.id = next_section_id++;
-    self.allocator = alloc;
-    self.source_file = sf;
-    self.parent_module = mod;
-    self.diagnostics.init(alloc);
+	self.allocator = alloc;
+	self.source_file = sf;
+	self.parent_module = mod;
+	self.diagnostics.init(alloc);
 }
 
 struct Mod

@@ -4,9 +4,9 @@ import analyzer::core;
 
 struct SymbolEntry
 {
-    Node* node;
+	Node* node;
 	<* `@if(expr)` *>
-    Node* condition;
+	Node* condition;
 	sz section_id;
 }
 
