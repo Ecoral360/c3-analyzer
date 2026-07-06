@@ -439,8 +439,10 @@ fn void? parse(ParseContext* ctx) => @pool()
 	tokens.init(tmem, 1000);
 	while (try token = lexer.next())
 	{
+		if (token.kind == LINE_COMMENT || token.kind == BLOCK_COMMENT) continue;
+
 		tokens.push(token);
-		//plog::debug("Added token: <%s> - %s", token.kind, ctx.token_text(token));
+		plog::debug("Added token: <%s> - %s", token.kind, ctx.token_text(token));
 	}
 
 	tokens.push({ .kind = EOF, .pos = (tokens.last().pos + tokens.last().len) ?? 0, .len = 0 });
