@@ -10,8 +10,13 @@ const sz ARENA_PAGE_SIZE = 4096;
 
 sz next_node_id = 1;
 
-alias NodeArray = Node*[];
+// alias NodeArray = Node*[];
 alias NullableNode = Nullable{Node};
+
+struct NodeArray 
+{
+	Node*[] nodes;
+}
 
 bitstruct NodeFlags : ushort
 {
@@ -32,6 +37,8 @@ struct Node
 
 	union
 	{
+		NodeArray nodes;
+
 		ErrorNode error;
 
 		// DECL
