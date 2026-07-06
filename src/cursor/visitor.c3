@@ -10,7 +10,7 @@ enum ChildVisitResult : int
 	RECURSE   // Dive into the children of the current node
 }
 
-alias CursorVisitor = fn ChildVisitResult(Cursor cursor, Cursor parent, void* user_data, args...);
+alias CursorVisitor = fn ChildVisitResult(Cursor cursor, Cursor parent, void* user_data);
 
 // Helper to visit a node if it's valid
 fn bool visit(Cursor child, Cursor parent, CursorVisitor visitor, void* data)
