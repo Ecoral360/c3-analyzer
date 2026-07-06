@@ -78,6 +78,12 @@ fn Node*? parse_type_expr(ContextScope scope, Node* path_expr = null)
 
 	Node* current_type = ctx.ast.alloc_node(TYPE_EXPR, start, ctx.current().end_pos());
 	TypeExpr* data     = current_type.as(TYPE_EXPR);
+	defer {
+		if (try end = ctx.peek(-1))
+		{
+			current_type.offset.end = end.end_pos();
+		}
+	}
 
 	if (consume(ctx, CT_TYPEFROM)!)
 	{
@@ -105,6 +111,7 @@ fn Node*? parse_type_expr(ContextScope scope, Node* path_expr = null)
 		data.kind = TYPE_IDENTIFIER;
 		data.unresolved.name = ctx.ident(t);
 		data.unresolved.path = null;
+		current_type.offset.end = t.end_pos();
 	}
 	else
 	{
@@ -120,9 +127,8 @@ fn Node*? parse_type_expr(ContextScope scope, Node* path_expr = null)
 		data.kind = TYPE_IDENTIFIER;
 		data.unresolved.name = ctx.ident(t);
 		data.unresolved.path = path;
+		current_type.offset.end = t.end_pos();
 	}
-
-	current_type.offset.end = ctx.current().pos;
 
 	while (true)
 	{
@@ -134,6 +140,7 @@ fn Node*? parse_type_expr(ContextScope scope, Node* path_expr = null)
 			advance(ctx)!;
 			plog::debug("set type to optional");
 			current_type.as(TYPE_EXPR).optional = true;
+			current_type.offset.end = t.end_pos();
 			continue;
 		}
 
@@ -149,6 +156,7 @@ fn Node*? parse_type_expr(ContextScope scope, Node* path_expr = null)
 
 			// Swap current_type out so the next iteration wraps THIS layer
 			current_type = ptr_node;
+			current_type.offset.end = t.end_pos();
 			continue;
 		}
 
