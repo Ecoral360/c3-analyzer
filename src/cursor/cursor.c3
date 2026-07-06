@@ -309,18 +309,20 @@ fn List{Node*} get_node_path(Node* node, int offset, SourceFile* sf)
 	return node_path;
 }
 
-macro void get_node_path_from_nodes(SourceFile* sf, int offset, List{Node*}* node_path, ...) @local 
+macro void get_node_path_from_nodes(SourceFile* sf, int offset, List{Node*}* node_path, node_val) @local 
 {
-	$for int $i = 0; $i < $vaarg.len; $i++:
-		$if $Typeof($vaarg[$i]) == NodeArray:
-			foreach (node : $vaarg[$i])
-			{
-				if (get_node_path_impl(node, offset, sf, node_path)) break;
-			}
-		$else
-			get_node_path_impl($vaarg[$i], offset, sf, node_path);
-		$endif
-	$endfor
+	$foreach $member : $Typeof(node_val)::members:
+		$switch $member.type:
+			$case NodeArray:
+				foreach (node : node_val.$member)
+				{
+					if (get_node_path_impl(node, offset, sf, node_path)) break;
+				}
+
+			$case Node*:
+				get_node_path_impl(node_val.$member, offset, sf, node_path);
+		$endswitch
+	$endforeach
 }
 
 fn bool get_node_path_impl(Node* node, int offset, SourceFile* sf, List{Node*}* node_path) @local
@@ -331,65 +333,23 @@ fn bool get_node_path_impl(Node* node, int offset, SourceFile* sf, List{Node*}* 
 
 	node_path.push(node);
 
-	switch (node.kind)
-	{
-		case FN_DECL:
-			FnDecl* fndecl = node.as(FN_DECL);
-			get_node_path_from_nodes(sf, offset, node_path, fndecl.associated_type, fndecl.ret_type, fndecl.params, fndecl.attributes, fndecl.body);
+	var $impl_switch = "switch (node.kind) {";
 
-		case COMPOUND_STMT:
-			CompoundStmt* comp = node.as(COMPOUND_STMT);
-			get_node_path_from_nodes(sf, offset, node_path, comp.statements);
+	$foreach $node_kind : NodeKind::values :
+		$if $node_kind != MISSING &&& $node_kind != NOP_STMT:
+			$impl_switch +++= @sprintf("case %s: ", $node_kind.description);
+			$impl_switch +++= @sprintf("var %s @safeinfer = node.as(%s);", @str_lower($node_kind.description), $node_kind.description);
+			$impl_switch +++= @sprintf("get_node_path_from_nodes(sf, offset, node_path, *%s);", @str_lower($node_kind.description));
+		$endif
 
-		case VAR_DECL:
-			VarDecl* vardecl = node.as(VAR_DECL);
-			get_node_path_from_nodes(sf, offset, node_path, vardecl.type, vardecl.init_expr, vardecl.bit_end, vardecl.attributes, vardecl.assoc_values, vardecl.next);
+	$endforeach
 
-		case IF_STMT:
-			IfStmt* if_stmt = node.as(IF_STMT);
-			get_node_path_from_nodes(sf, offset, node_path, if_stmt.condition, if_stmt.then_body, if_stmt.else_body);
-
-		case RETURN_STMT:
-			ReturnStmt* ret = node.as(RETURN_STMT);
-			if (ret.expr != null)
-			{
-				get_node_path_from_nodes(sf, offset, node_path, ret.expr);
-			}
-		
-		case EXPR_STMT:
-			get_node_path_from_nodes(sf, offset, node_path, node.as(EXPR_STMT).expr_stmt);
-
-		case COND_EXPR:
-			get_node_path_from_nodes(sf, offset, node_path, node.as(COND_EXPR).exprs);
-
-		case CALL_EXPR:
-			CallExpr* call_expr = node.as(CALL_EXPR);
-			get_node_path_from_nodes(sf, offset, node_path, call_expr.callee, call_expr.macro_body_expr, call_expr.args, call_expr.attributes);
-
-		case BINARY_EXPR:
-			BinaryExpr* bin = node.as(BINARY_EXPR);
-			get_node_path_from_nodes(sf, offset, node_path, bin.left, bin.right);
-
-		case ACCESS_EXPR:
-			AccessExpr* access = node.as(ACCESS_EXPR);
-			get_node_path_from_nodes(sf, offset, node_path, access.left);
-			
-			if (access.member != null && access.member.kind != MISSING)
-			{
-				get_node_path_from_nodes(sf, offset, node_path, access.member);
-			}
-			
-			if (offset >= (int)access.left.offset.end)
-			{
-				get_node_path_from_nodes(sf, (int)access.left.offset.end, node_path, access.left);
-			}
-
-		default:
-			break;
-	}
+	$impl_switch +++= "default: }";
+	$expand($impl_switch);
 
 	return true;
 }
+
 <*
  Extracts the raw, un-prefixed identifier string from a TYPE_EXPR node.
  Example: 'List*' -> 'List'

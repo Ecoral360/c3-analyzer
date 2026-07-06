@@ -132,7 +132,7 @@ struct Node
 macro Node.as(&self, NodeKind $kind)
 {
 	assert(self.kind == $kind, "Invalid kind current: \"%s\" expected: \"%s\"", self.kind, $kind);
-	return &self.$eval(utils::@str_to_lower($kind.description));
+	return &self.$eval(@str_lower($kind.description));
 }
 
 fn bool Node.is_valid(&self) @inline
