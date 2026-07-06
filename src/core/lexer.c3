@@ -526,21 +526,7 @@ fn void? Lexer.skip_whitespace(Lexer* self)
 			case '\t':
 			case '\r':
 			case '\n':
-				self.index++;
-				break;
-			case '/':
-				if (self.peek_next() == '/')
-				{
-					self.skip_line_comment()!;
-				}
-				else if (self.peek_next() == '*')
-				{
-					self.skip_block_comment()!;
-				}
-				else
-				{
-					return;
-				}
+				self.advance()!;
 				break;
 			default:
 				return;
@@ -548,45 +534,51 @@ fn void? Lexer.skip_whitespace(Lexer* self)
 	}
 }
 
-fn void? Lexer.skip_line_comment(Lexer* self)
+fn Token? Lexer.lex_line_comment(Lexer* self, int start_pos)
 {
-	self.index += 2;
-	while (self.index < self.buffer.len && self.buffer[self.index] != '\n')
+	self.advance(2)!;
+	while (!self.eof())
 	{
+		if (self.peek() == '\n') break;
+		
 		self.advance()!;
 	}
+	return self.emit(LINE_COMMENT, start_pos, self.index - start_pos);
 }
 
-fn void? Lexer.skip_block_comment(Lexer* self)
+fn Token? Lexer.lex_block_comment(Lexer* self, int start_pos)
 {
-	self.index += 2; // Skip the initial '/*'
+	self.advance(2)!;; // Skip the initial '/*'
 	int depth = 1;
-
-	while (self.index < self.buffer.len && depth > 0)
+	while (!self.eof() && depth != 0)
 	{
-		// Look for nested start: '/*'
-		if (self.buffer[self.index] == '/' && self.peek_next() == '*')
+		if (self.peek() == '/' && self.peek(1) == '*')
 		{
+			self.advance(2)!;
 			depth++;
-			self.index += 2;
-			continue;
 		}
-
-		// Look for end: '*/'
-		if (self.buffer[self.index] == '*' && self.peek_next() == '/')
+		else if (self.peek() == '*' && self.peek(1) == '/')
 		{
+			self.advance(2)!;
 			depth--;
-			self.index += 2;
-			continue;
 		}
-
-		self.advance()!;
+		else
+		{
+			self.advance()!;
+		}
 	}
+
+	if (depth > 0)
+	{
+		return INVALID~; 
+	}
+
+	return self.emit(BLOCK_COMMENT, start_pos, self.index - start_pos);
 }
 
 fn Token? Lexer.lex_char(Lexer* self, int start)
 {
-	self.index++;
+	self.advance()!;
 
 	while (self.index < self.buffer.len)
 	{
@@ -594,28 +586,28 @@ fn Token? Lexer.lex_char(Lexer* self, int start)
 
 		if (c == '\'')
 		{
-			self.index++;
+			self.advance()!;
 			return { CHAR_LITERAL, start, self.index - start };
 		}
 
 		if (c == '\\')
-        {
-            char next = self.peek_next();
-            if (next == 'x')
+		{
+			char next = self.peek_next();
+			if (next == 'x')
 			{
-                self.index += 4; 
-            } 
+			   	self.advance(4)!;
+			} 
 			else 
 			{
-                self.index += 2;
-            }
-            continue;
-        }
+				self.advance(2)!;
+			}
+			continue;
+		}
 
-		self.index++;
+		self.advance()!;
 	}
 
-	return { INVALID, start, self.index - start };
+	return self.emit(INVALID, start, self.index - start);
 }
 
 fn Token? Lexer.lex_string(Lexer* self, int start)
@@ -628,25 +620,25 @@ fn Token? Lexer.lex_string(Lexer* self, int start)
 
 		if (c == '"')
 		{
-			self.index++;
-			return (Token) { STRING_LITERAL, start, self.index - start };
+			self.advance()!;
+			return self.emit(STRING_LITERAL, start, self.index - start);
 		}
 
 		if (c == '\\')
 		{
-			self.index += 2;
+			self.advance(2)!;
 			continue;
 		}
 
-		self.index++;
+		self.advance()!;
 	}
 
-	return (Token) { INVALID, start, self.index - start };
+	return self.emit(INVALID, start, self.index - start);
 }
 
 fn Token? Lexer.lex_raw_string(Lexer* self, int start)
 {
-	self.index++; // Skip the opening `
+	self.advance()!; // Skip the opening `
 
 	while (self.index < self.buffer.len)
 	{
@@ -654,18 +646,18 @@ fn Token? Lexer.lex_raw_string(Lexer* self, int start)
 		{
 			if (self.peek_next() == '`')
 			{
-				self.index += 2;
+				self.advance(2)!;
 				continue;
 			}
 			else
 			{
 				self.index++;
-				return (Token) { STRING_LITERAL, start, self.index - start };
+				return self.emit(STRING_LITERAL, start, self.index - start);
 			}
 		}
-		self.index++;
+		self.advance()!;
 	}
-	return { INVALID, start, self.index - start };
+	return  self.emit(INVALID, start, self.index - start);
 }
 
 fn TokenKind lookup_keyword(String text)
@@ -946,7 +938,7 @@ fn void? Lexer.advance(Lexer* self, int len = 1) @inline
 
 fn Token Lexer.emit(&self, TokenKind kind, int pos, int len) @inline
 {
-	return (Token) { .kind = kind, .pos = pos, .len = len };
+	return { .kind = kind, .pos = pos, .len = len };
 }
 
 fn Token? Lexer.next(&self)
@@ -1159,6 +1151,12 @@ fn Token? Lexer.next(&self)
 		case ';': self.advance()!; return self.emit(EOS, start, 1);
 		case ',': self.advance()!; return self.emit(COMMA, start, 1);
 		case '/':
+			switch (self.peek(1))
+			{
+				case '/': return self.lex_line_comment(start);
+				case '*': return self.lex_block_comment(start);
+				default: break;
+			}
 			self.advance()!;
 			if (self.peek() == '=')
 			{
