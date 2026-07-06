@@ -654,7 +654,7 @@ fn Node*? parse_var_decl(ContextScope scope, Node* type = null)
 {
 	ParseContext* ctx = scope.ctx;
 	ParseFlags flags = scope.flags;
-	int start_pos = ctx.current().pos;
+	int start_pos = (type != null) ? type.offset.start : ctx.current().pos;
 
 	Node* contract;
 	if (ctx.is(CONTRACT))
@@ -680,7 +680,7 @@ fn Node*? parse_var_decl(ContextScope scope, Node* type = null)
 			unexpected(ctx, "A local variable cannot be 'inline'");
 		}
 	}
-
+	
 	Node* type_node = type;
 
 	if (!type_node)
@@ -730,7 +730,8 @@ fn Node*? parse_var_decl(ContextScope scope, Node* type = null)
 		plog::debug("var name: %s", ctx.token_text(t));
 		advance(ctx)!;
 
-		Node* var_node    = ctx.ast.alloc_node(VAR_DECL, t.pos);
+		int var_start = (head_node == null) ? start_pos : t.pos;
+		Node* var_node    = ctx.ast.alloc_node(VAR_DECL, var_start);
 		VarDecl* var_decl = var_node.as(VAR_DECL);
 
 		if (ctx.is(AT_IDENT) || ctx.is(AT_TYPE_IDENT))
