@@ -4,7 +4,7 @@ import std::io;
 import analyzer::core::plog;
 
 faultdef
-	INVALID, UNEVEN_HEXADECIMAL, CONTRACT_NOT_CLOSED, INVALID_CONTRACT
+	INVALID, TOKEN_NOT_FOUND, UNEVEN_HEXADECIMAL, CONTRACT_NOT_CLOSED, INVALID_CONTRACT
 ;
 
 enum TokenKind : ushort
@@ -413,6 +413,26 @@ enum TokenKind : ushort
 	AT_NOINLINE,
 
 	EOF
+}
+
+fn Token? Lexer.find_token_at(&self, int offset)
+{
+	while (!self.eof())
+	{
+		Token? t = self.next();
+		if (try t && offset >= t.pos && offset < t.end_pos()) return t;
+	}
+	return TOKEN_NOT_FOUND~;
+}
+
+fn bool TokenKind.is_keyword(self) @inline
+{
+	return self.ordinal >= TokenKind.ALIAS.ordinal && self.ordinal <= TokenKind.WHILE.ordinal;
+}
+
+fn bool TokenKind.is_base_type(self) @inline
+{
+	return self.ordinal >= TokenKind.VOID_TYPE.ordinal && self.ordinal <= TokenKind.UNTYPEDLIST_TYPE.ordinal;
 }
 
 fn bool TokenKind.is_int_literal(
