@@ -25,22 +25,17 @@ fn Node*? parse_fn_type_expr(ContextScope scope) => @pool()
 	ParseContext* ctx = scope.ctx;
 	int start = ctx.current().pos;
 	expect(ctx, FN)!;
-	Node* node        = ctx.ast.alloc_node(TYPE_EXPR, start);
-	TypeExpr* fn_type = node.as(TYPE_EXPR);
+	TypeExpr* node = ctx.ast.alloc_node(TypeExpr, start);
 
-	fn_type.kind = TYPE_FUNCTION;
-	fn_type.func.ret_type = parse_type_expr(scope)!;
-	if (is_error_or_missing_node(fn_type.func.ret_type))
-	{
-		node.kind = MISSING;
-	}
+	node.type_kind = TYPE_FUNCTION;
+	node.func.ret_type = parse_type_expr(scope)!;
 
-	fn_type.func.params = parse_parameter_list(scope)!;
+	node.func.params = parse_parameter_list(scope)!;
 	node.offset.end = ctx.current().pos;
 
-	fn_type.func.attributes = parse_attributes(scope, node)!;
+	node.func.attributes = parse_attributes(scope, node)!;
 
-	return node;
+	return (Node*)node;
 }
 
 <*
@@ -76,8 +71,7 @@ fn Node*? parse_type_expr(ContextScope scope, Node* path_expr = null)
 
 	plog::debug("parse_type_expr");
 
-	Node* current_type = ctx.ast.alloc_node(TYPE_EXPR, start, ctx.current().end_pos());
-	TypeExpr* data     = current_type.as(TYPE_EXPR);
+	TypeExpr* current_type = ctx.ast.alloc_node(TypeExpr, start, ctx.current().end_pos());
 	defer {
 		if (try end = ctx.peek(-1))
 		{
@@ -87,18 +81,18 @@ fn Node*? parse_type_expr(ContextScope scope, Node* path_expr = null)
 
 	if (consume(ctx, CT_TYPEFROM)!)
 	{
-		data.kind = TYPE_TYPEFROM;
+		current_type.type_kind = TYPE_TYPEFROM;
 		expect(ctx, LPAREN)!;
-		data.expr = parse_expr(scope)!;
-		current_type.offset.end = data.expr.offset.end;
+		current_type.expr = parse_expr(scope)!;
+		current_type.offset.end = current_type.expr.offset.end;
 		expect(ctx, RPAREN)!;
 	}
 	else if (consume(ctx, CT_TYPEOF)!)
 	{
-		data.kind = TYPE_TYPEOF;
+		current_type.type_kind = TYPE_TYPEOF;
 		expect(ctx, LPAREN)!;
-		data.expr = parse_expr(scope)!;
-		current_type.offset.end = data.expr.offset.end;
+		current_type.expr = parse_expr(scope)!;
+		current_type.offset.end = current_type.expr.offset.end;
 		expect(ctx, RPAREN)!;
 	}
 
@@ -108,9 +102,9 @@ fn Node*? parse_type_expr(ContextScope scope, Node* path_expr = null)
 		Token t = ctx.current();
 		advance(ctx)!;
 
-		data.kind = TYPE_IDENTIFIER;
-		data.unresolved.name = ctx.ident(t);
-		data.unresolved.path = null;
+		current_type.type_kind = TYPE_IDENTIFIER;
+		current_type.unresolved.name = ctx.ident(t);
+		current_type.unresolved.path = null;
 		current_type.offset.end = t.end_pos();
 	}
 	else
@@ -124,9 +118,9 @@ fn Node*? parse_type_expr(ContextScope scope, Node* path_expr = null)
 		{
 			return err;
 		}!;
-		data.kind = TYPE_IDENTIFIER;
-		data.unresolved.name = ctx.ident(t);
-		data.unresolved.path = path;
+		current_type.type_kind = TYPE_IDENTIFIER;
+		current_type.unresolved.name = ctx.ident(t);
+		current_type.unresolved.path = path;
 		current_type.offset.end = t.end_pos();
 	}
 
@@ -139,7 +133,7 @@ fn Node*? parse_type_expr(ContextScope scope, Node* path_expr = null)
 			if (flags.type_as_expression) break;
 			advance(ctx)!;
 			plog::debug("set type to optional");
-			current_type.as(TYPE_EXPR).optional = true;
+			current_type.optional = true;
 			current_type.offset.end = t.end_pos();
 			continue;
 		}
@@ -148,11 +142,10 @@ fn Node*? parse_type_expr(ContextScope scope, Node* path_expr = null)
 		{
 			advance(ctx)!;
 
-			Node* ptr_node     = ctx.ast.alloc_node(TYPE_EXPR, start, t.pos);
-			TypeExpr* ptr_data = ptr_node.as(TYPE_EXPR);
+			TypeExpr* ptr_node = ctx.ast.alloc_node(TypeExpr, start, t.pos);
 
-			ptr_data.kind = TYPE_POINTER;
-			ptr_data.modify.base = current_type; // The previous node becomes the base
+			ptr_node.type_kind = TYPE_POINTER;
+			ptr_node.modify.base = current_type; // The previous node becomes the base
 
 			// Swap current_type out so the next iteration wraps THIS layer
 			current_type = ptr_node;
@@ -164,15 +157,14 @@ fn Node*? parse_type_expr(ContextScope scope, Node* path_expr = null)
 		{
 			advance(ctx)!;
 
-			Node* vec_node     = ctx.ast.alloc_node(TYPE_EXPR, start, ctx.current().pos);
-			TypeExpr* vec_data = vec_node.as(TYPE_EXPR);
+			TypeExpr* vec_node = ctx.ast.alloc_node(TypeExpr, start, ctx.current().pos);
 
-			vec_data.kind = TYPE_VECTOR;
-			vec_data.array.base = current_type;
+			vec_node.type_kind = TYPE_VECTOR;
+			vec_node.array.base = current_type;
 
 			if (!consume(ctx, ASTERISK)!)
 			{
-				vec_data.array.len_expr = parse_expr(scope, ADDITIVE)!;
+				vec_node.array.len_expr = parse_expr(scope, ADDITIVE)!;
 			}
 
 			expect(ctx, RVEC)!;
@@ -186,29 +178,28 @@ fn Node*? parse_type_expr(ContextScope scope, Node* path_expr = null)
 		{
 			advance(ctx)!;
 
-			Node* arr_node     = ctx.ast.alloc_node(TYPE_EXPR, start, ctx.current().pos);
-			TypeExpr* arr_data = arr_node.as(TYPE_EXPR);
+			TypeExpr* arr_node = ctx.ast.alloc_node(TypeExpr, start, ctx.current().pos);
 
 			if (ctx.is(RBRACKET))
 			{
 				advance(ctx)!;
-				arr_data.kind = TYPE_SLICE;
-				arr_data.modify.base = current_type;
+				arr_node.type_kind = TYPE_SLICE;
+				arr_node.modify.base = current_type;
 			}
 			else if (ctx.is(ASTERISK) && ctx.peek(1)!.kind == RBRACKET)
 			{
 				advance(ctx)!; // Consume '*'
 				advance(ctx)!; // Consume ']'
 
-				arr_data.kind = TYPE_ARRAY;
-				arr_data.array.base = current_type;
-				arr_data.array.len_expr = null; // null represents inferred array size [*]
+				arr_node.type_kind = TYPE_ARRAY;
+				arr_node.array.base = current_type;
+				arr_node.array.len_expr = null; // null represents inferred array size [*]
 			}
 			else
 			{
-				arr_data.kind = TYPE_ARRAY;
-				arr_data.array.base = current_type;
-				arr_data.array.len_expr = parse_expr(scope)!;
+				arr_node.type_kind = TYPE_ARRAY;
+				arr_node.array.base = current_type;
+				arr_node.array.len_expr = parse_expr(scope)!;
 				expect(ctx, RBRACKET)!;
 			}
 
@@ -222,12 +213,11 @@ fn Node*? parse_type_expr(ContextScope scope, Node* path_expr = null)
 		{
 			if (flags.no_generics) break;
 
-			Node* gen_node     = ctx.ast.alloc_node(TYPE_EXPR, start, ctx.current().pos);
-			TypeExpr* gen_data = gen_node.as(TYPE_EXPR);
+			TypeExpr* gen_node = ctx.ast.alloc_node(TypeExpr, start, ctx.current().pos);
 
-			gen_data.kind = TYPE_GENERIC;
-			gen_data.generic.base = current_type;
-			gen_data.generic.params = parse_generics_list(scope)!;
+			gen_node.type_kind = TYPE_GENERIC;
+			gen_node.generic.base = current_type;
+			gen_node.generic.params = parse_generics_list(scope)!;
 
 			gen_node.offset.end = ctx.current().pos;
 			current_type = gen_node;
@@ -237,7 +227,7 @@ fn Node*? parse_type_expr(ContextScope scope, Node* path_expr = null)
 		break;
 	}
 
-	return current_type;
+	return (Node*)current_type;
 }
 
 fn Node*? parse_ident_expr(ContextScope scope)
@@ -263,13 +253,12 @@ fn Node*? parse_ident_expr(ContextScope scope)
 		case CT_IDENT:
 		case HASH_IDENT:
 			{
-				Node* node       = ctx.ast.alloc_node(IDENT_EXPR, start, ctx.current().end_pos());
-				IdentExpr* ident = node.as(IDENT_EXPR);
+				IdentExpr* ident = ctx.ast.alloc_node(IdentExpr, start, ctx.current().end_pos());
 				ident.ident = ctx.ident(t);
 				ident.path_expr = path_prefix;
 
 				advance(ctx)!;
-				return node;
+				return (Node*)ident;
 			}
 		default:
 			advance(ctx)!;
@@ -309,8 +298,8 @@ fn Node*? parse_literal_expr(ContextScope scope) => @pool()
 	Token token = ctx.current();
 	int start   = token.pos;
 
-	Node* node = ctx.ast.alloc_node(LITERAL_EXPR, start);
-	LiteralExpr* literal = node.as(LITERAL_EXPR);
+	LiteralExpr* literal = ctx.ast.alloc_node(LiteralExpr, start);
+	defer literal.offset.end = ctx.previous_end_pos();
 	String token_text    = ctx.token_text(token);
 
 	plog::debug("literal_expr: %s", token.kind.description);
@@ -318,16 +307,16 @@ fn Node*? parse_literal_expr(ContextScope scope) => @pool()
 	switch (token.kind)
 	{
 		case NULL:
-			literal.kind = NULL_LITERAL;
+			literal.literal_kind = NULL_LITERAL;
 			advance(ctx)!;
 			break;
 		case TRUE:
-			literal.kind = BOOL_LITERAL;
+			literal.literal_kind = BOOL_LITERAL;
 			literal.boolean = true;
 			advance(ctx)!;
 			break;
 		case FALSE:
-			literal.kind = BOOL_LITERAL;
+			literal.literal_kind = BOOL_LITERAL;
 			literal.boolean = false;
 			advance(ctx)!;
 			break;
@@ -335,7 +324,7 @@ fn Node*? parse_literal_expr(ContextScope scope) => @pool()
 		case INT_HEX_LITERAL:
 		case INT_OCTAL_LITERAL:
 		case INT_BIN_LITERAL:
-			literal.kind = INT_LITERAL;
+			literal.literal_kind = INT_LITERAL;
 			String clean_string = token_text.treplace("_", "");
 			int base = 10;
 			usz start_idx = 0;
@@ -394,7 +383,7 @@ fn Node*? parse_literal_expr(ContextScope scope) => @pool()
 		case FLOAT_DECIMAL_LITERAL:
 		case FLOAT_HEX_LITERAL:
 			{
-				literal.kind = REAL_LITERAL;
+				literal.literal_kind = REAL_LITERAL;
 				String clean_string = token_text.treplace("_", "");
 				sz len              = clean_string.len;
 				if (len > 0)
@@ -430,12 +419,12 @@ fn Node*? parse_literal_expr(ContextScope scope) => @pool()
 				break;
 			}
 		case STRING_LITERAL:
-			literal.kind = STRING_LITERAL;
+			literal.literal_kind = STRING_LITERAL;
 			literal.string = string_pool::EMPTY_STR;
 			parse_join_strings(scope, &literal.string)!;
 			break;
 		case BYTES_LITERAL:
-			literal.kind = BYTES_LITERAL;
+			literal.literal_kind = BYTES_LITERAL;
 			if (token_text.starts_with("b64"))
 			{
 				String payload = token_text[4:^5];
@@ -484,7 +473,7 @@ fn Node*? parse_literal_expr(ContextScope scope) => @pool()
 			}
 			break;
 		case CHAR_LITERAL:
-			literal.kind = INT_LITERAL;
+			literal.literal_kind = INT_LITERAL;
 
 			// Slice off the enclosing single quotes: 'c' -> c
 			String clean_char = token_text[1:^2];
@@ -550,7 +539,7 @@ fn Node*? parse_literal_expr(ContextScope scope) => @pool()
 			unreachable("Not implemented! (%s)", token.kind.description);
 	}
 
-	return node;
+	return (Node*)literal;
 }
 
 <*
@@ -585,8 +574,7 @@ fn Node*? parse_path_expr(ContextScope scope, PathExprOptions options = { }) => 
 		return ctx.ast.error(start_pos);
 	}
 
-	Node* node = ctx.ast.alloc_node(PATH_EXPR, start_pos, ctx.current().pos);
-	PathExpr* path = node.as(PATH_EXPR);
+	PathExpr* node = ctx.ast.alloc_node(PathExpr, start_pos, ctx.current().end_pos());
 
 	List{Ident} temp_segments;
 	temp_segments.init(tmem, 8);
@@ -616,8 +604,8 @@ fn Node*? parse_path_expr(ContextScope scope, PathExprOptions options = { }) => 
 		}
 	}
 
-	path.segments = alloc::clone_slice(ctx.arena, temp_segments.array_view());
-	return node;
+	node.segments = alloc::clone_slice(ctx.arena, temp_segments.array_view());
+	return (Node*)node;
 }
 
 fn Node*? parse_binary_expr(ContextScope scope, Node* left, Precedence prec)
@@ -628,12 +616,11 @@ fn Node*? parse_binary_expr(ContextScope scope, Node* left, Precedence prec)
 	advance(ctx)!;
 	Node* right = parse_expr(scope.with_flags({ .type_as_expression = true }), prec)!;
 
-	Node* node      = ctx.ast.alloc_node(BINARY_EXPR, start, ctx.current_pos());
-	BinaryExpr* bin = node.as(BINARY_EXPR);
-	bin.left = left;
-	bin.right = right;
-	bin.op = core::binaryop_from_token(kind);
-	return node;
+	BinaryExpr* node = ctx.ast.alloc_node(BinaryExpr, start, ctx.current().end_pos());
+	node.left = left;
+	node.right = right;
+	node.op = core::binaryop_from_token(kind);
+	return (Node*)node;
 }
 
 <*
@@ -653,8 +640,7 @@ fn Node*? parse_unary_expr(ContextScope scope)
 		}
 	}
 	bool is_bang_bang = ctx.is(BANGBANG);
-	Node* node        = ctx.ast.alloc_node(UNARY_EXPR, start_pos);
-	UnaryExpr* unary = node.as(UNARY_EXPR);
+	UnaryExpr* node = ctx.ast.alloc_node(UnaryExpr, start_pos);
 	UnaryOpKind? op  = core::unaryop_from_token(ctx.current().kind);
 	if (catch op)
 	{
@@ -662,36 +648,34 @@ fn Node*? parse_unary_expr(ContextScope scope)
 		return ctx.ast.error(ctx.current().pos);
 	}
 	advance(ctx)!;
-	unary.expr = parse_expr(scope, UNARY)!;
-	node.offset.end = unary.expr.offset.end;
+	node.expr = parse_expr(scope, UNARY)!;
+	node.offset.end = node.expr.offset.end;
 	if (is_bang_bang)
 	{
-		Node* outer          = ctx.ast.alloc_node(UNARY_EXPR, ctx.current().pos);
-		UnaryExpr* out_unary = outer.as(UNARY_EXPR);
-		out_unary.expr = node;
-		out_unary.operator = UNARYOP_NOT;
-		return outer;
+		UnaryExpr* outer = ctx.ast.alloc_node(UnaryExpr, ctx.current().pos);
+		outer.expr = node;
+		outer.operator = UNARYOP_NOT;
+		return (Node*)outer;
 	}
-	return node;
+	return (Node*)node;
 }
 
 fn Node*? parse_post_unary_expr(ContextScope scope, Node* left, Precedence bp)
 {
 	ParseContext* ctx = scope.ctx;
 	int start_pos = ctx.current().pos;
-	Node* node    = ctx.ast.alloc_node(POST_UNARY_EXPR, start_pos);
-	PostUnaryExpr* unary = node.as(POST_UNARY_EXPR);
+	PostUnaryExpr* node = ctx.ast.alloc_node(PostUnaryExpr, start_pos);
 	UnaryOpKind? op      = core::unaryop_from_token(ctx.current().kind);
 	if (catch op)
 	{
 		ctx.error("Not a unary operator (%s)", ctx.current().kind);
 		return ctx.ast.error(ctx.current().pos);
 	}
-	unary.operator = op;
-	unary.expr = left;
+	node.operator = op;
+	node.expr = left;
 	node.offset.end = ctx.current_pos();
 	advance(ctx)!;
-	return node;
+	return (Node*)node;
 }
 
 <*
@@ -702,8 +686,7 @@ fn Node*? parse_expr_list(ContextScope scope) => @pool()
 {
 	ParseContext* ctx = scope.ctx;
 	int start_pos  = ctx.current().pos;
-	Node* node     = ctx.ast.alloc_node(EXPR_LIST, start_pos);
-	ExprList* list = node.as(EXPR_LIST);
+	ExprList* node = ctx.ast.alloc_node(ExprList, start_pos);
 	List{Node*} exprs;
 	exprs.tinit();
 	while (!ctx.eof())
@@ -714,8 +697,8 @@ fn Node*? parse_expr_list(ContextScope scope) => @pool()
 
 	node.offset.end = exprs.last().offset.end ?? start_pos;
 
-	list.exprs = alloc::clone_slice(ctx.arena, exprs.array_view());
-	return node;
+	node.exprs = alloc::clone_slice(ctx.arena, exprs.array_view());
+	return (Node*)node;
 }
 
 <*
@@ -725,11 +708,10 @@ fn Node*? parse_contract_expr(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
 	int start_pos = ctx.current().pos;
-	Node* node    = ctx.ast.alloc_node(CONTRACT_EXPR, start_pos);
-	defer node.offset.end = ctx.current().pos;
-	ContractExpr* expr = node.as(CONTRACT_EXPR);
+	ContractExpr* node = ctx.ast.alloc_node(ContractExpr, start_pos);
+	defer node.offset.end = ctx.previous_end_pos();
 
-	expr.exprs = parse_expr_list(scope.with_only_flags({ .is_contract = true }))!;
+	node.exprs = parse_expr_list(scope.with_only_flags({ .is_contract = true }))!;
 
 	if (!ctx.eof() && consume(ctx, COLON)!)
 	{
@@ -737,15 +719,14 @@ fn Node*? parse_contract_expr(ContextScope scope)
 		{
 			ctx.error("Expected a string after ':'");
 			ctx.ast.error(ctx.current().pos);
-			node.kind = ERROR;
 			ctx.skip_until({ EOS, EOF })!;
-			return node;
+			return (Node*)node;
 		}
 
-		expr.expr_string = parse_expr(scope)!;
+		node.expr_string = parse_expr(scope)!;
 	}
 
-	return node;
+	return (Node*)node;
 }
 
 fn Node*? parse_call_expr(ContextScope scope, Node* callee)
@@ -753,16 +734,15 @@ fn Node*? parse_call_expr(ContextScope scope, Node* callee)
 	ParseContext* ctx = scope.ctx;
 	int start_pos = ctx.current().pos;
 	expect(ctx, LPAREN)!;
-	Node* node = ctx.ast.alloc_node(CALL_EXPR, callee.offset.start);
-	CallExpr* call = node.as(CALL_EXPR);
-	call.callee = callee;
+	CallExpr* node = ctx.ast.alloc_node(CallExpr, callee.offset.start);
+	node.callee = callee;
 
 	plog::debug("call_expr: %s", ctx.current_text());
 
 	if (!ctx.is(RPAREN) && !ctx.is(EOS) && !ctx.eof())
 	{
 		plog::debug("call_expr - args");
-		call.args = parse_arg_list(scope)!;
+		node.args = parse_arg_list(scope)!;
 	}
 	
 	NodeArray body_args;
@@ -777,13 +757,13 @@ fn Node*? parse_call_expr(ContextScope scope, Node* callee)
 	if (ctx.is(AT_IDENT) && !scope.flags.is_contract)
 	{
 		Token t = ctx.current();
-		call.attributes = parse_attributes(scope, node)!;
+		node.attributes = parse_attributes(scope, node)!;
 		node.offset.end = t.pos;
 
-		foreach (attr : call.attributes)
+		foreach (attr : node.attributes)
 		{
-			AttributeDecl* attr_decl = attr.as(ATTRIBUTE_DECL);
-			switch (attr_decl.kind)
+			AttributeDecl* attr_decl = attr.as(AttributeDecl);
+			switch (attr_decl.attribute_kind)
 			{
 				case AttributeKind.INLINE:
 				case AttributeKind.PURE:
@@ -804,14 +784,13 @@ fn Node*? parse_call_expr(ContextScope scope, Node* callee)
 
 	if (body || body_args)
 	{
-		Node* body_node          = ctx.ast.alloc_node(MACRO_BODY_EXPR, start_pos);
-		MacroBodyExpr* body_expr = body_node.as(MACRO_BODY_EXPR);
-		body_expr.args = body_args;
-		body_expr.body = body;
-		call.macro_body_expr = body_node;
+		MacroBodyExpr* body_node = ctx.ast.alloc_node(MacroBodyExpr, start_pos);
+		body_node.args = body_args;
+		body_node.body = body;
+		node.macro_body_expr = body_node;
 	}
 	
-	return node;
+	return (Node*)node;
 }
 
 <*
@@ -827,9 +806,8 @@ fn Node*? parse_catch_expr(ContextScope scope) => @pool()
 		return err;
 	}!;
 
-	Node* node = ctx.ast.alloc_node(CATCH_EXPR, ctx.current().pos);
-	defer node.offset.end = ctx.current().pos;
-	CatchExpr* catch_expr = node.as(CATCH_EXPR);
+	CatchExpr* node = ctx.ast.alloc_node(CatchExpr, ctx.current().pos);
+	defer node.offset.end = ctx.previous_end_pos();
 	Node* sub_expr = parse_try_chain_expr(scope)!;
 	if (sub_expr.kind == ERROR)
 	{
@@ -851,37 +829,37 @@ fn Node*? parse_catch_expr(ContextScope scope) => @pool()
 			}
 			exprs.push(sub_expr);
 		} while (consume(ctx, COMMA)!);
-		catch_expr.exprs = alloc::clone_slice(ctx.arena, exprs.array_view());
+		node.exprs = alloc::clone_slice(ctx.arena, exprs.array_view());
 		return node;
 	}
 
 	if (sub_expr.kind == TYPE_EXPR)
 	{
-		catch_expr.type = sub_expr;
+		node.type = sub_expr;
 		Node* variable = parse_try_chain_expr(scope)!;
 		if (variable.kind == ERROR)
 		{
 			ctx.skip_until({ EOS, RPAREN, EOF })!;
 			return variable;
 		}
-		catch_expr.variable = variable;
+		node.variable = variable;
 	}
 	else
 	{
-		catch_expr.type = null;
-		catch_expr.variable = sub_expr;
+		node.type = null;
+		node.variable = sub_expr;
 	}
 
 	if (!consume(ctx, EQ)!)
 	{
-		if (catch_expr.type)
+		if (node.type)
 		{
 			ctx.error("Expected '=' here");
 			return ctx.ast.error(ctx.current().pos);
 		}
 
-		exprs.push(catch_expr.variable);
-		catch_expr.variable = null;
+		exprs.push(node.variable);
+		node.variable = null;
 		return node;
 	}
 
@@ -895,9 +873,9 @@ fn Node*? parse_catch_expr(ContextScope scope) => @pool()
 		exprs.push(sub_expr);
 	} while (consume(ctx, COMMA)!);
 
-	catch_expr.exprs = alloc::clone_slice(ctx.arena, exprs.array_view());
+	node.exprs = alloc::clone_slice(ctx.arena, exprs.array_view());
 
-	return node;
+	return (Node*)node;
 }
 
 <*
@@ -907,8 +885,7 @@ fn Node*? parse_cond_expr(ContextScope scope) => @pool()
 {
 	ParseContext* ctx = scope.ctx;
 	int start_pos = ctx.current_pos();
-	Node* node = ctx.ast.alloc_node(COND_EXPR, start_pos);
-	CondExpr* cond = node.as(COND_EXPR);
+	CondExpr* node = ctx.ast.alloc_node(CondExpr, start_pos);
 
 	List{Node*} exprs;
 	exprs.tinit();
@@ -942,8 +919,8 @@ fn Node*? parse_cond_expr(ContextScope scope) => @pool()
 
 	node.offset.end = exprs.last().offset.end ?? start_pos;
 
-	cond.exprs = alloc::clone_slice(ctx.arena, exprs.array_view());
-	return node;
+	node.exprs = alloc::clone_slice(ctx.arena, exprs.array_view());
+	return (Node*)node;
 }
 
 fn Node*? parse_try_expr(ContextScope scope)
@@ -954,32 +931,31 @@ fn Node*? parse_try_expr(ContextScope scope)
 		return err;
 	}!;
 
-	Node* node = ctx.ast.alloc_node(TRY_EXPR, ctx.current().pos);
-	defer node.offset.end = ctx.current().pos;
-	TryExpr* try_expr = node.as(TRY_EXPR);
+	TryExpr* node = ctx.ast.alloc_node(TryExpr, ctx.current().pos);
+	defer node.offset.end = ctx.previous_end_pos();
 
 	Node* lhs = parse_try_chain_expr(scope)!;
 
 	if (lhs.kind == TYPE_EXPR)
 	{
-		try_expr.type = lhs;
-		try_expr.variable = parse_try_chain_expr(scope)!;
+		node.type = lhs;
+		node.variable = parse_try_chain_expr(scope)!;
 	}
 	else
 	{
-		try_expr.variable = lhs;
+		node.variable = lhs;
 	}
 
-	if (lhs.kind == TYPE_EXPR && try_expr.variable.kind != IDENT_EXPR)
+	if (lhs.kind == TYPE_EXPR && node.variable.kind != IDENT_EXPR)
 	{
 		ctx.error("A new variable was expected");
 		return ctx.ast.error(lhs.offset.start);
 	}
 	if (consume(ctx, EQ)!)
 	{
-		try_expr.init = parse_try_chain_expr(scope)!;
+		node.init = parse_try_chain_expr(scope)!;
 	}
-	return node;
+	return (Node*)node;
 }
 
 <*
@@ -991,7 +967,7 @@ fn Node*? parse_try_unwrap_chain_expr(ContextScope scope)
 	ParseContext* ctx = scope.ctx;
 	Node* first_try      = parse_try_expr(scope)!;
 	Node* current        = first_try;
-	TryExpr* current_try = current.as(TRY_EXPR);
+	TryExpr* current_try = current.as(TryExpr);
 
 	while (consume(ctx, AND)!)
 	{
@@ -1008,18 +984,18 @@ fn Node*? parse_try_unwrap_chain_expr(ContextScope scope)
 
 		if (current.kind == TRY_EXPR)
 		{
-			current.as(TRY_EXPR).next = next_expr;
+			current.as(TryExpr).next = next_expr;
 		}
 		else
 		{
 			Node* walker = first_try;
-			while (walker.kind == TRY_EXPR && walker.as(TRY_EXPR).next != null)
+			while (walker.kind == TRY_EXPR && walker.as(TryExpr).next != null)
 			{
-				walker = walker.as(TRY_EXPR).next;
+				walker = walker.as(TryExpr).next;
 			}
 			if (walker.kind == TRY_EXPR)
 			{
-				walker.as(TRY_EXPR).next = next_expr;
+				walker.as(TryExpr).next = next_expr;
 			}
 		}
 
@@ -1037,24 +1013,23 @@ fn Node*? parse_try_unwrap_chain_expr(ContextScope scope)
 fn Node*? parse_ternary_expr(ContextScope scope, Node* left)
 {
 	ParseContext* ctx = scope.ctx;
-	Node* node = ctx.ast.alloc_node(TERNARY_EXPR, ctx.current().pos);
-	defer node.offset.end = ctx.current().pos;
-	TernaryExpr* tern = node.as(TERNARY_EXPR);
+	TernaryExpr* node = ctx.ast.alloc_node(TernaryExpr, ctx.current().pos);
+	defer node.offset.end = ctx.previous_end_pos();
 
-	tern.is_const = ctx.is(CT_TERNARY);
+	node.is_const = ctx.is(CT_TERNARY);
 	advance(ctx)!;
-	tern.cond = left;
+	node.cond = left;
 
-	tern.then_expr = parse_expr(scope)!;
+	node.then_expr = parse_expr(scope)!;
 
 	@expect_else(ctx, COLON ; err)
 	{
 		return err;
 	}!;
 
-	tern.else_expr = parse_expr(scope, TERNARY)!;
+	node.else_expr = parse_expr(scope, TERNARY)!;
 
-	return node;
+	return (Node*)node;
 }
 
 <*
@@ -1083,21 +1058,15 @@ fn Node*? parse_builtin_expr(ContextScope scope)
 
 		if (t.kind == CONST_IDENT)
 		{
-			Node* node             = ctx.ast.alloc_node(COMPILER_CONST_EXPR, ctx.current().pos);
-			CompilerConstExpr* cce = node.as(COMPILER_CONST_EXPR);
-
-			cce.name = name;
-
-			return node;
+			CompilerConstExpr* node = ctx.ast.alloc_node(CompilerConstExpr, ctx.current_pos(), ctx.current().end_pos());
+			node.name = name;
+			return (Node*)node;
 		}
 	};
 
-	Node* node         = ctx.ast.alloc_node(BUILTIN_EXPR, ctx.current().pos);
-	BuiltinExpr* built = node.as(BUILTIN_EXPR);
-
-	built.name = name;
-
-	return node;
+	BuiltinExpr* node = ctx.ast.alloc_node(BuiltinExpr, ctx.current_pos(), ctx.current().end_pos());
+	node.name = name;
+	return (Node*)node;
 }
 
 <*
@@ -1106,24 +1075,22 @@ fn Node*? parse_builtin_expr(ContextScope scope)
 fn Node*? parse_splat_expr(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
-	Node* node = ctx.ast.alloc_node(SPLAT_EXPR, ctx.current().pos);
-	defer node.offset.end = ctx.current().pos;
-	SplatExpr* spl = node.as(SPLAT_EXPR);
+	SplatExpr* node = ctx.ast.alloc_node(SplatExpr, ctx.current().pos);
+	defer node.offset.end = ctx.previous_end_pos();
 
 	expect(ctx, ELLIPSIS)!;
 
-	spl.inner = parse_expr(scope)!;
+	node.inner = parse_expr(scope)!;
 
-	return node;
+	return (Node*)node;
 }
 
 fn Node*? parse_vasplat_expr(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
 	int start_pos = ctx.current().pos;
-	Node* node    = ctx.ast.alloc_node(VASPLAT_EXPR, start_pos);
-	defer node.offset.end = ctx.current().pos;
-	VasplatExpr* eval_named = node.as(VASPLAT_EXPR);
+	VasplatExpr* node = ctx.ast.alloc_node(VasplatExpr, start_pos);
+	defer node.offset.end = ctx.previous_end_pos();
 
 	expect(ctx, ELLIPSIS)!;
 	expect(ctx, CT_VAARG)!;
@@ -1135,23 +1102,22 @@ fn Node*? parse_vasplat_expr(ContextScope scope)
 		advance(ctx)!;
 	}
 
-	return node;
+	return (Node*)node;
 }
 
 fn Node*? parse_ct_eval_expr(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
 	int start_pos = ctx.current().pos;
-	Node* node    = ctx.ast.alloc_node(CT_EVAL_EXPR, start_pos);
-	defer node.offset.end = ctx.current().pos;
-	CtEvalExpr* eval = node.as(CT_EVAL_EXPR);
+	CtEvalExpr* node = ctx.ast.alloc_node(CtEvalExpr, start_pos);
+	defer node.offset.end = ctx.previous_end_pos();
 
 	expect(ctx, CT_EVAL)!;
 	expect(ctx, LPAREN)!;
-	eval.inner_expr = parse_expr(scope)!;
+	node.inner_expr = parse_expr(scope)!;
 	expect(ctx, RPAREN)!;
 
-	return node;
+	return (Node*)node;
 }
 
 <*
@@ -1163,26 +1129,25 @@ fn Node*? parse_lambda_expr(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
 	int start_pos = ctx.current().pos;
-	Node* node    = ctx.ast.alloc_node(LAMBDA_EXPR, start_pos);
-	defer node.offset.end = ctx.current().pos;
-	LambdaExpr* lambda = node.as(LAMBDA_EXPR);
+	LambdaExpr* node = ctx.ast.alloc_node(LambdaExpr, start_pos);
+	defer node.offset.end = ctx.previous_end_pos();
 
 	node.visibility = LOCAL;
 
 	expect(ctx, FN)!;
 	if (!ctx.is(LPAREN))
 	{
-		lambda.return_type = parse_type_expr(scope.with_only_flags({ .no_generics = true }), null)!;
+		node.return_type = parse_type_expr(scope.with_only_flags({ .no_generics = true }), null)!;
 	}
-	lambda.params = parse_parameter_list(scope)!;
+	node.params = parse_parameter_list(scope)!;
 	if (ctx.is(AT_IDENT))
 	{
-		lambda.attributes = parse_attributes(scope, node)!;
+		node.attributes = parse_attributes(scope, node)!;
 	}
 
 	if (consume(ctx, IMPLIES)!)
 	{
-		lambda.body = parse_expr(scope)!;
+		node.body = parse_expr(scope)!;
 
 		// Clean statement ending validation
 		// if (!node_ends_with_block(ctx, lambda.body))
@@ -1192,22 +1157,21 @@ fn Node*? parse_lambda_expr(ContextScope scope)
 	}
 	else if (ctx.is(LBRACE))
 	{
-		lambda.body = parse_compound_stmt(scope)!;
+		node.body = parse_compound_stmt(scope)!;
 	}
 	else
 	{
 		unexpected(ctx, "Expected the beginning of a block or a shortbody")!;
 	}
 
-	return node;
+	return (Node*)node;
 }
 
 fn Node*? parse_generic_expr(ContextScope scope) => @pool()
 {
 	ParseContext* ctx = scope.ctx;
 	int start_pos = ctx.current().pos;
-	Node* node    = ctx.ast.alloc_node(GENERIC_IDENT_EXPR, start_pos);
-	GenericIdentExpr* generic = node.as(GENERIC_IDENT_EXPR);
+	GenericIdentExpr* node = ctx.ast.alloc_node(GenericIdentExpr, start_pos);
 	expect(ctx, LBRACE)!;
 	List{Node*} exprs;
 	exprs.tinit();
@@ -1222,8 +1186,8 @@ fn Node*? parse_generic_expr(ContextScope scope) => @pool()
 	} 
 	while (!consume(ctx, RBRACE)!);
 	node.offset.end = exprs.last().offset.end ?? start_pos;
-	generic.exprs = alloc::clone_slice(ctx.arena, exprs.array_view());
-	return node;
+	node.exprs = alloc::clone_slice(ctx.arena, exprs.array_view());
+	return (Node*)node;
 }
 
 fn Node*? parse_group_expr(ContextScope scope)
@@ -1234,7 +1198,7 @@ fn Node*? parse_group_expr(ContextScope scope)
 
 	expect(ctx, LPAREN)!;
 	Node* inner = parse_expr(scope)!;
-	int end_pos = ctx.current_pos();
+	int end_pos = ctx.current().end_pos();
 	expect(ctx, RPAREN)!;
 
 	// can_start_expression might miss some cases
@@ -1243,19 +1207,15 @@ fn Node*? parse_group_expr(ContextScope scope)
 		plog::debug("parse_cast_expr");
 		Node* operand = parse_expr(scope, UNARY)!;
 
-		Node* node = ctx.ast.alloc_node(CAST_EXPR, start_pos, end_pos);
-		CastExpr* cast = node.as(CAST_EXPR);
+		CastExpr* cast = ctx.ast.alloc_node(CastExpr, start_pos, end_pos);
 		cast.inner = inner;
 		cast.operand = operand;
-		return node;
+		return (Node*)cast;
 	}
 
-	Node* node = ctx.ast.alloc_node(GROUP_EXPR, start_pos, end_pos);
-	GroupExpr* group = node.as(GROUP_EXPR);
-
+	GroupExpr* group = ctx.ast.alloc_node(GroupExpr, start_pos, end_pos);
 	group.inner = inner;
-
-	return node;
+	return (Node*)group;
 }
 
 <*
@@ -1276,15 +1236,14 @@ fn Node*? parse_designator_expr(ContextScope scope)
 
 			Node* field = parse_expr(scope, HIGHEST)!;
 
-			Node* node = ctx.ast.alloc_node(DESIGNATOR_EXPR, start_pos);
+			DesignatorExpr* node = ctx.ast.alloc_node(DesignatorExpr, start_pos);
 			node.offset.end = ctx.current().pos;
 
-			DesignatorExpr* des = node.as(DESIGNATOR_EXPR);
-			des.kind = DesignatorKind.PERIOD;
-			des.path = path; // will be null if this is the very first component
-			des.field = field;
+			node.designator_kind = DesignatorKind.PERIOD;
+			node.path = path; // will be null if this is the very first component
+			node.field = field;
 
-			path = node;
+			path = (Node*)node;
 			continue;
 		}
 
@@ -1312,9 +1271,8 @@ fn Node*? parse_initializer_list_expr(ContextScope scope) => @pool()
 	expect(ctx, LBRACE)!;
 
 	int start_pos = ctx.current().pos;
-	Node* node    = ctx.ast.alloc_node(INITIALIZER_LIST_EXPR, start_pos);
+	InitializerListExpr* node = ctx.ast.alloc_node(InitializerListExpr, start_pos);
 	defer node.offset.end = ctx.current().pos;
-	InitializerListExpr* init = node.as(INITIALIZER_LIST_EXPR);
 
 	// Handle empty initializer {}
 	if (consume(ctx, RBRACE)!)
@@ -1348,14 +1306,13 @@ fn Node*? parse_initializer_list_expr(ContextScope scope) => @pool()
 			if (consume(ctx, EQ)!)
 			{
 				Node* val           = parse_expr(scope)!;
-				Node* des_init_node = ctx.ast.alloc_node(DESIGNATED_INITIALIZER_EXPR, path_token.pos);
-				des_init_node.offset.end = ctx.current().pos;
+				DesignatedInitializerExpr* des_init_node = ctx.ast.alloc_node(DesignatedInitializerExpr, path_token.pos);
+				des_init_node.offset.end = ctx.current().end_pos();
 
-				DesignatedInitializerExpr* des_init = des_init_node.as(DESIGNATED_INITIALIZER_EXPR);
-				des_init.path = des_expr;
-				des_init.value = val;
+				des_init_node.path = des_expr;
+				des_init_node.value = val;
 
-				expr = des_init_node;
+				expr = (Node*)des_init_node;
 			}
 			else
 			{
@@ -1384,9 +1341,9 @@ fn Node*? parse_initializer_list_expr(ContextScope scope) => @pool()
 		}
 	}
 
-	init.exprs = alloc::clone_slice(ctx.arena, exprs.array_view());
+	node.exprs = alloc::clone_slice(ctx.arena, exprs.array_view());
 
-	return node;
+	return (Node*)node;
 }
 
 fn Node*? parse_access_expr(ContextScope scope, Node* left)
@@ -1404,18 +1361,16 @@ fn Node*? parse_access_expr(ContextScope scope, Node* left)
 	{
 		plog::debug("parse_access - found maybe_deref");
 		advance(ctx)!;
-		Node* deref_node      = ctx.ast.alloc_node(MAYBE_DEREF_EXPR, member_token.pos, ctx.current().pos);
-		MaybeDeferExpr* deref = deref_node.as(MAYBE_DEREF_EXPR);
-		deref.left = left;
-		return parse_range_expr(scope, deref_node, deref_node.offset.start)!;
+		MaybeDerefExpr* deref_node = ctx.ast.alloc_node(MaybeDerefExpr, member_token.pos, ctx.current().pos);
+		deref_node.left = left;
+		return parse_range_expr(scope, (Node*)deref_node, deref_node.offset.start)!;
 	}
 
-	Node* node = ctx.ast.alloc_node(ACCESS_EXPR, start_pos);
-	defer node.offset.end = ctx.current().pos;
-	AccessExpr* access = node.as(ACCESS_EXPR);
+	AccessExpr* node = ctx.ast.alloc_node(AccessExpr, start_pos);
+	defer node.offset.end = ctx.previous_end_pos();
 
-	access.kind = access_kind;
-	access.left = left;
+	node.access_kind = access_kind;
+	node.left = left;
 
 	if EVAL: (member_token.kind == CT_EVAL)
 	{
@@ -1425,17 +1380,17 @@ fn Node*? parse_access_expr(ContextScope scope, Node* left)
 			break EVAL;
 		}!;
 
-		access.member = parse_expr(scope.with_only_flags({ .type_as_expression = true }))!;
+		node.member = parse_expr(scope.with_only_flags({ .type_as_expression = true }))!;
 
 		expect(ctx, RPAREN)!;
 	}
 	else
 	{
 		// HIGHEST bp to avoid consuming downstream infix operators.
-		access.member = parse_expr(scope, HIGHEST)!;
+		node.member = parse_expr(scope, HIGHEST)!;
 	}
 
-	return node;
+	return (Node*)node;
 }
 
 <*
@@ -1493,55 +1448,53 @@ fn Node*? parse_range_expr(ContextScope scope, Node* left, int start_pos)
 
 	expect(ctx, RBRACKET)!;
 
-	Node* designator_node = ctx.ast.alloc_node(DESIGNATOR_EXPR, start_pos);
-	designator_node.offset.end = ctx.current().pos;
-	DesignatorExpr* des = designator_node.as(DESIGNATOR_EXPR);
-	des.path = left;
+	DesignatorExpr* designator_node = ctx.ast.alloc_node(DesignatorExpr, start_pos);
+	designator_node.offset.end = ctx.current().end_pos();
+	designator_node.path = left;
 
-	Node* range_node = ctx.ast.alloc_node(RANGE_EXPR, start_pos);
-	range_node.offset.end = ctx.current().pos;
-	RangeExpr* range_payload = range_node.as(RANGE_EXPR);
+	RangeExpr* range_node = ctx.ast.alloc_node(RangeExpr, start_pos);
+	range_node.offset.end = ctx.current().end_pos();
 
-	range_payload.start = start;
-	range_payload.end = end;
-	range_payload.start_from_end = start_from_end;
-	range_payload.end_from_end = end_from_end;
+	range_node.start = start;
+	range_node.end = end;
+	range_node.start_from_end = start_from_end;
+	range_node.end_from_end = end_from_end;
 
 	if (is_slice)
 	{
-		des.kind = DesignatorKind.RANGE;
+		designator_node.designator_kind = DesignatorKind.RANGE;
 
 		if (op_kind == COLON)
 		{
 			// Syntax: [start : len]
-			range_payload.kind = RangeKind.CONST_LEN;
+			range_node.range_kind = RangeKind.CONST_LEN;
 		}
 		else
 		{
 			// Syntax: [start .. end]
 			if (start && end)
 			{
-				range_payload.kind = RangeKind.CONST_RANGE;
+				range_node.range_kind = RangeKind.CONST_RANGE;
 			}
 			else if (end)
 			{
-				range_payload.kind = RangeKind.CONST_END;
+				range_node.range_kind = RangeKind.CONST_END;
 			}
 			else
 			{
-				range_payload.kind = RangeKind.DYNAMIC;
+				range_node.range_kind = RangeKind.DYNAMIC;
 			}
 		}
 	}
 	else
 	{
 		// Syntax: [index] (Single lookup access format)
-		des.kind = DesignatorKind.INDEX;
-		range_payload.kind = RangeKind.SINGLE_ELEMENT;
+		designator_node.designator_kind = DesignatorKind.INDEX;
+		range_node.range_kind = RangeKind.SINGLE_ELEMENT;
 	}
 
-	des.range = range_node;
-	return designator_node;
+	designator_node.range = range_node;
+	return (Node*)designator_node;
 }
 
 <*
@@ -1556,12 +1509,11 @@ fn Node*? parse_raise_suffix_expr(ContextScope scope, Node* left, Token left_tok
 		return unexpected_at(ctx, left_token, "Expected a fault before '~'")!;
 	}
 	expect(ctx, BIT_NOT)!;
-	int start_pos     = ctx.current().pos;
-	Node* node        = ctx.ast.alloc_node(OPTIONAL_EXPR, start_pos);
-	OptionalExpr* opt = node.as(OPTIONAL_EXPR);
-	opt.inner_expr = left;
+	int start_pos = ctx.current().pos;
+	OptionalExpr* node = ctx.ast.alloc_node(OptionalExpr, start_pos);
+	node.inner_expr = left;
 	node.offset.end = ctx.current().pos;
-	return node;
+	return (Node*)node;
 }
 
 fn Node*? parse_ct_defined_expr(ContextScope scope) => @pool()
@@ -1571,9 +1523,8 @@ fn Node*? parse_ct_defined_expr(ContextScope scope) => @pool()
 	expect(ctx, LPAREN)!;
 
 	int start_pos = ctx.current().pos;
-	Node* node    = ctx.ast.alloc_node(CT_DEFINED_EXPR, start_pos);
+	CtDefinedExpr* node = ctx.ast.alloc_node(CtDefinedExpr, start_pos);
 	defer node.offset.end = ctx.current().pos;
-	CtDefinedExpr* def = node.as(CT_DEFINED_EXPR);
 	List{Node*} exprs;
 	exprs.tinit();
 	while (!ctx.eof() && !consume(ctx, RPAREN)!)
@@ -1586,9 +1537,9 @@ fn Node*? parse_ct_defined_expr(ContextScope scope) => @pool()
 		}
 	}
 
-	def.expr_list = alloc::clone_slice(ctx.arena, exprs.array_view());
+	node.expr_list = alloc::clone_slice(ctx.arena, exprs.array_view());
 
-	return node;
+	return (Node*)node;
 }
 
 fn Node*? parse_ct_feature(ContextScope scope)
@@ -1597,15 +1548,14 @@ fn Node*? parse_ct_feature(ContextScope scope)
 	expect(ctx, CT_FEATURE)!;
 
 	int start_pos = ctx.current().pos;
-	Node* node    = ctx.ast.alloc_node(CT_FEATURE_EXPR, start_pos);
+	CtFeatureExpr* node = ctx.ast.alloc_node(CtFeatureExpr, start_pos);
 	defer node.offset.end = ctx.current().pos;
-	CtFeatureExpr* feat = node.as(CT_FEATURE_EXPR);
 
 	expect(ctx, LPAREN)!;
-	feat.inner_expr = parse_expr(scope)!;
+	node.inner_expr = parse_expr(scope)!;
 	expect(ctx, RPAREN)!;
 
-	return node;
+	return (Node*)node;
 }
 
 <*
@@ -1617,15 +1567,14 @@ fn Node*? parse_lengthof_expr(ContextScope scope)
 	expect(ctx, LENGTHOF)!;
 
 	int start_pos = ctx.current().pos;
-	Node* node    = ctx.ast.alloc_node(LENGTHOF_EXPR, start_pos);
-	defer node.offset.end = ctx.current().pos;
-	LengthofExpr* len = node.as(LENGTHOF_EXPR);
+	LengthofExpr* node = ctx.ast.alloc_node(LengthofExpr, start_pos);
+	defer node.offset.end = ctx.current().end_pos();
 
 	expect(ctx, LPAREN)!;
-	len.inner_expr = parse_expr(scope)!;
+	node.inner_expr = parse_expr(scope)!;
 	expect(ctx, RPAREN)!;
 
-	return node;
+	return (Node*)node;
 }
 
 <*
@@ -1636,21 +1585,20 @@ fn Node*? parse_ct_stringify_expr(ContextScope scope)
 	ParseContext* ctx = scope.ctx;
 	int start_pos = ctx.current().pos;
 	expect(ctx, CT_STRINGIFY)!;
-	Node* node    = ctx.ast.alloc_node(CT_STRINGIFY_EXPR, start_pos);
-	CtStringifyExpr* str = node.as(CT_STRINGIFY_EXPR);
+	CtStringifyExpr* node = ctx.ast.alloc_node(CtStringifyExpr, start_pos);
 
 	expect(ctx, LPAREN)!;
-	str.inner_expr = parse_expr(scope)!;
-	if (str.inner_expr)
+	node.inner_expr = parse_expr(scope)!;
+	if (node.inner_expr)
 	{
-		node.offset.end = str.inner_expr.offset.end;
+		node.offset.end = node.inner_expr.offset.end;
 	}
 	else
 	{
 		node.offset.end = ctx.current_pos();
 	}
 	expect(ctx, RPAREN)!;
-	return node;
+	return (Node*)node;
 }
 
 <*
@@ -1661,8 +1609,8 @@ fn Node*? parse_vaarg_expr(ContextScope scope)
 	ParseContext* ctx = scope.ctx;
 	int start_pos = ctx.current().pos;
 	expect(ctx, CT_VAARG)!;
-	Node* node    = ctx.ast.alloc_node(VAARG_EXPR, start_pos);
-	VaargExpr* varg = node.as(VAARG_EXPR);
+	VaargExpr* node = ctx.ast.alloc_node(VaargExpr, start_pos);
+	defer node.offset.end = ctx.previous_end_pos();
 
 	if (consume(ctx, DOT)!)
 	{
@@ -1673,16 +1621,15 @@ fn Node*? parse_vaarg_expr(ContextScope scope)
 		}
 		node.offset.end = ctx.current_pos();
 		advance(ctx)!;
-		varg.kind = VACOUNT;
+		node.vaarg_kind = VACOUNT;
 		return node;
 	}
 
 	expect(ctx, LBRACKET)!;
-	varg.start_from_end = consume(ctx, BIT_XOR)!;
-	varg.expr = parse_expr(scope)!;
-	node.offset.end = ctx.current_pos();
+	node.start_from_end = consume(ctx, BIT_XOR)!;
+	node.expr = parse_expr(scope)!;
 	expect(ctx, RBRACKET)!;
-	return node;
+	return (Node*)node;
 }
 
 <*
@@ -1693,11 +1640,10 @@ fn Node*? parse_ct_reflect_expr(ContextScope scope)
 	ParseContext* ctx = scope.ctx;
 	int start_pos = ctx.current().pos;
 	expect(ctx, CT_REFLECT)!;
-	Node* node    = ctx.ast.alloc_node(CT_REFLECT_EXPR, start_pos);
-	CtReflectExpr* refl = node.as(CT_REFLECT_EXPR);
+	CtReflectExpr* node = ctx.ast.alloc_node(CtReflectExpr, start_pos);
 
 	expect(ctx, LPAREN)!;
-	refl.inner_expr = parse_expr(scope)!;
+	node.inner_expr = parse_expr(scope)!;
 	expect(ctx, RPAREN)!;
 	node.offset.end = ctx.peek(-1)!.pos;
 	return node;

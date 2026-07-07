@@ -11,7 +11,7 @@ fn Node*? parse_asm_block_stmt(ContextScope scope)
 	int start_pos = ctx.current().pos;
 	expect(ctx, ASM)!;
 	plog::debug("parse_macro");
-	Node* node = ctx.ast.alloc_node(ASM_BLOCK_STMT, start_pos);
+	AsmBlockStmt* node = ctx.ast.alloc_node(AsmBlockStmt, start_pos);
 
 	ctx.skip_until({ RBRACE, EOF })!;
 	advance(ctx)!;
