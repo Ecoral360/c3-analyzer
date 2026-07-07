@@ -16,6 +16,43 @@ ulong next_source_file_id = 1;
 ulong next_section_id     = 1;
 ulong next_module_id      = 1;
 
+alias CanonicalType = Type;
+
+struct Type 
+{
+	TypeKind kind;
+	uint size;
+	String name;
+
+	union data
+	{
+		Type* pointer_base;
+
+		Node* decl;
+
+		struct array
+		{
+			Type* base;
+			ulong len;
+		}
+
+		struct func
+		{
+			Node* decl;
+		}
+
+		bitstruct builtin : uint
+		{
+			char bitsize        : 0..7;
+			char bytesize       : 8..15;
+			char abi_alignment  : 16..23;
+			char pref_alignment : 24..31;
+		}
+	}
+
+	CanonicalType* canonical;
+}
+
 struct SourceFile
 {
 	String file_path;
