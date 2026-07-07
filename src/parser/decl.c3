@@ -12,22 +12,20 @@ fn Node*? parse_module_decl(ContextScope scope)
 	int start_pos = ctx.current().pos;
 	expect(ctx, MODULE)!;
 	plog::debug("parse_mod");
-	Node* node           = ctx.ast.alloc_node(MODULE_DECL, start_pos);
-	ModuleDecl* mod_decl = node.as(MODULE_DECL);
-
-	mod_decl.path = parse_path_expr(scope)!;
-	mod_decl.generics = parse_generic_decl(scope)!;
+	ModuleDecl* node = ctx.ast.alloc_node(ModuleDecl, start_pos);
+	node.path = parse_path_expr(scope)!;
+	node.generics = parse_generic_decl(scope)!;
 
 	if (ctx.is(AT_IDENT))
 	{
-		mod_decl.attributes = parse_attributes(scope, node)!;
+		node.attributes = parse_attributes(scope, node)!;
 	}
 
 	node.offset.end = ctx.current_pos();
 
 	expect(ctx, EOS)!;
 
-	PathExpr* path = mod_decl.path.as(PATH_EXPR);
+	PathExpr* path = node.path.as(PATH_EXPR);
     String mod_name = path.full_path(&ctx.ast.string_pool, ctx.allocator)!;
     defer mod_name.free(ctx.allocator);
 
@@ -36,7 +34,7 @@ fn Node*? parse_module_decl(ContextScope scope)
         ctx.section = ctx.on_new_module(ctx.user_data, mod_name);
     }
 
-	return node;
+	return (Node*)node;
 }
 
 <*

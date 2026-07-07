@@ -17,27 +17,26 @@ fn Node*? parse_fn_decl(ContextScope scope)
 
 	plog::debug("parse_fn");
 
-	Node* node = scope.ctx.ast.alloc_node(FN_DECL, start_pos);
-	FnDecl* func = node.as(FN_DECL);
+	FnDecl* node = scope.ctx.ast.alloc_node(FnDecl, start_pos);
 
 	if (catch parse_fn_name_and_type(scope, func))
 	{
 		ctx.skip_until({ LPAREN, LBRACE, RBRACE, EOS })!;
 	}
 
-	func.params = parse_parameter_list(scope.with_flags({ .is_function = true }))!;
+	node.params = parse_parameter_list(scope.with_flags({ .is_function = true }))!;
 
 	if (ctx.is(LESS))
 	{
-		func.generics = parse_generic_decl(scope)!;
+		node.generics = parse_generic_decl(scope)!;
 	}
 
 	if (ctx.is(AT_IDENT) || ctx.is(AT_TYPE_IDENT))
 	{
-		func.attributes = parse_attributes(scope, node, { .allow_type_ident = true })!;
+		node.attributes = parse_attributes(scope, node, { .allow_type_ident = true })!;
 	}
 
-	if (catch parse_fn_body(scope, func, node))
+	if (catch parse_fn_body(scope, node, node))
 	{
 		ctx.skip_until({ RBRACE, EOS })!;
 	}
