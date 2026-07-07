@@ -17,7 +17,7 @@ fn bool node_has_if_attribute(SemaContext* ctx, Node* node, Node** out_expr)
 
 	if (cursor.has_attribute(AttributeKind.IF, &attr_node))
 	{
-		AttributeDecl* attr_decl = attr_node.as(ATTRIBUTE_DECL);
+		AttributeDecl* attr_decl = attr_node.as(AttributeDecl);
 		
 		if (attr_decl.exprs.len > 0)
 		{

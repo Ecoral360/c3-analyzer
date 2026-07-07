@@ -184,7 +184,7 @@ struct CtEchoStmt
 struct DeferStmt
 {
 	inline Node node;
-	DeferKind kind;
+	DeferKind defer_kind;
 	Node* ident;
 	Node* body;
 }
@@ -211,4 +211,9 @@ struct AsmBlockStmt
 	bool is_goto;
 	bool is_string;
 	bool is_aligned;
+}
+
+struct NopStmt
+{
+	inline Node node;
 }

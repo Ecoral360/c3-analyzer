@@ -65,7 +65,7 @@ fn String? PathExpr.full_path(&self, StringPool* pool, Allocator allocator) => @
 struct TypeExpr
 {
 	inline Node node;
-	TypeKind kind;
+	TypeKind type_kind;
 	bool optional;
 
 	union
@@ -109,7 +109,7 @@ struct CallExpr
 	inline Node node;
 	bool is_outer_call;
 	Node* callee;
-	Node* macro_body_expr;
+	MacroBodyExpr* macro_body_expr;
 	NodeArray args;
 	NodeArray attributes;
 }
@@ -143,7 +143,7 @@ enum LiteralKind : char
 struct LiteralExpr
 {
 	inline Node node;
-	LiteralKind kind;
+	LiteralKind literal_kind;
 
 	union
 	{
@@ -305,7 +305,7 @@ struct InitializerListExpr
 struct DesignatorExpr
 {
 	inline Node node;
-	DesignatorKind kind;
+	DesignatorKind designator_kind;
 	Node* path;
 
 	union
@@ -336,12 +336,12 @@ struct CompoundLiteralExpr
 struct AccessExpr
 {
 	inline Node node;
-	AccessKind kind;
+	AccessKind access_kind;
 	Node* left;
 	Node* member;
 }
 
-struct MaybeDeferExpr
+struct MaybeDerefExpr
 {
 	inline Node node;
 	Node* left;
@@ -354,7 +354,7 @@ struct MaybeDeferExpr
 struct RangeExpr
 {
 	inline Node node;
-	RangeKind kind;
+	RangeKind range_kind;
 	bool start_from_end;
 	bool end_from_end;
 	Node* start;
@@ -395,14 +395,14 @@ struct VaargExpr
 {
 	inline Node node;
 	Node* expr;
-	VaargKind kind;
+	VaargKind vaarg_kind;
 	bool start_from_end;
 }
 
 struct OverloadExpr
 {
 	inline Node node;
-	OverloadKind kind;
+	OverloadKind overload_kind;
 }
 
 struct CtReflectExpr

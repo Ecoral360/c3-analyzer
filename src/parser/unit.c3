@@ -73,7 +73,7 @@ fn void? parse_macro_params(ContextScope scope, Node* macro_node)
 {
 	ParseContext* ctx = scope.ctx;
 	NodeArray params = parse_parameter_list(scope.with_flags({ .is_macro = true }))!;
-	MacroDecl* mac   = macro_node.as(MACRO_DECL);
+	MacroDecl* mac   = macro_node.as(MacroDecl);
 	mac.params = params;
 
 	if (consume(ctx, EOS)!)
@@ -81,12 +81,11 @@ fn void? parse_macro_params(ContextScope scope, Node* macro_node)
 		Token at_tok = ctx.current();
 		expect(ctx, AT_IDENT)!;
 
-		Node* body_param_node     = ctx.ast.alloc_node(BODY_PARAM_DECL, at_tok.pos);
-		BodyParamDecl* body_param = body_param_node.as(BODY_PARAM_DECL);
+		BodyParamDecl* body_param_node = ctx.ast.alloc_node(BodyParamDecl, at_tok.pos);
 		
 		if (ctx.is(LPAREN))
 		{
-			body_param.params = parse_parameter_list(scope)!;
+			body_param_node.params = parse_parameter_list(scope)!;
 		}
 	}
 
@@ -125,26 +124,25 @@ fn Node*? parse_contract_param(ContextScope scope)
 	ParseContext* ctx = scope.ctx;
 	int start = ctx.current().pos;
 
-	Node* node = ctx.ast.alloc_node(CONTRACT_PARAM, start);
-	defer node.offset.end = ctx.current().pos;
-	ContractParam* param = node.as(CONTRACT_PARAM);
+	ContractParam* node = ctx.ast.alloc_node(ContractParam, start);
+	defer node.offset.end = ctx.peek(-1)!!.end_pos();
 
 	if (consume(ctx, LBRACKET)!)
 	{
-		param.by_ref = consume(ctx, AMP)!;
+		node.by_ref = consume(ctx, AMP)!;
 		String modifier_name = ctx.token_text(ctx.current());
 		switch (modifier_name)
 		{
 			case "in":
-				param.modifier = IN;
+				node.modifier = IN;
 				advance(ctx)!;
 				break;
 			case "inout":
-				param.modifier = INOUT;
+				node.modifier = INOUT;
 				advance(ctx)!;
 				break;
 			case "out":
-				param.modifier = OUT;
+				node.modifier = OUT;
 				advance(ctx)!;
 				break;
 			default:
@@ -178,14 +176,14 @@ fn Node*? parse_contract_param(ContextScope scope)
 
 	if (ctx.current().kind != ELLIPSIS)
 	{
-		param.ident = ctx.ident(ctx.current());
+		node.ident = ctx.ident(ctx.current());
 		advance(ctx)!;
 	}
 
 	if (ctx.is(COLON))
 	{
 		advance(ctx)!;
-		param.description = ctx.ident(ctx.current());
+		node.description = ctx.ident(ctx.current());
 		advance(ctx)!;
 	}
 	else if (ctx.is(STRING_LITERAL))
@@ -195,7 +193,7 @@ fn Node*? parse_contract_param(ContextScope scope)
 		return ctx.ast.error(ctx.current().pos);
 	}
 
-	return node;
+	return (Node*)node;
 }
 
 <*
@@ -227,9 +225,9 @@ fn NodeArray? parse_arg_list(ContextScope scope) => @pool()
 
 			if (expr.kind == IDENT_EXPR && consume(ctx, COLON)!)
 			{
-				IdentExpr* ident  = expr.as(IDENT_EXPR);
-				expr = ctx.ast.alloc_node(NAMED_ARG_EXPR, start_pos);
-				NamedArgExpr* named = expr.as(NAMED_ARG_EXPR);
+				IdentExpr* ident  = expr.as(IdentExpr);
+				expr = (Node*)ctx.ast.alloc_node(NamedArgExpr, start_pos);
+				NamedArgExpr* named = expr.as(NamedArgExpr);
 				named.name = ident.ident;
 
 				named.value = parse_expr(scope)!;
@@ -238,8 +236,8 @@ fn NodeArray? parse_arg_list(ContextScope scope) => @pool()
 			else if (expr.kind == CT_EVAL_EXPR && consume(ctx, COLON)!)
 			{
 				Node* inner = expr;
-				expr = ctx.ast.alloc_node(EVAL_NAMED_ARG_EXPR, start_pos);
-				EvalNamedArgExpr* eval_named = expr.as(EVAL_NAMED_ARG_EXPR);
+				expr = (Node*)ctx.ast.alloc_node(EvalNamedArgExpr, start_pos);
+				EvalNamedArgExpr* eval_named = expr.as(EvalNamedArgExpr);
 
 				eval_named.name = inner;
 				eval_named.value = parse_expr(scope)!;
@@ -252,10 +250,10 @@ fn NodeArray? parse_arg_list(ContextScope scope) => @pool()
 		args.push(expr);
 
 		if (ctx.pos == pos_before)
-        {
-            plog::error("Parser loop stalled in argument list at token: %s", ctx.current().kind);
-            advance(ctx)!; 
-        }
+		{
+			plog::error("Parser loop stalled in argument list at token: %s", ctx.current().kind);
+			advance(ctx)!; 
+		}
 
 		if (!consume(ctx, COMMA)!) break;
 		if (ctx.is(RPAREN)) break;
@@ -271,39 +269,37 @@ fn NodeArray? parse_arg_list(ContextScope scope) => @pool()
 fn Node*? parse_short_body(ContextScope scope, bool is_regular)
 {
 	ParseContext* ctx = scope.ctx;
-	int pos         = ctx.current().pos;
-	Node* node_comp = ctx.ast.alloc_node(COMPOUND_STMT, pos);
-	Node* ret_node  = ctx.ast.alloc_node(RETURN_STMT, pos);
+	int pos = ctx.current().pos;
 
-	CompoundStmt* comp = node_comp.as(COMPOUND_STMT);
-	ReturnStmt* ret    = ret_node.as(RETURN_STMT);
-
-	comp.statements = alloc::alloc_array(ctx.arena, Node*, 1);
-	comp.statements[0] = ret_node;
-	
 	Node* expr = parse_expr(scope)!;
+	Node* stmt = null;
+	
+	bool is_macro_call = (expr.kind == CALL_EXPR && expr.as(CallExpr).macro_body_expr);
 
-	if (expr.kind == CALL_EXPR)
+	if (is_macro_call)
 	{
-		CallExpr* call = expr.as(CALL_EXPR);
-		if (call.macro_body_expr)
-		{
-			is_regular = false;
-			call.is_outer_call = true;
-			ret_node.kind = EXPR_STMT;
-			ExprStmt* ex_stmt = ret_node.as(EXPR_STMT);
-			ex_stmt.expr_stmt = expr;
-		}
+		ExprStmt* ex_stmt = ctx.ast.alloc_node(ExprStmt, pos);
+		ex_stmt.expr_stmt = expr;
+		stmt = (Node*)ex_stmt;
+		
+		expr.as(CallExpr).is_outer_call = true;
+		is_regular = false;
 	}
 	else
 	{
+		ReturnStmt* ret = ctx.ast.alloc_node(ReturnStmt, pos);
 		ret.expr = expr;
+		stmt = (Node*)ret;
 	}
-	
+
+	CompoundStmt* node_comp = ctx.ast.alloc_node(CompoundStmt, pos);
+	node_comp.statements = alloc::alloc_array(ctx.arena, Node*, 1);
+	node_comp.statements[0] = stmt;
+
 	if (is_regular)
 	{
 		expect(ctx, EOS)!;
 	}
 	
-	return node_comp;
+	return (Node*)node_comp;
 }

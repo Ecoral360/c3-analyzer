@@ -25,7 +25,7 @@ fn Node*? parse_module_decl(ContextScope scope)
 
 	expect(ctx, EOS)!;
 
-	PathExpr* path = node.path.as(PATH_EXPR);
+	PathExpr* path = node.path.as(PathExpr);
     String mod_name = path.full_path(&ctx.ast.string_pool, ctx.allocator)!;
     defer mod_name.free(ctx.allocator);
 
@@ -38,7 +38,7 @@ fn Node*? parse_module_decl(ContextScope scope)
 }
 
 <*
-
+ 
 *>
 fn Node*? parse_contract_decl(ContextScope scope) => @pool()
 {
@@ -99,10 +99,9 @@ fn Node*? parse_contract_decl(ContextScope scope) => @pool()
 	ctx.tokens = contract_tokens.array_view();
 	ctx.pos = 0;
 
-	Node* node             = ctx.ast.alloc_node(CONTRACT_DECL, ctx.current().pos);
-	ContractDecl* contract = node.as(CONTRACT_DECL);
+	ContractDecl* node             = ctx.ast.alloc_node(ContractDecl, ctx.current().pos);
 	plog::debug("comment : %s", cl.description);
-	contract.comment = ctx.ident({
+	node.comment = ctx.ident({
 		.kind = IDENT,
 		.pos = contract_token.pos + 2,
 		.len = cl.desc_len
@@ -141,12 +140,10 @@ fn Node*? parse_contract_decl(ContextScope scope) => @pool()
 			else if (attr == constants::KW_AT_DEPRECATED)
 			{
 				plog::debug("parse_contract_decl - @deprecated");
-				Node* n = ctx.ast.alloc_node(ATTRIBUTE_DECL, ctx.current().pos);
-				contract.deprecated = n;
-				AttributeDecl* attribute = n.as(ATTRIBUTE_DECL);
-				attribute.path.set(ctx.ast.alloc_node(MISSING, ctx.current().pos));
-				attribute.name = ctx.ident_string(constants::KW_AT_DEPRECATED);
-				attribute.kind = DEPRECATED;
+				AttributeDecl* n = ctx.ast.alloc_node(AttributeDecl, ctx.current().pos);
+				node.deprecated = (Node*)n;
+				n.name = ctx.ident_string(constants::KW_AT_DEPRECATED);
+				n.attribute_kind = DEPRECATED;
 				if (ctx.current().kind == EOS && ctx.peek(1)!.kind == STRING_LITERAL)
 				{
 					advance(ctx)!;
@@ -158,12 +155,12 @@ fn Node*? parse_contract_decl(ContextScope scope) => @pool()
 					exprs.tinit(1);
 					exprs.push(parse_expr(scope)!);
 					plog::debug("parser @deprecated string");
-					attribute.exprs = alloc::clone_slice(ctx.arena, exprs.array_view());
+					n.exprs = alloc::clone_slice(ctx.arena, exprs.array_view());
 				}
 			}
 			else if (attr == constants::KW_AT_PURE)
 			{
-				contract.is_pure = true;
+				node.is_pure = true;
 			}
 			else if (attr == constants::KW_AT_RETURN)
 			{
@@ -181,7 +178,7 @@ fn Node*? parse_contract_decl(ContextScope scope) => @pool()
 				}
 				else
 				{
-					contract.return_desc = parse_expr(scope)!;
+					node.return_desc = parse_expr(scope)!;
 				}
 			}
 			else
@@ -195,12 +192,12 @@ fn Node*? parse_contract_decl(ContextScope scope) => @pool()
 		}
 	}
 
-	contract.ensures = alloc::clone_slice(ctx.arena, ensures.array_view());
-	contract.requires = alloc::clone_slice(ctx.arena, requires.array_view());
-	contract.params = alloc::clone_slice(ctx.arena, params.array_view());
-	contract.returns = alloc::clone_slice(ctx.arena, returns.array_view());
+	node.ensures = alloc::clone_slice(ctx.arena, ensures.array_view());
+	node.requires = alloc::clone_slice(ctx.arena, requires.array_view());
+	node.params = alloc::clone_slice(ctx.arena, params.array_view());
+	node.returns = alloc::clone_slice(ctx.arena, returns.array_view());
 
-	return node;
+	return (Node*)node;
 }
 
 <*
@@ -211,9 +208,7 @@ fn Node*? parse_import_decl(ContextScope scope) => @pool()
 	ParseContext* ctx = scope.ctx;
 	int start_pos = ctx.current().pos;
 	expect(ctx, IMPORT)!;
-	Node* node      = ctx.ast.alloc_node(IMPORT_DECL, start_pos);
-	ImportDecl* imp = node.as(IMPORT_DECL);
-
+	ImportDecl* node = ctx.ast.alloc_node(ImportDecl, start_pos);
 	List{Node*} temp_paths;
 	temp_paths.init(tmem, 4);
 
@@ -230,18 +225,18 @@ fn Node*? parse_import_decl(ContextScope scope) => @pool()
 		}
 	}
 
-	imp.paths = alloc::clone_slice(ctx.arena, temp_paths.array_view());
+	node.paths = alloc::clone_slice(ctx.arena, temp_paths.array_view());
 
 	if (ctx.is(AT_IDENT))
 	{
-		imp.attributes = parse_attributes(scope, node)!;
+		node.attributes = parse_attributes(scope, node)!;
 	}
 
 	node.offset.end = ctx.current_pos();
 	
 	expect(ctx, EOS)!;
 
-	return node;
+	return (Node*)node;
 }
 
 <*
@@ -254,42 +249,41 @@ fn Node*? parse_alias_decl(ContextScope scope)
 	ParseContext* ctx = scope.ctx;
 	int start_pos = ctx.current().pos;
 	expect(ctx, ALIAS)!;
-	Node* node            = ctx.ast.alloc_node(ALIAS_DECL, start_pos);
-	AliasDecl* alias_decl = node.as(ALIAS_DECL);
+	AliasDecl* node = ctx.ast.alloc_node(AliasDecl, start_pos);
 
 	do CHECK_NAME:
 	{
 		Token t = @expect_some_else(ctx, { TYPE_IDENT, IDENT, CONST_IDENT, AT_IDENT } ; err)
 		{
 			ctx.error("Expected alias name identifier");
-			alias_decl.name = ctx.empty_ident();
+			node.name = ctx.empty_ident();
 			break CHECK_NAME;
 		}!;
 
-		alias_decl.name = ctx.ident(t);
-		alias_decl.name_kind = t.kind;
+		node.name = ctx.ident(t);
+		node.name_kind = t.kind;
 	};
 
-	alias_decl.generics = parse_generic_decl(scope)!;
-	alias_decl.attributes = parse_attributes(scope, node, { .allow_type_ident = true })!;
+	node.generics = parse_generic_decl(scope)!;
+	node.attributes = parse_attributes(scope, node, { .allow_type_ident = true })!;
 
 	expect(ctx, EQ)!;
 
 	if (ctx.is(MODULE))
 	{
-		alias_decl.alias_kind = MODULE_ALIAS;
+		node.alias_kind = MODULE_ALIAS;
 		advance(ctx)!;
-		alias_decl.target = parse_path_expr(scope)!;
+		node.target = parse_path_expr(scope)!;
 	}
-	else if (alias_decl.name_kind == TYPE_IDENT)
+	else if (node.name_kind == TYPE_IDENT)
 	{
-		alias_decl.alias_kind = TYPE_ALIAS;
-		alias_decl.target = parse_alias_type_target(scope)!;
+		node.alias_kind = TYPE_ALIAS;
+		node.target = parse_alias_type_target(scope)!;
 	}
 	else
 	{
-		alias_decl.alias_kind = IDENT_ALIAS;
-		alias_decl.target = parse_expr(scope)!;
+		node.alias_kind = IDENT_ALIAS;
+		node.target = parse_expr(scope)!;
 		if (ctx.is(LBRACE))
 		{
 			// TODO: represent generic target arguments for identifier aliases.
@@ -316,9 +310,7 @@ fn Node*? parse_typedef_decl(ContextScope scope)
 	ParseFlags flags = scope.flags;
 	int start_pos = ctx.current().pos;
 	expect(ctx, TYPEDEF)!;
-	Node* node                = ctx.ast.alloc_node(TYPEDEF_DECL, start_pos);
-	TypedefDecl* typedef_decl = node.as(TYPEDEF_DECL);
-
+	TypedefDecl* node = ctx.ast.alloc_node(TypedefDecl, start_pos);
 	if (flags.is_inline)
 	{
 		ctx.error("'inline' must appear after '=' in typedef declarations");
@@ -337,13 +329,13 @@ fn Node*? parse_typedef_decl(ContextScope scope)
 	}
 	else
 	{
-		typedef_decl.name = ctx.ident(name);
+		node.name = ctx.ident(name);
 		advance(ctx)!;
 	}
 
-	typedef_decl.generics = parse_generic_decl(scope)!;
-	typedef_decl.interfaces = parse_interface_type_list(scope)!;
-	foreach (interface_type : typedef_decl.interfaces)
+	node.generics = parse_generic_decl(scope)!;
+	node.interfaces = parse_interface_type_list(scope)!;
+	foreach (interface_type : node.interfaces)
 	{
 		if (is_error_or_missing_node(interface_type))
 		{
@@ -353,13 +345,13 @@ fn Node*? parse_typedef_decl(ContextScope scope)
 
 	List{Node*} attributes;
 	attributes.init(tmem, 4);
-	parse_attributes_into(scope, node, &attributes)!;
+	parse_attributes_into(scope, (Node*)node, &attributes)!;
 
 	expect(ctx, EQ)!;
 
 	if (consume(ctx, INLINE)!)
 	{
-		typedef_decl.is_inline = true;
+		node.is_inline = true;
 	}
 
 	if (ctx.is(FN))
@@ -368,11 +360,11 @@ fn Node*? parse_typedef_decl(ContextScope scope)
 	}
 	else
 	{
-		typedef_decl.base_type = parse_type_expr(scope)!;
+		node.base_type = parse_type_expr(scope)!;
 	}
 
-	parse_attributes_into(scope, node, &attributes)!;
-	typedef_decl.attributes = alloc::clone_slice(ctx.arena, attributes.array_view());
+	parse_attributes_into(scope, (Node*)node, &attributes)!;
+	node.attributes = alloc::clone_slice(ctx.arena, attributes.array_view());
 	node.offset.end = ctx.current_pos();
 	expect(ctx, EOS)!;
 	return node;
@@ -392,8 +384,7 @@ fn Node*? parse_macro_decl(ContextScope scope)
 
 	plog::debug("parse_macro");
 
-	Node* node     = ctx.ast.alloc_node(MACRO_DECL, start_pos);
-	MacroDecl* mac = node.as(MACRO_DECL);
+	MacroDecl* node = ctx.ast.alloc_node(MacroDecl, start_pos);
 
 	if (is_type(ctx))
     {
@@ -401,15 +392,15 @@ fn Node*? parse_macro_decl(ContextScope scope)
 
         if (consume(ctx, DOT)!)
         {
-            mac.associated_type.set(first_type);
+            node.associated_type.set(first_type);
         }
         else
         {
-            mac.ret_type.set(first_type);
+            node.ret_type.set(first_type);
 
             if (is_type(ctx))
             {
-                mac.associated_type.set(parse_type_expr(scope)!);
+                node.associated_type.set(parse_type_expr(scope)!);
                 expect(ctx, DOT)!;
             }
         }
@@ -428,24 +419,24 @@ fn Node*? parse_macro_decl(ContextScope scope)
 			t = @expect_else_skip(ctx, IDENT, { EOS, LPAREN } ; err)
 			{
 				ctx.error("Expected macro name identifier");
-				mac.name = ctx.empty_ident();
+				node.name = ctx.empty_ident();
 				break NAME;
 			}!;
 		}
 
-		mac.name = ctx.ident(t);
+		node.name = ctx.ident(t);
 	};
 
 	parse_macro_params(scope, node)!;
 
 	if (ctx.is(LESS))
 	{
-		mac.generics = parse_generic_decl(scope)!;
+		node.generics = parse_generic_decl(scope)!;
 	}
 
 	if (ctx.is(AT_IDENT))
 	{
-		mac.attributes = parse_attributes(scope, node)!;
+		node.attributes = parse_attributes(scope, node)!;
 	}
 
 	if (ctx.is(LBRACE))
@@ -455,8 +446,8 @@ fn Node*? parse_macro_decl(ContextScope scope)
 			ctx.error("Extern functions cannot have a structural block body");
 			return ctx.ast.error(start_pos);
 		}
-		mac.body = parse_compound_stmt(scope)!;
-		node.offset.end = mac.body.offset.end;
+		node.body = parse_compound_stmt(scope)!;
+		node.offset.end = node.body.offset.end;
 	}
 	else if (consume(ctx, IMPLIES)!)
 	{
@@ -466,8 +457,8 @@ fn Node*? parse_macro_decl(ContextScope scope)
 			return ctx.ast.error(start_pos);
 		}
 
-		mac.body = parse_short_body(scope, true)!;
-		node.offset.end = mac.body.offset.end;		
+		node.body = parse_short_body(scope, true)!;
+		node.offset.end = node.body.offset.end;		
 	}
 	else
 	{
@@ -498,14 +489,12 @@ fn Node*? parse_param_decl(ContextScope scope, ParamParseFlags flags = {})
 	ParseContext* ctx = scope.ctx;
 	int start_pos = ctx.current().pos;
 
-	Node* node     = ctx.ast.alloc_node(VAR_DECL, start_pos);
-	VarDecl* param = node.as(VAR_DECL);
+	VarDecl* node = ctx.ast.alloc_node(VarDecl, start_pos);
 
 	if (consume(ctx, ELLIPSIS)!)
 	{
-		param.kind = VAR_PARAM;
-		param.flags.is_variadic = true;
-		param.type = ctx.ast.alloc_node(MISSING, start_pos);
+		node.var_kind = VAR_PARAM;
+		node.flags.is_variadic = true;
 		return node;
 	}
 
@@ -517,7 +506,7 @@ fn Node*? parse_param_decl(ContextScope scope, ParamParseFlags flags = {})
 	{
 		parsed_type = parse_type_expr(scope)!;
 		if (parsed_type.kind == ERROR) return parsed_type;
-		if (parsed_type.as(TYPE_EXPR).optional)
+		if (parsed_type.as(TypeExpr).optional)
 		{
 			ctx.error("Parameters may not be optional");
 		}
@@ -525,11 +514,11 @@ fn Node*? parse_param_decl(ContextScope scope, ParamParseFlags flags = {})
 		if (consume(ctx, ELLIPSIS)!)
 		{
 			has_ellipsis_after_type = true;
-			param.flags.is_variadic = true;
+			node.flags.is_variadic = true;
 		}
 	}
 
-	param.type = parsed_type;
+	node.type = parsed_type;
 
 	Token t = ctx.current();
 	switch (t.kind)
@@ -539,8 +528,8 @@ fn Node*? parse_param_decl(ContextScope scope, ParamParseFlags flags = {})
 			ctx.skip_until({ EOF, EOS, RPAREN, RBRACE })!;
 			return ctx.ast.error(start_pos);
 		case CT_IDENT:
-			param.name = ctx.ident(t);
-			param.kind = VAR_PARAM_CT;
+			node.name = ctx.ident(t);
+			node.var_kind = VAR_PARAM_CT;
 			node.offset.end = ctx.current_pos();
 			advance(ctx)!;
 			if (consume(ctx, ELLIPSIS)!)
@@ -552,16 +541,16 @@ fn Node*? parse_param_decl(ContextScope scope, ParamParseFlags flags = {})
 			break;
 		case IDENT:
 			String token_text = ctx.current_text();
-			param.name = param.name = ctx.ident(ctx.current());
-			param.kind = VAR_PARAM;
-			param.flags.is_ref = is_ref;
+			node.name = ctx.ident(ctx.current());
+			node.var_kind = VAR_PARAM;
+			node.flags.is_ref = is_ref;
 			node.offset.end = ctx.current_pos();
 			advance(ctx)!;
 
 			if (token_text == "self")
 			{
-				param.flags.is_self = true;
-				param.flags.is_self_by_ref = is_ref;
+				node.flags.is_self = true;
+				node.flags.is_self_by_ref = is_ref;
 			}
 
 			if (consume(ctx, ELLIPSIS)!)
@@ -578,8 +567,8 @@ fn Node*? parse_param_decl(ContextScope scope, ParamParseFlags flags = {})
 					ctx.skip_until({ EOF, EOS, RPAREN, RBRACE })!;
 					return ctx.ast.error(start_pos);
 				}
-				param.flags.is_variadic = true;
-				param.type = alloc_any_type_expr(ctx);
+				node.flags.is_variadic = true;
+				node.type = alloc_any_type_expr(ctx);
 			}
 			break;
 		case HASH_IDENT:
@@ -589,8 +578,8 @@ fn Node*? parse_param_decl(ContextScope scope, ParamParseFlags flags = {})
 				ctx.skip_until({ EOF, EOS, RPAREN, RBRACE })!;
 				return ctx.ast.error(start_pos);
 			}
-			param.name = ctx.ident(t);
-			param.kind = VAR_PARAM_EXPR;
+			node.name = ctx.ident(t);
+			node.var_kind = VAR_PARAM_EXPR;
 			node.offset.end = ctx.current_pos();
 			advance(ctx)!;
 			break;
@@ -601,8 +590,8 @@ fn Node*? parse_param_decl(ContextScope scope, ParamParseFlags flags = {})
 				ctx.skip_until({ EOF, EOS, RPAREN, RBRACE })!;
 				return ctx.ast.error(start_pos);
 			}
-			param.name = ctx.ident(t);
-			param.kind = (parsed_type && parsed_type.kind != MISSING) ? VAR_PARAM : VAR_PARAM_CT_TYPE;
+			node.name = ctx.ident(t);
+			node.var_kind = (parsed_type && parsed_type.kind != MISSING) ? VAR_PARAM : VAR_PARAM_CT_TYPE;
 			node.offset.end = ctx.current_pos();
 			advance(ctx)!;
 			break;
@@ -614,8 +603,8 @@ fn Node*? parse_param_decl(ContextScope scope, ParamParseFlags flags = {})
 				ctx.skip_until({ EOF, EOS, RPAREN, RBRACE })!;
 				return ctx.ast.error(start_pos);
 			}
-			param.name = ctx.empty_ident();
-			param.kind = VAR_PARAM;
+			node.name = ctx.empty_ident();
+			node.var_kind = VAR_PARAM;
 			break;
 
 		default:
@@ -626,19 +615,19 @@ fn Node*? parse_param_decl(ContextScope scope, ParamParseFlags flags = {})
 
 	if (ctx.is(AT_IDENT))
 	{
-		param.attributes = parse_attributes(scope, node)!;
+		node.attributes = parse_attributes(scope, node)!;
 	}
 
 	if (consume(ctx, EQ)!)
 	{
 		if (consume(ctx, ELLIPSIS)!)
 		{
-			param.flags.is_macro_optional_ellipsis = true;
+			node.flags.is_macro_optional_ellipsis = true;
 		}
 		else
 		{
-			param.init_expr = parse_expr(scope)!;
-			node.offset.end = param.init_expr.offset.end;
+			node.init_expr = parse_expr(scope)!;
+			node.offset.end = node.init_expr.offset.end;
 		}
 	}
 
@@ -671,7 +660,6 @@ fn Node*? parse_var_decl(ContextScope scope, Node* type = null)
 		{
 			unexpected(ctx, "A local variable cannot have an 'extern' modifier");
 			advance(ctx)!;
-			return ctx.ast.alloc_node(ERROR, start_pos);
 		}
 		if (flags.is_inline)
 		{
@@ -699,8 +687,8 @@ fn Node*? parse_var_decl(ContextScope scope, Node* type = null)
 		}
 	}
 
-	Node* head_node;
-	Node* tail_node;
+	VarDecl* head_node;
+	VarDecl* tail_node;
 
 	while (true)
 	{
@@ -729,12 +717,11 @@ fn Node*? parse_var_decl(ContextScope scope, Node* type = null)
 		advance(ctx)!;
 
 		int var_start = (head_node == null) ? start_pos : t.pos;
-		Node* var_node    = ctx.ast.alloc_node(VAR_DECL, var_start);
-		VarDecl* var_decl = var_node.as(VAR_DECL);
+		VarDecl* var_node    = ctx.ast.alloc_node(VarDecl, var_start);
 
 		if (ctx.is(AT_IDENT) || ctx.is(AT_TYPE_IDENT))
 		{
-			var_decl.attributes = parse_attributes(scope, var_node, { .allow_type_ident = true })!;
+			var_node.attributes = parse_attributes(scope, (Node*)var_node, { .allow_type_ident = true })!;
 		}
 
 		Node* init_expr = null;
@@ -764,29 +751,29 @@ fn Node*? parse_var_decl(ContextScope scope, Node* type = null)
 			unexpected(ctx, "Constants must be initialized at their declaration site")!;
 		}
 
-		var_decl.name = name;
-		var_decl.type = type_node; // Reused across the entire chain segment
-		var_decl.init_expr = init_expr;
-		var_decl.next = null; // Starts as terminal component
+		var_node.name = name;
+		var_node.type = type_node; // Reused across the entire chain segment
+		var_node.init_expr = init_expr;
+		var_node.next = null;
 
-		var_decl.flags.is_extern = flags.is_extern;
-		var_decl.flags.is_const = flags.is_const;
-		var_decl.flags.is_inline = flags.is_inline;
-		var_decl.flags.is_local = flags.is_local;
-		var_decl.flags.is_thread_local = flags.is_thread_local;
-		var_decl.flags.is_static = flags.is_static;
+		var_node.flags.is_extern = flags.is_extern;
+		var_node.flags.is_const = flags.is_const;
+		var_node.flags.is_inline = flags.is_inline;
+		var_node.flags.is_local = flags.is_local;
+		var_node.flags.is_thread_local = flags.is_thread_local;
+		var_node.flags.is_static = flags.is_static;
 
 		if (flags.is_local)
 		{
-			var_decl.kind = VAR_LOCAL;
+			var_node.var_kind = VAR_LOCAL;
 		}
 		else if (flags.is_struct)
 		{
-			var_decl.kind = VAR_FIELD;
+			var_node.var_kind = VAR_FIELD;
 		}
 		else
 		{
-			var_decl.kind = VAR_GLOBAL;
+			var_node.var_kind = VAR_GLOBAL;
 		}
 
 		var_node.offset.end = ctx.current().pos;
@@ -796,12 +783,12 @@ fn Node*? parse_var_decl(ContextScope scope, Node* type = null)
 			head_node = var_node;
 			if (contract)
 			{
-				head_node.as(VAR_DECL).contract.set(contract);
+				head_node.contract.set(contract);
 			}
 		}
 		else
 		{
-			tail_node.as(VAR_DECL).next = var_node;
+			tail_node.next = var_node;
 		}
 		tail_node = var_node;
 
@@ -814,7 +801,6 @@ fn Node*? parse_var_decl(ContextScope scope, Node* type = null)
 		if (!consume(ctx, EOS)!)
 		{
 			ctx.error("Expected ';' to terminate variable declaration sequence");
-			return ctx.ast.alloc_node(ERROR, ctx.current().pos);
 		}
 	}
 
@@ -823,9 +809,8 @@ fn Node*? parse_var_decl(ContextScope scope, Node* type = null)
 
 fn Node* make_overload(ParseContext* ctx, Token t)
 {
-	Node* expr = ctx.ast.alloc_node(OVERLOAD_EXPR, t.pos, t.end_pos());
-	OverloadExpr* ov_expr = expr.as(OVERLOAD_EXPR);
-	ov_expr.kind = core::get_overload_kind(t.kind);
+	OverloadExpr* expr = ctx.ast.alloc_node(OverloadExpr, t.pos, t.end_pos());
+	expr.overload_kind = core::get_overload_kind(t.kind);
 	(void)advance(ctx);
 	return expr;
 }
@@ -851,13 +836,12 @@ fn NodeArray? parse_attributes(ContextScope scope, Node* parent_node, AttributeP
 		Token t = ctx.current();
 		advance(ctx)!;
 
-		Node* attr_node = ctx.ast.alloc_node(ATTRIBUTE_DECL, t.pos);
-		AttributeDecl* attr = attr_node.as(ATTRIBUTE_DECL);
-		String text         = ctx.token_text(t);
-		attr.name = ctx.ident(t);
-		attr.kind = core::get_attribute_from_string(text);
+		AttributeDecl* attr_node = ctx.ast.alloc_node(AttributeDecl, t.pos);
+		String text = ctx.token_text(t);
+		attr_node.name = ctx.ident(t);
+		attr_node.attribute_kind = core::get_attribute_from_string(text);
 
-		if (parent_node && attr.kind == AttributeKind.PRIVATE)
+		if (parent_node && attr_node.attribute_kind == AttributeKind.PRIVATE)
 		{
 			parent_node.visibility = Visibility.PRIVATE;
 		}
@@ -904,20 +888,20 @@ fn NodeArray? parse_attributes(ContextScope scope, Node* parent_node, AttributeP
 							expr = make_overload(ctx, ctx.current());
 							break;
 						}
-						expr = ctx.ast.alloc_node(OVERLOAD_EXPR, t.pos, t.end_pos());
-						OverloadExpr* ov_expr = expr.as(OVERLOAD_EXPR);
+						expr = (Node*)ctx.ast.alloc_node(OverloadExpr, t.pos, t.end_pos());
+						OverloadExpr* ov_expr = expr.as(OverloadExpr);
 						advance(ctx)!;
 						expect(ctx, LBRACKET)!;
 						expr.offset.end = ctx.current_pos();
 						expect(ctx, RBRACKET)!;
-						ov_expr.kind = OV_ELEMENT_REF;
+						ov_expr.overload_kind = OV_ELEMENT_REF;
 						break;
 					case LBRACKET:
-						expr = ctx.ast.alloc_node(OVERLOAD_EXPR, t.pos, t.end_pos());
-						OverloadExpr* ov_expr = expr.as(OVERLOAD_EXPR);
+						expr = (Node*)ctx.ast.alloc_node(OverloadExpr, t.pos, t.end_pos());
+						OverloadExpr* ov_expr = expr.as(OverloadExpr);
 						advance(ctx)!;
 						expect(ctx, RBRACKET)!;
-						ov_expr.kind = consume(ctx, EQ)! ? OV_ELEMENT_SET : OV_ELEMENT_AT;
+						ov_expr.overload_kind = consume(ctx, EQ)! ? OV_ELEMENT_SET : OV_ELEMENT_AT;
 						expr.offset.end = ctx.peek(-1)!.end_pos();
 						break;
 					case NOT_EQUAL:
@@ -940,7 +924,7 @@ fn NodeArray? parse_attributes(ContextScope scope, Node* parent_node, AttributeP
 			}
 			attr_node.offset.end = ctx.current_pos();
 			expect(ctx, RPAREN)!;
-			attr.exprs = alloc::clone_slice(&ctx.ast.arena, exprs.array_view());
+			attr_node.exprs = alloc::clone_slice(&ctx.ast.arena, exprs.array_view());
 		}
 
 		nodes.push(attr_node);
@@ -965,14 +949,13 @@ fn Node*? parse_expand_decl(ContextScope scope)
 	ParseContext* ctx = scope.ctx;
 	int start_pos = ctx.current().pos;
 	expect(ctx, CT_EXPAND)!;
-	Node* node           = ctx.ast.alloc_node(CT_EXPAND_DECL, start_pos);
-	CtExpandDecl* expand = node.as(CT_EXPAND_DECL);
+	CtExpandDecl* node = ctx.ast.alloc_node(CtExpandDecl, start_pos);
 	expect(ctx, LPAREN)!;
-	expand.expr = parse_constant_expr(scope)!;
+	node.expr = parse_constant_expr(scope)!;
 	expect(ctx, RPAREN)!;
 	if (ctx.is(AT_IDENT))
 	{
-		expand.attributes = parse_attributes(scope, node)!;
+		node.attributes = parse_attributes(scope, node)!;
 	}
 	node.offset.end = ctx.current_pos();
 	expect(ctx, EOS)!;
@@ -997,9 +980,8 @@ fn Node*? parse_struct_union_decl(ContextScope scope, bool is_sub = false) => @p
 	{
 		expect(ctx, UNION)!;
 	}
-	Node* node              = ctx.ast.alloc_node(STRUCT_DECL, start_pos);
-	StructDecl* struct_decl = node.as(STRUCT_DECL);
-	struct_decl.is_union = !is_struct;
+	StructDecl* node = ctx.ast.alloc_node(StructDecl, start_pos);
+	node.is_union = !is_struct;
 
 	do NAME_CHECK:
 	{
@@ -1008,24 +990,24 @@ fn Node*? parse_struct_union_decl(ContextScope scope, bool is_sub = false) => @p
 			Token t = @expect_some_else(ctx, { TYPE_IDENT } ; err)
 			{
 				ctx.error("Structs must have a 'Type' identifier");
-				struct_decl.name = ctx.empty_ident();
+				node.name = ctx.empty_ident();
 				break NAME_CHECK;
 			}!;
 
-			struct_decl.name = ctx.ident(t);
+			node.name = ctx.ident(t);
 			break NAME_CHECK;
 		}
 
 		if (ctx.is(IDENT))
 		{
-			struct_decl.name = ctx.ident(ctx.current());
+			node.name = ctx.ident(ctx.current());
 			advance(ctx)!;
 		}
 	};
 
-	struct_decl.interfaces = parse_interface_type_list(scope)!;
-	struct_decl.generics = parse_generic_decl(scope)!;
-	struct_decl.attributes = parse_attributes(scope, node, { .allow_type_ident = true })!;
+	node.interfaces = parse_interface_type_list(scope)!;
+	node.generics = parse_generic_decl(scope)!;
+	node.attributes = parse_attributes(scope, node, { .allow_type_ident = true })!;
 
 	@expect_else_skip(ctx, LBRACE, { RBRACE } ; brace_err)
 	{
@@ -1054,11 +1036,11 @@ fn Node*? parse_struct_union_decl(ContextScope scope, bool is_sub = false) => @p
 
 			if (sub_decl && sub_decl.kind != ERROR)
 			{
-				tail_node.as(STRUCT_DECL).next = sub_decl;
+				tail_node.as(StructDecl).next = sub_decl;
 				// Unroll the sub-decl chain if it has multiple items to find the true new tail
-				while (tail_node.as(STRUCT_DECL).next != null)
+				while (tail_node.as(StructDecl).next != null)
 				{
-					tail_node = tail_node.as(STRUCT_DECL).next;
+					tail_node = tail_node.as(StructDecl).next;
 				}
 			}
 		}
@@ -1075,8 +1057,8 @@ fn Node*? parse_struct_union_decl(ContextScope scope, bool is_sub = false) => @p
 	node.offset.end = ctx.current_pos();
 	expect(ctx, RBRACE)!;
 
-	struct_decl.fields = alloc::clone_slice(ctx.arena, fields.array_view());
-	return node;
+	node.fields = alloc::clone_slice(ctx.arena, fields.array_view());
+	return (Node*)node;
 }
 
 <*
@@ -1087,8 +1069,7 @@ fn Node*? parse_bitstruct_decl(ContextScope scope, bool is_nested = false) => @p
 	ParseContext* ctx = scope.ctx;
 	int start_pos = ctx.current().pos;
 	expect(ctx, BITSTRUCT)!;
-	Node* node              = ctx.ast.alloc_node(STRUCT_DECL, start_pos);
-	StructDecl* struct_decl = node.as(STRUCT_DECL);
+	StructDecl* node = ctx.ast.alloc_node(StructDecl, start_pos);
 
 	if COND: (true)
 	{
@@ -1096,19 +1077,19 @@ fn Node*? parse_bitstruct_decl(ContextScope scope, bool is_nested = false) => @p
 		Token t = @expect_some_else(ctx, { IDENT, TYPE_IDENT } ; err)
 		{
 			ctx.error("Bitstructs must have a name identifier");
-			struct_decl.name = ctx.empty_ident();
+			node.name = ctx.empty_ident();
 			break COND;
 		}!;
 
-		struct_decl.name = ctx.ident(t);
+		node.name = ctx.ident(t);
 	}
 
-	struct_decl.interfaces = parse_interface_type_list(scope.with_only_flags({ .no_generics = true }))!;
+	node.interfaces = parse_interface_type_list(scope.with_only_flags({ .no_generics = true }))!;
 
 	if (consume(ctx, COLON)!)
 	{
-		struct_decl.type = parse_type_expr(scope.with_only_flags({ .no_generics = true }), null)!;
-		struct_decl.attributes = parse_attributes(scope, node)!;
+		node.type = parse_type_expr(scope.with_only_flags({ .no_generics = true }), null)!;
+		node.attributes = parse_attributes(scope, node)!;
 	}
 
 	@expect_else_skip(ctx, LBRACE, { RBRACE } ; brace_err)
@@ -1122,42 +1103,41 @@ fn Node*? parse_bitstruct_decl(ContextScope scope, bool is_nested = false) => @p
 	while (!ctx.is(RBRACE) && !ctx.is(EOF))
 	{
 		int field_start  = ctx.current().pos;
-		Node* field_node = ctx.ast.alloc_node(VAR_DECL, field_start);
-		VarDecl* field   = field_node.as(VAR_DECL);
-		field.kind = VAR_BITFIELD;
+		VarDecl* field_node = ctx.ast.alloc_node(VarDecl, field_start);
+		field_node.var_kind = VAR_BITFIELD;
 
-		if (ctx.is(CONTRACT)) field.contract.set(parse_contract_decl(scope)!);
-		field.type = parse_type_expr(scope)!;
-		field.attributes = parse_attributes(scope, field_node)!;
+		if (ctx.is(CONTRACT)) field_node.contract.set(parse_contract_decl(scope)!);
+		field_node.type = parse_type_expr(scope)!;
+		field_node.attributes = parse_attributes(scope, field_node)!;
 
 		if IF_IDENT: (true)
 		{
 			Token t = @expect_else_skip(ctx, IDENT, { COLON, EOS, RBRACE } ; name_err)
 			{
-				field.name = ctx.empty_ident();
+				field_node.name = ctx.empty_ident();
 				break IF_IDENT;
 			}!;
 
-			field.name = ctx.ident(t);
+			field_node.name = ctx.ident(t);
 		}
 
 		if (consume(ctx, COLON)!)
 		{
-			field.init_expr = parse_constant_expr(scope)!;
+			field_node.init_expr = parse_constant_expr(scope)!;
 			if (consume(ctx, DOTDOT)!)
 			{
-				field.bit_end = parse_constant_expr(scope)!;
+				field_node.bit_end = parse_constant_expr(scope)!;
 			}
 		}
 		expect(ctx, EOS)!;
 		field_node.offset.end = ctx.current().pos;
-		fields.push(field_node);
+		fields.push((Node*)field_node);
 	}
 
 	node.offset.end = ctx.current_pos();
 	expect(ctx, RBRACE)!;
-	struct_decl.fields = alloc::clone_slice(ctx.arena, fields.array_view());
-	return node;
+	node.fields = alloc::clone_slice(ctx.arena, fields.array_view());
+	return (Node*)node;
 }
 
 <*
@@ -1168,33 +1148,32 @@ fn Node*? parse_faultdef_decl(ContextScope scope) => @pool()
 	ParseContext* ctx = scope.ctx;
 	int start_pos = ctx.current().pos;
 	expect(ctx, FAULTDEF)!;
-	Node* node       = ctx.ast.alloc_node(FAULTDEF_DECL, start_pos);
-	FaultdefDecl* fd = node.as(FAULTDEF_DECL);
+	FaultdefDecl* node = ctx.ast.alloc_node(FaultdefDecl, start_pos);
 
 	List{Node*} faults;
 	faults.tinit();
 
 	while (!ctx.eof() && !ctx.is(EOS))
 	{
-		Node* fault_node      = ctx.ast.alloc_node(FAULT_DECL, ctx.current().pos);
-		FaultDecl* fault_decl = fault_node.as(FAULT_DECL);
+		FaultDecl* fault_node = ctx.ast.alloc_node(FaultDecl, ctx.current().pos);
 		if (ctx.is(AT_IDENT))
 		{
-			fault_decl.contract.set(parse_contract_decl(scope)!);
+			fault_node.contract.set(parse_contract_decl(scope)!);
 		}
 
 		if CHECK_IDENT: (true)
 		{
 			Token t = @expect_else(ctx, CONST_IDENT ; err)
 			{
-				fault_decl.name = ctx.empty_ident();
+				fault_node.name = ctx.empty_ident();
 				break CHECK_IDENT;
 			}!;
 
-			fault_decl.name = ctx.ident(t);
+			fault_node.name = ctx.ident(t);
 		}
 
-		fault_decl.attributes = parse_attributes(scope, node)!;
+		fault_node.attributes = parse_attributes(scope, node)!;
+		fault_node.offset.end = ctx.previous_end_pos();
 
 		node.offset.end = ctx.current_pos();
 		if (!consume(ctx, COMMA)!) break;
@@ -1203,9 +1182,9 @@ fn Node*? parse_faultdef_decl(ContextScope scope) => @pool()
 	node.offset.end = ctx.current_pos();
 	expect(ctx, EOS)!;
 
-	fd.faults = alloc::clone_slice(ctx.arena, faults.array_view());
+	node.faults = alloc::clone_slice(ctx.arena, faults.array_view());
 
-	return node;
+	return (Node*)node;
 }
 
 <*
@@ -1216,18 +1195,17 @@ fn Node*? parse_interface_decl(ContextScope scope) => @pool()
 	ParseContext* ctx = scope.ctx;
 	int start_pos = ctx.current().pos;
 	expect(ctx, INTERFACE)!;
-	Node* node           = ctx.ast.alloc_node(INTERFACE_DECL, start_pos);
-	InterfaceDecl* inter = node.as(INTERFACE_DECL);
+	InterfaceDecl* node = ctx.ast.alloc_node(InterfaceDecl, start_pos);
 
 	if CHECK_NAME: (true)
 	{
 		Token t = @expect_else_skip(ctx, TYPE_IDENT, { EOS, AT_IDENT, COLON, LBRACE } ; err)
 		{
-			inter.name = ctx.empty_ident();
+			node.name = ctx.empty_ident();
 			break CHECK_NAME;
 		}!;
 
-		inter.name = ctx.ident(t);
+		node.name = ctx.ident(t);
 	}
 
 	List{Node*} list;
@@ -1241,9 +1219,9 @@ fn Node*? parse_interface_decl(ContextScope scope) => @pool()
 		} while (consume(ctx, COMMA)!);
 	}
 
-	inter.interfaces = alloc::clone_slice(ctx.arena, list.array_view());
+	node.interfaces = alloc::clone_slice(ctx.arena, list.array_view());
 	list.clear();
-	inter.attributes = parse_attributes(scope, node)!;
+	node.attributes = parse_attributes(scope, node)!;
 
 	expect(ctx, LBRACE)!;
 
@@ -1255,18 +1233,18 @@ fn Node*? parse_interface_decl(ContextScope scope) => @pool()
 			contract = parse_contract_decl(scope)!;
 		}
 		Node* func_node = parse_fn_decl(scope.with_only_flags({ .is_interface = true }))!;
-		FnDecl* func    = func_node.as(FN_DECL);
+		FnDecl* func    = func_node.as(FnDecl);
 		if (contract)
 		{
 			func.contract.set(contract);
 		}
 	}
 
-	inter.methods = alloc::clone_slice(ctx.arena, list.array_view());
+	node.methods = alloc::clone_slice(ctx.arena, list.array_view());
 	node.offset.end = ctx.current_pos();
 	expect(ctx, RBRACE)!;
 
-	return node;
+	return (Node*)node;
 }
 
 <*
@@ -1277,28 +1255,27 @@ fn Node*? parse_attrdef_decl(ContextScope scope) => @pool()
 	ParseContext* ctx = scope.ctx;
 	int start_pos = ctx.current().pos;
 	expect(ctx, ATTRDEF)!;
-	Node* node       = ctx.ast.alloc_node(ATTRDEF_DECL, start_pos);
-	AttrdefDecl* def = node.as(ATTRDEF_DECL);
+	AttrdefDecl* node = ctx.ast.alloc_node(AttrdefDecl, start_pos);
 
 	if CHECK_NAME: (true)
 	{
 		Token t = @expect_else_skip(ctx, AT_TYPE_IDENT, { EOS, EQ, LPAREN, RPAREN } ; err)
 		{
-			def.name = ctx.empty_ident();
+			node.name = ctx.empty_ident();
 			break CHECK_NAME;
 		}!;
 
-		def.name = ctx.ident(t);
+		node.name = ctx.ident(t);
 	}
 
 	if (ctx.is(LPAREN))
 	{
-		def.params = parse_parameter_list(scope)!;//, { .is_attrdef = true })!;
+		node.params = parse_parameter_list(scope)!;//, { .is_attrdef = true })!;
 	}
 
 	if (ctx.is(AT_IDENT))
 	{
-		def.defined_attributes = parse_attributes(scope, node)!;
+		node.defined_attributes = parse_attributes(scope, node)!;
 	}
 
 	if (consume(ctx, EOS)!)
@@ -1308,12 +1285,12 @@ fn Node*? parse_attrdef_decl(ContextScope scope) => @pool()
 
 	expect(ctx, EQ)!;
 
-	def.defined_attributes = parse_attributes(scope, node, { .use_comma = true })!;
+	node.defined_attributes = parse_attributes(scope, node, { .use_comma = true })!;
 
 	node.offset.end = ctx.current_pos();
 	expect(ctx, EOS)!;
 
-	return node;
+	return (Node*)node;
 }
 
 <*
@@ -1329,30 +1306,29 @@ fn Node*? parse_enum_constdef_decl(ContextScope scope) => @pool()
 
 	expect(ctx, flags.is_constdef ? CONSTDEF : ENUM)!;
 
-	Node* node = ctx.ast.alloc_node(ENUM_DECL, start_pos);
-	EnumDecl* enum_decl = node.as(ENUM_DECL);
+	EnumDecl* node = ctx.ast.alloc_node(EnumDecl, start_pos);
 
 	if CHECK_IDENT: (true)
 	{
 		Token t = @expect_else_skip(ctx, TYPE_IDENT, { COLON, LBRACE, EOS } ; err)
 		{
-			enum_decl.name = ctx.empty_ident();
+			node.name = ctx.empty_ident();
 			break CHECK_IDENT;
 		}!;
 
-		enum_decl.name = ctx.ident(t);
+		node.name = ctx.ident(t);
 	}
 
-	enum_decl.interfaces = parse_interface_type_list(scope)!;
+	node.interfaces = parse_interface_type_list(scope)!;
 
 	// Optional backing type and/or associated value parameters: ":" "inline"? type? enum_param_list?
 	if (consume(ctx, COLON)!)
 	{
-		enum_decl.is_inline_backing = consume(ctx, INLINE)!;
+		node.is_inline_backing = consume(ctx, INLINE)!;
 
 		if (!ctx.is(LPAREN))
 		{
-			enum_decl.backing_type = parse_type_expr(scope.with_only_flags({ .no_generics = true }), null)!;
+			node.backing_type = parse_type_expr(scope.with_only_flags({ .no_generics = true }), null)!;
 		}
 
 		if (consume(ctx, LPAREN)!)
@@ -1361,13 +1337,12 @@ fn Node*? parse_enum_constdef_decl(ContextScope scope) => @pool()
 			assoc.init(tmem, 4);
 			while (!ctx.is(RPAREN) && !ctx.eof())
 			{
-				Node* param = ctx.ast.alloc_node(VAR_DECL, ctx.current().pos);
-				VarDecl* p  = param.as(VAR_DECL);
+				VarDecl* param = ctx.ast.alloc_node(VarDecl, ctx.current().pos);
 
-				p.type = parse_type_expr(scope)!;
+				param.type = parse_type_expr(scope)!;
 				if (is_non_type_ident(ctx.current().kind))
 				{
-					p.name = ctx.ident(ctx.current());
+					param.name = ctx.ident(ctx.current());
 					advance(ctx)!;
 				}
 				if (ctx.is(AT_IDENT))
@@ -1375,17 +1350,17 @@ fn Node*? parse_enum_constdef_decl(ContextScope scope) => @pool()
 					parse_attributes(scope, param)!;
 				}
 				param.offset.end = ctx.current().pos;
-				assoc.push(param);
+				assoc.push((Node*)param);
 				if (!consume(ctx, COMMA)!) break;
 			}
 			expect(ctx, RPAREN)!;
-			enum_decl.assoc_params = alloc::clone_slice(ctx.arena, assoc.array_view());
+			node.assoc_params = alloc::clone_slice(ctx.arena, assoc.array_view());
 		}
 	}
 
 	if (ctx.is(AT_IDENT) || ctx.is(AT_TYPE_IDENT))
 	{
-		enum_decl.attributes = parse_attributes(scope, node, { .allow_type_ident = true })!;
+		node.attributes = parse_attributes(scope, node, { .allow_type_ident = true })!;
 	}
 
 	expect(ctx, LBRACE)!;
@@ -1407,30 +1382,29 @@ fn Node*? parse_enum_constdef_decl(ContextScope scope) => @pool()
 			continue;
 		}
 
-		Node* variant = ctx.ast.alloc_node(VAR_DECL, ctx.current().pos);
-		VarDecl* v    = variant.as(VAR_DECL);
-		v.kind = VAR_GLOBAL;
-		v.contract.set(contract);
-		v.flags.is_const = true;
-		v.name = ctx.ident(ctx.current());
+		VarDecl* variant = ctx.ast.alloc_node(VarDecl, ctx.current().pos);
+		variant.var_kind = VAR_GLOBAL;
+		variant.contract.set(contract);
+		variant.flags.is_const = true;
+		variant.name = ctx.ident(ctx.current());
 		advance(ctx)!;
 
 		// Optional per-variant attributes: @attr ...  (come before = and {})
 		if (ctx.is(AT_IDENT))
 		{
-			v.attributes = parse_attributes(scope, variant)!;
+			variant.attributes = parse_attributes(scope, variant)!;
 		}
 
 		// Optional ordinal: "=" expr
 		if (consume(ctx, EQ)!)
 		{
-			v.init_expr = parse_expr(scope)!;
+			variant.init_expr = parse_expr(scope)!;
 		}
 
 		// Optional associated values: "{" expr ("," expr)* "}"
 		if (ctx.is(LBRACE))
 		{
-			v.assoc_values = parse_expr(scope)!;
+			variant.assoc_values = parse_expr(scope)!;
 		}
 
 		variant.offset.end = ctx.current().pos;
@@ -1443,9 +1417,9 @@ fn Node*? parse_enum_constdef_decl(ContextScope scope) => @pool()
 
 	expect(ctx, RBRACE)!;
 
-	enum_decl.variants = alloc::clone_slice(ctx.arena, variants.array_view());
+	node.variants = alloc::clone_slice(ctx.arena, variants.array_view());
 
-	return node;
+	return (Node*)node;
 }
 
 <*
@@ -1468,8 +1442,7 @@ fn Node*? parse_generic_decl(ContextScope scope) => @pool()
 	expect(ctx, LESS)!;
 
 	int start_pos = ctx.current().pos;
-	Node* node    = ctx.ast.alloc_node(GENERIC_DECL, start_pos);
-	GenericDecl* gen = node.as(GENERIC_DECL);
+	GenericDecl* node    = ctx.ast.alloc_node(GenericDecl, start_pos);
 	List{Node*} params;
 	params.tinit();
 	while (!ctx.eof())
@@ -1490,6 +1463,6 @@ fn Node*? parse_generic_decl(ContextScope scope) => @pool()
 	}
 	node.offset.end = ctx.current_pos();
 	expect(ctx, GREATER)!;
-	gen.params = alloc::clone_slice(ctx.arena, params.array_view());
-	return node;
+	node.params = alloc::clone_slice(ctx.arena, params.array_view());
+	return (Node*)node;
 }

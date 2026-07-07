@@ -135,7 +135,7 @@ struct MacroDecl
 struct VarDecl
 {
 	inline Node node;
-	VarDeclKind kind;
+	VarDeclKind var_kind;
 	VarDeclFlags flags;
 	Ident name;
 	NullableNode contract;
@@ -165,7 +165,7 @@ struct AttributeDecl
 	NullableNode path;
 	Ident name;
 	NodeArray exprs;
-	AttributeKind kind;
+	AttributeKind attribute_kind;
 	bool is_custom;
 }
 

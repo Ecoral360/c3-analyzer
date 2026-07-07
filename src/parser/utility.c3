@@ -396,15 +396,13 @@ fn Node* alloc_any_type_expr(ParseContext* ctx)
 {
 	int pos = ctx.current().pos;
 
-	Node* type_node = ctx.ast.alloc_node(TYPE_EXPR, pos, pos);
-	TypeExpr* data  = type_node.as(TYPE_EXPR);
+	TypeExpr* type_node = ctx.ast.alloc_node(TypeExpr, pos, pos);
 
-	data.kind = TypeKind.TYPE_IDENTIFIER;
-	data.unresolved.name.id = ctx.ast.string_pool.internalize("any");
-	data.unresolved.name.range = { pos, pos + 3 };
-	data.unresolved.path = ctx.ast.alloc_node(MISSING, pos);
+	type_node.type_kind = TYPE_IDENTIFIER;
+	type_node.unresolved.name.id = ctx.ast.string_pool.internalize("any");
+	type_node.unresolved.name.range = { pos, pos + 3 };
 
-	return type_node;
+	return (Node*)type_node;
 }
 
 <*

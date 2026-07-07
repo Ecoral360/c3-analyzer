@@ -34,7 +34,7 @@ fn void reindex_module(SemaContext* ctx)
 			if (!node || !should_index(node)) continue;
 			if (node.kind == FN_DECL)
 			{
-				FnDecl* func = node.as(FN_DECL);
+				FnDecl* func = node.as(FnDecl);
 				if (func.associated_type != null) continue;
 			}
 
@@ -71,7 +71,7 @@ fn void reindex_module(SemaContext* ctx)
 		{
 			if (!node || node.kind != FN_DECL) continue;
 			
-			FnDecl* func = node.as(FN_DECL);
+			FnDecl* func = node.as(FnDecl);
 			Node* type = func.associated_type;
 			if (!type) continue;
 

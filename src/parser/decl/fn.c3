@@ -19,7 +19,7 @@ fn Node*? parse_fn_decl(ContextScope scope)
 
 	FnDecl* node = scope.ctx.ast.alloc_node(FnDecl, start_pos);
 
-	if (catch parse_fn_name_and_type(scope, func))
+	if (catch parse_fn_name_and_type(scope, node))
 	{
 		ctx.skip_until({ LPAREN, LBRACE, RBRACE, EOS })!;
 	}
