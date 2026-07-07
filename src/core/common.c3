@@ -336,7 +336,7 @@ enum Visibility : char
 - TYPE_GENERIC: TypeExpr.generic
 - TYPE_FUNCTION: TypeExpr.func
 *>
-enum TypeKind : char
+enum TypeExprKind : char
 {
 	TYPE_IDENTIFIER,
 	TYPE_POINTER,

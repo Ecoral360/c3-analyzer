@@ -61,7 +61,7 @@ fn String? PathExpr.full_path(&self, StringPool* pool, Allocator allocator) => @
 *>
 struct TypeExpr
 {
-	TypeKind kind;
+	TypeExprKind kind;
 	bool optional;
 
 	union
@@ -98,6 +98,8 @@ struct TypeExpr
 			NodeArray attributes;
 		}
 	}
+
+	Type* type;
 }
 
 struct CallExpr
