@@ -5,6 +5,7 @@ import analyzer::core::string_pool;
 
 struct IfStmt
 {
+	inline Node node;
 	Node* condition;
 	Node* then_body;
 	Node* else_body;
@@ -13,6 +14,7 @@ struct IfStmt
 
 struct CtIfStmt
 {
+	inline Node node;
 	Node* expr;
 	NodeArray then_stmts;
 	NodeArray else_stmts;
@@ -20,11 +22,13 @@ struct CtIfStmt
 
 struct CompoundStmt
 {
+	inline Node node;
 	NodeArray statements;
 }
 
 struct SwitchStmt
 {
+	inline Node node;
 	NodeArray cases;
 	Node* cond;
 	Ident label;
@@ -37,6 +41,7 @@ struct SwitchStmt
 *>
 struct CaseStmt
 {
+	inline Node node;
 	Node* expr;
 	Node* to_expr;
 	Node* body;
@@ -47,11 +52,13 @@ struct CaseStmt
 *>
 struct DefaultStmt
 {
+	inline Node node;
 	Node* body;
 }
 
 struct NextcaseStmt
 {
+	inline Node node;
 	Node* expr;
 	Ident label;
 	bool is_default;
@@ -59,23 +66,27 @@ struct NextcaseStmt
 
 struct ContinueBreakStmt
 {
+	inline Node node;
 	Ident label;
 	bool is_continue;
 }
 
 struct ReturnStmt
 {
+	inline Node node;
 	Node* expr;
 }
 
 struct CtSwitchStmt
 {
+	inline Node node;
 	Node* cond;
 	NodeArray cases;
 }
 
 struct ExprStmt
 {
+	inline Node node;
 	Node* expr_stmt;
 }
 
@@ -88,6 +99,7 @@ struct ExprStmt
 *>
 struct ForStmt
 {
+	inline Node node;
 	NullableNode init;
 	NullableNode cond;
 	NullableNode incr;
@@ -104,6 +116,7 @@ struct ForStmt
 *>
 struct CtForStmt
 {
+	inline Node node;
 	NullableNode init;
 	Node* cond;
 	NullableNode incr;
@@ -112,6 +125,7 @@ struct CtForStmt
 
 struct WhileStmt
 {
+	inline Node node;
 	Node* cond;
 	Node* body;
 	Ident label;
@@ -119,6 +133,7 @@ struct WhileStmt
 
 struct DoWhileStmt
 {
+	inline Node node;
 	Node* body;
 	NullableNode cond;
 	Ident label;
@@ -126,6 +141,7 @@ struct DoWhileStmt
 
 struct ForeachStmt
 {
+	inline Node node;
 	Node* index;
 	Node* variable;
 	Node* enumeration;
@@ -138,6 +154,7 @@ struct ForeachStmt
 
 struct CtForeachStmt
 {
+	inline Node node;
 	Node* index;
 	Node* value;
 	Node* expr;
@@ -146,6 +163,7 @@ struct CtForeachStmt
 
 struct CtAssertStmt
 {
+	inline Node node;
 	Node* expr;
 	NullableNode msg_expr;
 	NodeArray args;
@@ -153,16 +171,19 @@ struct CtAssertStmt
 
 struct CtErrorStmt
 {
+	inline Node node;
 	Node* expr;
 }
 
 struct CtEchoStmt
 {
+	inline Node node;
 	Node* expr;
 }
 
 struct DeferStmt
 {
+	inline Node node;
 	DeferKind kind;
 	Node* ident;
 	Node* body;
@@ -170,6 +191,7 @@ struct DeferStmt
 
 struct AssertStmt
 {
+	inline Node node;
 	Node* expr;
 	Node* message;
 	NodeArray args;
@@ -177,11 +199,13 @@ struct AssertStmt
 
 struct CtExpandStmt
 {
+	inline Node node;
 	Node* expr;
 }
 
 struct AsmBlockStmt
 {
+	inline Node node;
 	bool is_volatile;
 	bool is_inline;
 	bool is_goto;

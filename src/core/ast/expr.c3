@@ -6,6 +6,7 @@ import std::collections::list;
 
 struct BinaryExpr
 {
+	inline Node node;
 	Node* left;
 	Node* right;
 	OperatorKind op;
@@ -13,6 +14,7 @@ struct BinaryExpr
 
 struct IdentExpr
 {
+	inline Node node;
 	Ident ident;
 	Node* path_expr;
 }
@@ -21,6 +23,7 @@ fn String? IdentExpr.get_ident(&self, StringPool* pool) => pool.get(self.ident.i
 
 struct PathExpr
 {
+	inline Node node;
 	Ident[] segments;
 	bool is_prefix;
 }
@@ -61,6 +64,7 @@ fn String? PathExpr.full_path(&self, StringPool* pool, Allocator allocator) => @
 *>
 struct TypeExpr
 {
+	inline Node node;
 	TypeKind kind;
 	bool optional;
 
@@ -102,6 +106,7 @@ struct TypeExpr
 
 struct CallExpr
 {
+	inline Node node;
 	bool is_outer_call;
 	Node* callee;
 	Node* macro_body_expr;
@@ -111,6 +116,7 @@ struct CallExpr
 
 struct ContractExpr
 {
+	inline Node node;
 	Node* exprs;
 	Ident comment;
 	Node* expr_string;
@@ -120,6 +126,7 @@ fn String? ContractExpr.get_comment(&self, StringPool* pool) => pool.get(self.co
 
 struct ExprList
 {
+	inline Node node;
 	NodeArray exprs;
 }
 
@@ -135,6 +142,7 @@ enum LiteralKind : char
 
 struct LiteralExpr
 {
+	inline Node node;
 	LiteralKind kind;
 
 	union
@@ -149,6 +157,7 @@ struct LiteralExpr
 
 struct UnaryExpr
 {
+	inline Node node;
 	UnaryOpKind operator;
 	Node* expr;
 }
@@ -160,6 +169,7 @@ struct PostUnaryExpr
 
 struct CondExpr
 {
+	inline Node node;
 	NodeArray exprs;
 }
 
@@ -170,6 +180,7 @@ struct CondExpr
 *>
 struct CatchExpr
 {
+	inline Node node;
 	Node* variable;
 	Node* type;
 	NodeArray exprs;
@@ -180,6 +191,7 @@ struct CatchExpr
 *>
 struct TryExpr
 {
+	inline Node node;
 	Node* variable;
 	Node* type;
 	Node* init;
@@ -191,6 +203,7 @@ struct TryExpr
 *>
 struct TernaryExpr
 {
+	inline Node node;
 	Node* cond;
 	Node* then_expr;
 	Node* else_expr;
@@ -200,12 +213,14 @@ struct TernaryExpr
 
 struct MacroBodyExpr
 {
+	inline Node node;
 	Node* body;
 	NodeArray args;
 }
 
 struct BuiltinExpr
 {
+	inline Node node;
 	BuiltinFunction builtin;
 	Ident name;
 }
@@ -217,33 +232,39 @@ struct CompilerConstExpr
 
 struct SplatExpr
 {
+	inline Node node;
 	Node* inner;
 }
 
 struct VasplatExpr
 {
+	inline Node node;
 	Node* range_expr;
 }
 
 struct NamedArgExpr
 {
+	inline Node node;
 	Ident name;
 	Node* value;
 }
 
 struct EvalNamedArgExpr
 {
+	inline Node node;
 	Node* name;
 	Node* value;
 }
 
 struct CtEvalExpr
 {
+	inline Node node;
 	Node* inner_expr;
 }
 
 struct LambdaExpr
 {
+	inline Node node;
 	NodeArray attributes;
 	NodeArray params;
 	Node* return_type;
@@ -252,22 +273,26 @@ struct LambdaExpr
 
 struct GenericIdentExpr
 {
+	inline Node node;
 	NodeArray exprs;
 }
 
 struct CastExpr
 {
+	inline Node node;
 	Node* operand;
 	Node* inner;
 }
 
 struct GroupExpr
 {
+	inline Node node;
 	Node* inner;
 }
 
 struct InitializerListExpr
 {
+	inline Node node;
 	NodeArray exprs;
 }
 
@@ -279,6 +304,7 @@ struct InitializerListExpr
 *>
 struct DesignatorExpr
 {
+	inline Node node;
 	DesignatorKind kind;
 	Node* path;
 
@@ -295,18 +321,21 @@ struct DesignatorExpr
 *>
 struct DesignatedInitializerExpr
 {
+	inline Node node;
 	Node* path;
 	Node* value;
 }
 
 struct CompoundLiteralExpr
 {
+	inline Node node;
 	Node* initializer_expr;
 	Node* type_expr;
 }
 
 struct AccessExpr
 {
+	inline Node node;
 	AccessKind kind;
 	Node* left;
 	Node* member;
@@ -314,6 +343,7 @@ struct AccessExpr
 
 struct MaybeDeferExpr
 {
+	inline Node node;
 	Node* left;
 }
 
@@ -323,6 +353,7 @@ struct MaybeDeferExpr
 *>
 struct RangeExpr
 {
+	inline Node node;
 	RangeKind kind;
 	bool start_from_end;
 	bool end_from_end;
@@ -332,31 +363,37 @@ struct RangeExpr
 
 struct OptionalExpr
 {
+	inline Node node;
 	Node* inner_expr;
 }
 
 struct CtDefinedExpr
 {
+	inline Node node;
 	NodeArray expr_list;
 }
 
 struct CtFeatureExpr
 {
+	inline Node node;
 	Node* inner_expr;
 }
 
 struct LengthofExpr
 {
+	inline Node node;
 	Node* inner_expr;
 }
 
 struct CtStringifyExpr
 {
+	inline Node node;
 	Node* inner_expr;
 }
 
 struct VaargExpr 
 {
+	inline Node node;
 	Node* expr;
 	VaargKind kind;
 	bool start_from_end;
@@ -364,10 +401,12 @@ struct VaargExpr
 
 struct OverloadExpr
 {
+	inline Node node;
 	OverloadKind kind;
 }
 
 struct CtReflectExpr
 {
+	inline Node node;
 	Node* inner_expr;
 }

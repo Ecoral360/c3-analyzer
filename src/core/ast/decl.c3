@@ -7,6 +7,7 @@ import std::collections::list;
 
 struct ContractParam
 {
+	inline Node node;
 	Ident ident;
 	Ident description;
 	InOutModifier modifier;
@@ -17,6 +18,7 @@ fn String? ContractParam.get_description(&self, StringPool* pool) => pool.get(se
 
 struct ContractDecl
 {
+	inline Node node;
 	NodeArray requires;
 	NodeArray ensures;
 	NodeArray returns;
@@ -34,6 +36,7 @@ fn String? ContractDecl.get_comment(&self, StringPool* pool) => pool.get(self.co
 *>
 struct ModuleDecl
 {
+	inline Node node;
 	Node* path;
 	NullableNode contract;
 	NodeArray attributes;
@@ -42,6 +45,7 @@ struct ModuleDecl
 
 struct ImportDecl
 {
+	inline Node node;
 	NodeArray paths;
 	NodeArray attributes;
 }
@@ -63,6 +67,7 @@ Fields:
 *>
 struct AliasDecl
 {
+	inline Node node;
 	Ident name;
 	TokenKind name_kind;
 	AliasDeclKind alias_kind;
@@ -84,6 +89,7 @@ struct AliasDecl
 *>
 struct TypedefDecl
 {
+	inline Node node;
 	Ident name;
 	Node* base_type;
 	Node* generics;
@@ -94,6 +100,7 @@ struct TypedefDecl
 
 struct FnDecl
 {
+	inline Node node;
 	Ident name;
 	Node* associated_type;
 	Node* ret_type;
@@ -106,6 +113,7 @@ struct FnDecl
 
 struct MacroDecl
 {
+	inline Node node;
 	Ident name;
 	NullableNode associated_type;
 	NullableNode ret_type;
@@ -126,6 +134,7 @@ struct MacroDecl
 *>
 struct VarDecl
 {
+	inline Node node;
 	VarDeclKind kind;
 	VarDeclFlags flags;
 	Ident name;
@@ -140,6 +149,7 @@ struct VarDecl
 
 struct EnumDecl
 {
+	inline Node node;
 	Ident name;
 	NodeArray interfaces; // optional implemented interfaces: "(" type ("," type)* ")"
 	bool is_inline_backing;
@@ -151,6 +161,7 @@ struct EnumDecl
 
 struct AttributeDecl
 {
+	inline Node node;
 	NullableNode path;
 	Ident name;
 	NodeArray exprs;
@@ -160,6 +171,7 @@ struct AttributeDecl
 
 struct CtExpandDecl
 {
+	inline Node node;
 	Node* expr;
 	NodeArray attributes;
 }
@@ -170,6 +182,7 @@ struct CtExpandDecl
 *>
 struct StructDecl
 {
+	inline Node node;
 	NullableNode contract;
 	NodeArray interfaces;
 	NodeArray attributes;
@@ -184,6 +197,7 @@ struct StructDecl
 
 struct FaultDecl
 {
+	inline Node node;
 	NullableNode contract;
 	NodeArray attributes;
 	Ident name;
@@ -191,6 +205,7 @@ struct FaultDecl
 
 struct FaultdefDecl
 {
+	inline Node node;
 	NullableNode contract;
 	NodeArray faults;
 }
@@ -200,6 +215,7 @@ struct FaultdefDecl
 *>
 struct InterfaceDecl
 {
+	inline Node node;
 	NullableNode contract;
 	NodeArray interfaces;
 	NodeArray attributes;
@@ -212,6 +228,7 @@ struct InterfaceDecl
 *>
 struct AttrdefDecl
 {
+	inline Node node;
 	Ident name;
 	NodeArray params;
 	NodeArray attributes;
@@ -220,15 +237,18 @@ struct AttrdefDecl
 
 struct CtAssertDecl
 {
+	inline Node node;
 	Node* stmt;
 }
 
 struct GenericDecl
 {
+	inline Node node;
 	NodeArray params;
 }
 
 struct BodyParamDecl
 {
+	inline Node node;
 	NodeArray params;
 }

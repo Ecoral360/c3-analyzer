@@ -13,6 +13,8 @@ sz next_node_id = 1;
 alias NodeArray = Node*[];
 alias NullableNode = Nullable{Node};
 
+typedef NodeID = uint;
+
 bitstruct NodeFlags : ushort
 {
 	bool is_const;
@@ -29,111 +31,12 @@ struct Node
 	NodeFlags flags;
 	ByteOffset offset;
 	sz id;
-
-	union
-	{
-		ErrorNode error;
-
-		// DECL
-		StructDecl struct_decl;
-		EnumDecl enum_decl;
-		VarDecl var_decl;
-		AttrdefDecl attrdef_decl;
-		AttributeDecl attribute_decl;
-		ContractDecl contract_decl;
-		ModuleDecl module_decl;
-		ImportDecl import_decl;
-		AliasDecl alias_decl;
-		TypedefDecl typedef_decl;
-		FnDecl fn_decl;
-		MacroDecl macro_decl;
-		FaultdefDecl faultdef_decl;
-		FaultDecl fault_decl;
-		GenericDecl generic_decl;
-		InterfaceDecl interface_decl;
-		CtExpandDecl ct_expand_decl;
-		CtAssertDecl ct_assert_decl;
-
-		// STMT
-		IfStmt if_stmt;
-		CtIfStmt ct_if_stmt;
-		SwitchStmt switch_stmt;
-		CtSwitchStmt ct_switch_stmt;
-		CaseStmt case_stmt;
-		DefaultStmt default_stmt;
-		ContinueBreakStmt continue_break_stmt;
-		NextcaseStmt nextcase_stmt;
-		CompoundStmt compound_stmt;
-		ReturnStmt return_stmt;
-		ForStmt for_stmt;
-		CtForStmt ct_for_stmt;
-		WhileStmt while_stmt;
-		DoWhileStmt do_while_stmt;
-		ForeachStmt foreach_stmt;
-		CtForeachStmt ct_foreach_stmt;
-		ExprStmt expr_stmt;
-		CtAssertStmt ct_assert_stmt;
-		CtErrorStmt ct_error_stmt;
-		CtEchoStmt ct_echo_stmt;
-		DeferStmt defer_stmt;
-		AssertStmt assert_stmt;
-		CtExpandStmt ct_expand_stmt;
-		AsmBlockStmt asm_block_stmt;
-
-		// EXPR
-		LiteralExpr literal_expr;
-		BinaryExpr binary_expr;
-		UnaryExpr unary_expr;
-		PostUnaryExpr post_unary_expr;
-		CallExpr call_expr;
-		IdentExpr ident_expr;
-		PathExpr path_expr;
-		TypeExpr type_expr;
-		ExprList expr_list;
-		ContractExpr contract_expr;
-		CondExpr cond_expr;
-		TryExpr try_expr;
-		CatchExpr catch_expr;
-		TernaryExpr ternary_expr;
-		MacroBodyExpr macro_body_expr;
-		BuiltinExpr builtin_expr;
-		CompilerConstExpr compiler_const_expr;
-		SplatExpr splat_expr;
-		VasplatExpr vasplat_expr;
-		NamedArgExpr named_arg_expr;
-		EvalNamedArgExpr eval_named_arg_expr;
-		CtEvalExpr ct_eval_expr;
-		LambdaExpr lambda_expr;
-		GenericIdentExpr generic_ident_expr;
-		GroupExpr group_expr;
-		CastExpr cast_expr;
-		DesignatorExpr designator_expr;
-		DesignatedInitializerExpr designated_initializer_expr;
-		InitializerListExpr initializer_list_expr;
-		CompoundLiteralExpr compound_literal_expr;
-		MaybeDeferExpr maybe_deref_expr;
-		AccessExpr access_expr;
-		RangeExpr range_expr;
-		OptionalExpr optional_expr;
-		CtDefinedExpr ct_defined_expr;
-		CtFeatureExpr ct_feature_expr;
-		BodyParamDecl body_param_decl;
-		LengthofExpr lengthof_expr;
-		CtStringifyExpr ct_stringify_expr;
-		VaargExpr vaarg_expr;
-		OverloadExpr overload_expr;
-		CtReflectExpr ct_reflect_expr;
-
-		// UNIT
-		ContractParam contract_param;
-	}
 }
 
-macro Node.as(&self, NodeKind $kind)
-{
-	assert(self.kind == $kind, "Invalid kind current: \"%s\" expected: \"%s\"", self.kind, $kind);
-	return &self.$eval(@str_lower($kind.description));
-}
+<*
+ @require self.kind == NodeKind.$eval(@typename_to_pascal($Type::name)), "Invalid kind to cast"
+*>
+macro Node.as(&self, $Type) => ($Type)self;
 
 fn bool Node.is_valid(&self) @inline
 {
@@ -206,16 +109,15 @@ fn void Ast.free(&self)
 	self.arena.free();
 }
 
-<*parse_var_decl
+<*
  Allocates and initializes a strongly typed AST node inside the AST arena.
- @param kind : "The NodeKind enum tag (e.g., IMPORT_DECL, VAR_DECL)"
  @param start : "The starting token index/position"
 *>
-fn Node* Ast.alloc_node(&self, NodeKind kind, int start, int end = -1)
+macro Ast.alloc_node(&self, $Type, int start, int end = -1)
 {
-	Node* node = alloc::new(&self.arena, Node);
+	$Type* node = alloc::new(&self.arena, $Type);
 	
-	node.kind = kind;
+	node.kind = NodeKind.$eval(@typename_to_pascal($Type::name));
 	node.offset.start = start;
 	node.offset.end = end == -1 ? node.offset.start : end;
 	node.id = next_node_id++;
@@ -223,4 +125,17 @@ fn Node* Ast.alloc_node(&self, NodeKind kind, int start, int end = -1)
 	self.node_ids.push(node.id);
 	
 	return node;
+}
+
+macro String @typename_to_constname(String $typename) @const
+{
+	var $name = "";
+	$foreach $c : $typename:
+		$if $c >= 'A' &&& $c <= 'Z':
+			$name +++= "_";
+		$endif
+		$name +++= @str_upper((String) { $c });
+	$endforeach
+
+	return $name;
 }
