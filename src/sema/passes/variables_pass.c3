@@ -71,13 +71,13 @@ fn ChildVisitResult build_section_scopes_callback(Cursor cursor, Cursor parent, 
 			
 			if (parent.node && parent.node.kind == FN_DECL)
 			{
-				FnDecl* func = parent.node.as(FN_DECL);
+				FnDecl* func = parent.node.as(FnDecl);
 				foreach (param_node : func.params)
 				{
 					if (!param_node) continue;
 					if (param_node.kind != VAR_DECL) continue;
 
-					VarDecl* vardecl = param_node.as(VAR_DECL);
+					VarDecl* vardecl = param_node.as(VarDecl);
 					if (vardecl.flags.is_self || vardecl.flags.is_self_by_ref)
 					{
 						vardecl.type = func.associated_type;

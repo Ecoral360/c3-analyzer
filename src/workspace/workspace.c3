@@ -406,7 +406,7 @@ fn ModuleSection* get_section_from_id(Workspace* ws, ulong id)
 fn ModuleSection* get_section_from_node(Workspace* ws, Node* node) => @pool()
 {
 	sz target_id = node.id;
-
+	
 	HashSet{void*} visited_files; visited_files.tinit();
 
 	ws.modules.@each(; name, mod)

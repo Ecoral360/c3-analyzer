@@ -46,34 +46,34 @@ fn String? Cursor.spelling(&self, Allocator allocator) => @pool()
 	switch (self.node.kind)
 	{
 		case STRUCT_DECL:
-			StructDecl* s = self.node.as(STRUCT_DECL);
+			StructDecl* s = self.node.as(StructDecl);
 			return pool.get(s.name.id)!;
 		case VAR_DECL:
-			VarDecl* v = self.node.as(VAR_DECL);
+			VarDecl* v = self.node.as(VarDecl);
 			return pool.get(v.name.id)!;
 		case FN_DECL:
-			FnDecl* func = self.node.as(FN_DECL);
+			FnDecl* func = self.node.as(FnDecl);
 			return pool.get(func.name.id)!;
 		case MACRO_DECL:
-			MacroDecl* mac = self.node.as(MACRO_DECL);
+			MacroDecl* mac = self.node.as(MacroDecl);
 			return pool.get(mac.name.id)!;
 		case TYPEDEF_DECL:
-			TypedefDecl* td = self.node.as(TYPEDEF_DECL);
+			TypedefDecl* td = self.node.as(TypedefDecl);
 			return pool.get(td.name.id)!;
 		case ALIAS_DECL:
-			AliasDecl* ad = self.node.as(ALIAS_DECL);
+			AliasDecl* ad = self.node.as(AliasDecl);
 			return pool.get(ad.name.id)!;
 		case INTERFACE_DECL:
-			InterfaceDecl* id = self.node.as(INTERFACE_DECL);
+			InterfaceDecl* id = self.node.as(InterfaceDecl);
 			return pool.get(id.name.id)!;
 		case TYPE_EXPR:
-			TypeExpr* type_data = self.node.as(TYPE_EXPR);
-			if (type_data.kind == TYPE_IDENTIFIER)
+			TypeExpr* type_data = self.node.as(TypeExpr);
+			if (type_data.type_kind == TYPE_IDENTIFIER)
 			{
 				String type_name = pool.get(type_data.unresolved.name.id)!;
 				if (type_data.unresolved.path != null)
 				{
-					PathExpr* prefix_path = type_data.unresolved.path.as(PATH_EXPR);
+					PathExpr* prefix_path = type_data.unresolved.path.as(PathExpr);
 					String prefix_str     = prefix_path.full_path(pool, tmem)!;
 					return prefix_str.tconcat(type_name).copy(allocator);
 				}
@@ -81,7 +81,7 @@ fn String? Cursor.spelling(&self, Allocator allocator) => @pool()
 			}
 			return "";
 		case IDENT_EXPR:
-			IdentExpr* ident = self.node.as(IDENT_EXPR);
+			IdentExpr* ident = self.node.as(IdentExpr);
 			return pool.get(ident.ident.id);
 		default:
 			return "";
@@ -97,15 +97,15 @@ fn bool Cursor.has_attribute(&self, AttributeKind kind, Node** out_attribute)
 	switch (self.node.kind)
 	{
 		case STRUCT_DECL:
-			StructDecl* s = self.node.as(STRUCT_DECL);
+			StructDecl* s = self.node.as(StructDecl);
 			temp = s.attributes;
 			break;
 		case INTERFACE_DECL:
-			InterfaceDecl* inter = self.node.as(INTERFACE_DECL);
+			InterfaceDecl* inter = self.node.as(InterfaceDecl);
 			temp = inter.attributes;
 			break;
 		case FN_DECL:
-			FnDecl* func = self.node.as(FN_DECL);
+			FnDecl* func = self.node.as(FnDecl);
 			temp = func.attributes;
 			break;
 		default:
@@ -114,8 +114,8 @@ fn bool Cursor.has_attribute(&self, AttributeKind kind, Node** out_attribute)
 	
 	foreach (attr : temp)
 	{
-		AttributeDecl* attr_decl = attr.as(ATTRIBUTE_DECL);
-		if (attr_decl.kind == kind)
+		AttributeDecl* attr_decl = attr.as(AttributeDecl);
+		if (attr_decl.attribute_kind == kind)
 		{
 			if (out_attribute)
 			{
@@ -226,12 +226,12 @@ fn Node* find_innermost_node(Node* node, int offset, SourceFile* sf)
 	{
 		case FN_DECL:
 		{
-			FnDecl* fndecl = node.as(FN_DECL);
+			FnDecl* fndecl = node.as(FnDecl);
 			return find_innermost_from_nodes(sf, offset, fndecl.associated_type, fndecl.ret_type, fndecl.params, fndecl.attributes, fndecl.body) ?: node;
 		}
 		case COMPOUND_STMT:
 		{
-			CompoundStmt* comp = node.as(COMPOUND_STMT);
+			CompoundStmt* comp = node.as(CompoundStmt);
 
 			foreach (stmt : comp.statements)
 			{
@@ -245,16 +245,16 @@ fn Node* find_innermost_node(Node* node, int offset, SourceFile* sf)
 			return node;
 		}
 		case VAR_DECL:
-			VarDecl* vardecl = node.as(VAR_DECL);
+			VarDecl* vardecl = node.as(VarDecl);
 			return find_innermost_from_nodes(sf, offset, vardecl.type, vardecl.init_expr, vardecl.bit_end, vardecl.attributes, vardecl.assoc_values, vardecl.next) ?: node;
 		case IF_STMT:
 		{
-			IfStmt* if_stmt = node.as(IF_STMT);
+			IfStmt* if_stmt = node.as(IfStmt);
 			return find_innermost_from_nodes(sf, offset, if_stmt.condition, if_stmt.then_body, if_stmt.else_body) ?: node;
 		}
 		case RETURN_STMT:
 		{
-			ReturnStmt* ret = node.as(RETURN_STMT);
+			ReturnStmt* ret = node.as(ReturnStmt);
 			if (ret.expr != null)
 			{
 				Node* inner = find_innermost_node(ret.expr, offset, sf);
@@ -264,17 +264,17 @@ fn Node* find_innermost_node(Node* node, int offset, SourceFile* sf)
 		}
 		case EXPR_STMT:
 		{
-			Node* inner = find_innermost_node(node.as(EXPR_STMT).expr_stmt, offset, sf);
+			Node* inner = find_innermost_node(node.as(ExprStmt).expr_stmt, offset, sf);
 			return inner != null ? inner : node;
 		}
 		case BINARY_EXPR:
 		{
-			BinaryExpr* bin = node.as(BINARY_EXPR);
+			BinaryExpr* bin = node.as(BinaryExpr);
 			return find_innermost_from_nodes(sf, offset, bin.left, bin.right) ?: node;
 		}
 		case ACCESS_EXPR:
 		{
-			AccessExpr* access = node.as(ACCESS_EXPR);
+			AccessExpr* access = node.as(AccessExpr);
 			Node* left_inner = find_innermost_node(access.left, offset, sf);
 			if (left_inner) return left_inner;
 			
@@ -335,14 +335,14 @@ fn bool get_node_path_impl(Node* node, int offset, SourceFile* sf, List{Node*}* 
 
 	var $impl_switch = "switch (node.kind) {";
 
-	$foreach $node_kind : NodeKind::values :
-		$if $node_kind != MISSING &&& $node_kind != NOP_STMT:
-			$impl_switch +++= @sprintf("case %s: ", $node_kind.description);
-			$impl_switch +++= @sprintf("var %s @safeinfer = node.as(%s);", @str_lower($node_kind.description), $node_kind.description);
-			$impl_switch +++= @sprintf("get_node_path_from_nodes(sf, offset, node_path, *%s);", @str_lower($node_kind.description));
-		$endif
-
-	$endforeach
+	//$foreach $node_kind : NodeKind::values :
+	//	$if $node_kind != MISSING &&& $node_kind != NOP_STMT:
+	//		$impl_switch +++= @sprintf("case %s: ", $node_kind.description);
+	//		$impl_switch +++= @sprintf("var %s @safeinfer = node.as(%s);", @str_lower($node_kind.description), $node_kind.description);
+	//		$impl_switch +++= @sprintf("get_node_path_from_nodes(sf, offset, node_path, *%s);", @str_lower($node_kind.description));
+	//	$endif
+//
+	//$endforeach
 
 	$impl_switch +++= "default: }";
 	$expand($impl_switch);
@@ -362,9 +362,9 @@ fn String? Cursor.raw_type_identifier(&self)
 
 	while (current && current.kind == TYPE_EXPR)
 	{
-		TypeExpr* data = current.as(TYPE_EXPR);
+		TypeExpr* data = current.as(TypeExpr);
 
-		switch (data.kind)
+		switch (data.type_kind)
 		{
 			case TYPE_IDENTIFIER:
 			{
@@ -480,7 +480,7 @@ fn String? Cursor.signature_text(&self)
 	switch (self.node.kind)
 	{
 		case FN_DECL:
-			FnDecl* fn_decl = self.node.as(FN_DECL);
+			FnDecl* fn_decl = self.node.as(FnDecl);
 			if (fn_decl.body)
 			{
 				return self.section.source_file.source[self.node.offset.start..fn_decl.body.offset.start - 1]
@@ -496,7 +496,7 @@ fn String? Cursor.signature_text(&self)
 
 
 		case MACRO_DECL:
-			MacroDecl* mac_decl = self.node.as(MACRO_DECL);
+			MacroDecl* mac_decl = self.node.as(MacroDecl);
 			return self.section.source_file.source[self.node.offset.start..mac_decl.body.offset.start - 1]
 				.trim()
 				.strip_suffix("{")
@@ -536,7 +536,7 @@ fn Node*? Cursor.contract(&self)
 	{
 		case FN_DECL:
 		{
-			FnDecl* decl = self.node.as(FN_DECL);
+			FnDecl* decl = self.node.as(FnDecl);
 			if (try val = decl.contract.get())
 			{
 				return val;
@@ -544,7 +544,7 @@ fn Node*? Cursor.contract(&self)
 		}
 		case MACRO_DECL:
 		{
-			MacroDecl* decl = self.node.as(MACRO_DECL);
+			MacroDecl* decl = self.node.as(MacroDecl);
 			if (try val = decl.contract.get())
 			{
 				return val;
@@ -566,7 +566,7 @@ fn String? Cursor.docs(&self)
 	if (try val = self.contract() && val)
 	{
 		StringPool* pool = &self.section.source_file.ast.string_pool;
-		return pool.get(val.as(CONTRACT_DECL).comment.id);
+		return pool.get(val.as(ContractDecl).comment.id);
 	}
 
 	return "";

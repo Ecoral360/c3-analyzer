@@ -56,7 +56,7 @@ fn bool visit_decls(ModuleSection* sec, Node* node, Cursor parent, CursorVisitor
 	{
 		case MODULE_DECL:
 		{
-			ModuleDecl* md = node.as(MODULE_DECL);
+			ModuleDecl* md = node.as(ModuleDecl);
 			if (md.path && !visit({sec, md.path}, parent, visitor, data)) return false;
 			foreach (attr : md.attributes)
 			{
@@ -71,7 +71,7 @@ fn bool visit_decls(ModuleSection* sec, Node* node, Cursor parent, CursorVisitor
 		}
 		case IMPORT_DECL:
 		{
-			ImportDecl* id = node.as(IMPORT_DECL);
+			ImportDecl* id = node.as(ImportDecl);
 			foreach (attr : id.attributes)
 			{
 				if (!visit({sec, attr}, parent, visitor, data)) return false;
@@ -84,7 +84,7 @@ fn bool visit_decls(ModuleSection* sec, Node* node, Cursor parent, CursorVisitor
 		}
 		case FN_DECL:
 		{
-			FnDecl* fndecl = node.as(FN_DECL);
+			FnDecl* fndecl = node.as(FnDecl);
 			if (fndecl.associated_type && !visit({sec, fndecl.associated_type}, parent, visitor, data)) return false;
 			if (fndecl.ret_type && !visit({sec, fndecl.ret_type}, parent, visitor, data)) return false;
 			foreach (param : fndecl.params)
@@ -96,7 +96,7 @@ fn bool visit_decls(ModuleSection* sec, Node* node, Cursor parent, CursorVisitor
 		}
 		case STRUCT_DECL:
 		{
-			StructDecl* structdecl = node.as(STRUCT_DECL);
+			StructDecl* structdecl = node.as(StructDecl);
 			foreach (inter : structdecl.interfaces)
 			{
 				if (!visit({sec, inter}, parent, visitor, data)) return false;
@@ -121,7 +121,7 @@ fn bool visit_decls(ModuleSection* sec, Node* node, Cursor parent, CursorVisitor
 		}
 		case ATTRIBUTE_DECL:
 		{
-			AttributeDecl* attr = node.as(ATTRIBUTE_DECL);
+			AttributeDecl* attr = node.as(AttributeDecl);
 			if (try val = attr.path.get())
 			{
 				if (!visit({sec, val}, parent, visitor, data)) return false;
@@ -136,7 +136,7 @@ fn bool visit_decls(ModuleSection* sec, Node* node, Cursor parent, CursorVisitor
 		}
 		case ENUM_DECL:
 		{
-			EnumDecl* ed = node.as(ENUM_DECL);
+			EnumDecl* ed = node.as(EnumDecl);
 			if (ed.backing_type)
 			{
 				if (!visit({sec, ed.backing_type}, parent, visitor, data)) return false;
@@ -161,7 +161,7 @@ fn bool visit_decls(ModuleSection* sec, Node* node, Cursor parent, CursorVisitor
 		}
 		case VAR_DECL:
 		{
-			VarDecl* vardecl = node.as(VAR_DECL);
+			VarDecl* vardecl = node.as(VarDecl);
 			if (vardecl.type && !visit({sec, vardecl.type}, parent, visitor, data)) return false;
 			if (vardecl.init_expr && !visit({sec, vardecl.init_expr}, parent, visitor, data)) return false;
 			if (vardecl.next && !visit({sec, vardecl.next}, parent, visitor, data)) return false;
@@ -170,7 +170,7 @@ fn bool visit_decls(ModuleSection* sec, Node* node, Cursor parent, CursorVisitor
 		}
 		case INTERFACE_DECL:
 		{
-			InterfaceDecl* inter = node.as(INTERFACE_DECL);
+			InterfaceDecl* inter = node.as(InterfaceDecl);
 			foreach (val : inter.interfaces)
 			{
 				if (!visit({sec, val}, parent, visitor, data)) return false;
@@ -187,7 +187,7 @@ fn bool visit_decls(ModuleSection* sec, Node* node, Cursor parent, CursorVisitor
 		}
 		case GENERIC_DECL:
 		{
-			GenericDecl* gd = node.as(GENERIC_DECL);
+			GenericDecl* gd = node.as(GenericDecl);
 			foreach (val : gd.params)
 			{
 				if (!visit({sec, val}, parent, visitor, data)) return false;
@@ -207,7 +207,7 @@ fn bool visit_stmts(ModuleSection* sec, Node* node, Cursor parent, CursorVisitor
 	{
 		case COMPOUND_STMT:
 		{
-			CompoundStmt* comp = node.as(COMPOUND_STMT);
+			CompoundStmt* comp = node.as(CompoundStmt);
 			foreach (stmt : comp.statements)
 			{
 				if (!visit({sec, stmt}, parent, visitor, data)) return false;
@@ -217,7 +217,7 @@ fn bool visit_stmts(ModuleSection* sec, Node* node, Cursor parent, CursorVisitor
 
 		case IF_STMT:
 		{
-			IfStmt* if_stmt = node.as(IF_STMT);
+			IfStmt* if_stmt = node.as(IfStmt);
 
 			if (if_stmt.condition && !visit({sec, if_stmt.condition}, parent, visitor, data)) return false;
 			if (if_stmt.then_body && !visit({sec, if_stmt.then_body}, parent, visitor, data)) return false;
@@ -228,7 +228,7 @@ fn bool visit_stmts(ModuleSection* sec, Node* node, Cursor parent, CursorVisitor
 
 		case CT_IF_STMT:
 		{
-			CtIfStmt* if_stmt = node.as(CT_IF_STMT);
+			CtIfStmt* if_stmt = node.as(CtIfStmt);
 
 			if (if_stmt.expr && !visit({sec, if_stmt.expr}, parent, visitor, data)) return false;
 			foreach (val : if_stmt.then_stmts)
@@ -244,7 +244,7 @@ fn bool visit_stmts(ModuleSection* sec, Node* node, Cursor parent, CursorVisitor
 
 		case SWITCH_STMT:
 		{
-			SwitchStmt* swi = node.as(SWITCH_STMT);
+			SwitchStmt* swi = node.as(SwitchStmt);
 			foreach (val : swi.cases)
 			{
 				if (!visit({sec, val}, parent, visitor, data)) return false;
@@ -255,7 +255,7 @@ fn bool visit_stmts(ModuleSection* sec, Node* node, Cursor parent, CursorVisitor
 
 		case DEFAULT_STMT:
 		{
-			DefaultStmt* def = node.as(DEFAULT_STMT);
+			DefaultStmt* def = node.as(DefaultStmt);
 			if (def.body)
 			{
 				if (!visit({sec, def.body}, parent, visitor, data)) return false;
@@ -265,7 +265,7 @@ fn bool visit_stmts(ModuleSection* sec, Node* node, Cursor parent, CursorVisitor
 
 		case CASE_STMT:
 		{
-			CaseStmt* cs = node.as(CASE_STMT);
+			CaseStmt* cs = node.as(CaseStmt);
 			if (cs.expr && !visit({sec, cs.expr}, parent, visitor, data)) return false;
 			if (cs.to_expr && !visit({sec, cs.to_expr}, parent, visitor, data)) return false;
 			if (cs.body && !visit({sec, cs.body}, parent, visitor, data)) return false;
@@ -274,21 +274,21 @@ fn bool visit_stmts(ModuleSection* sec, Node* node, Cursor parent, CursorVisitor
 
 		case NEXTCASE_STMT:
 		{
-			NextcaseStmt* next = node.as(NEXTCASE_STMT);
+			NextcaseStmt* next = node.as(NextcaseStmt);
 			if (next.expr && !visit({sec, next.expr}, parent, visitor, data)) return false;
 			break;
 		}
 
 		case RETURN_STMT:
 		{
-			ReturnStmt* ret = node.as(RETURN_STMT);
+			ReturnStmt* ret = node.as(ReturnStmt);
 			if (ret.expr && !visit({sec, ret.expr}, parent, visitor, data)) return false;
 			break;
 		}
 
 		case CT_SWITCH_STMT:
 		{
-			CtSwitchStmt* cts = node.as(CT_SWITCH_STMT);
+			CtSwitchStmt* cts = node.as(CtSwitchStmt);
 			if (cts.cond && !visit({sec, cts.cond}, parent, visitor, data)) return false;
 			foreach (val : cts.cases)
 			{
@@ -298,7 +298,7 @@ fn bool visit_stmts(ModuleSection* sec, Node* node, Cursor parent, CursorVisitor
 		}
 		case EXPR_STMT:
 		{
-			ExprStmt* exst = node.as(EXPR_STMT);
+			ExprStmt* exst = node.as(ExprStmt);
 			if (exst.expr_stmt)
 			{
 				if (!visit({sec, exst.expr_stmt}, parent, visitor, data)) return false;
@@ -307,7 +307,7 @@ fn bool visit_stmts(ModuleSection* sec, Node* node, Cursor parent, CursorVisitor
 		}
 		case FOR_STMT:
 		{
-			ForStmt* fs = node.as(FOR_STMT);
+			ForStmt* fs = node.as(ForStmt);
 			if (try val = fs.init.get())
 			{
 				if (!visit({sec, val}, parent, visitor, data)) return false;
@@ -325,7 +325,7 @@ fn bool visit_stmts(ModuleSection* sec, Node* node, Cursor parent, CursorVisitor
 		}
 		case CT_FOR_STMT:
 		{
-			CtForStmt* fs = node.as(CT_FOR_STMT);
+			CtForStmt* fs = node.as(CtForStmt);
 			if (try val = fs.init.get())
 			{
 				if (!visit({sec, val}, parent, visitor, data)) return false;
@@ -342,14 +342,14 @@ fn bool visit_stmts(ModuleSection* sec, Node* node, Cursor parent, CursorVisitor
 		}
 		case WHILE_STMT:
 		{
-			WhileStmt* ws = node.as(WHILE_STMT);
+			WhileStmt* ws = node.as(WhileStmt);
 			if (ws.cond && !visit({sec, ws.cond}, parent, visitor, data)) return false;
 			if (ws.body && !visit({sec, ws.body}, parent, visitor, data)) return false;
 			break;
 		}
 		case DO_WHILE_STMT:
 		{
-			DoWhileStmt* dws = node.as(DO_WHILE_STMT);
+			DoWhileStmt* dws = node.as(DoWhileStmt);
 			if (try val = dws.cond.get())
 			{
 				if (!visit({sec, val}, parent, visitor, data)) return false;
@@ -359,7 +359,7 @@ fn bool visit_stmts(ModuleSection* sec, Node* node, Cursor parent, CursorVisitor
 		}
 		case FOREACH_STMT:
 		{
-			ForeachStmt* st = node.as(FOREACH_STMT);
+			ForeachStmt* st = node.as(ForeachStmt);
 			if (st.index && !visit({sec, st.index}, parent, visitor, data)) return false;
 			if (st.variable && !visit({sec, st.variable}, parent, visitor, data)) return false;
 			if (st.enumeration && !visit({sec, st.enumeration}, parent, visitor, data)) return false;
@@ -368,7 +368,7 @@ fn bool visit_stmts(ModuleSection* sec, Node* node, Cursor parent, CursorVisitor
 		}
 		case CT_FOREACH_STMT:
 		{
-			CtForeachStmt* st = node.as(CT_FOREACH_STMT);
+			CtForeachStmt* st = node.as(CtForeachStmt);
 			if (st.index && !visit({sec, st.index}, parent, visitor, data)) return false;
 			if (st.value && !visit({sec, st.value}, parent, visitor, data)) return false;
 			if (st.expr && !visit({sec, st.expr}, parent, visitor, data)) return false;
@@ -377,14 +377,14 @@ fn bool visit_stmts(ModuleSection* sec, Node* node, Cursor parent, CursorVisitor
 		}
 		case DEFER_STMT:
 		{
-			DeferStmt* st = node.as(DEFER_STMT);
+			DeferStmt* st = node.as(DeferStmt);
 			if (st.ident && !visit({sec, st.ident}, parent, visitor, data)) return false;
 			if (st.body && !visit({sec, st.body}, parent, visitor, data)) return false;
 			break;
 		}
 		case CT_EXPAND_STMT:
 		{
-			CtExpandStmt* st = node.as(CT_EXPAND_STMT);
+			CtExpandStmt* st = node.as(CtExpandStmt);
 			if (st.expr && !visit({sec, st.expr}, parent, visitor, data)) return false;
 			break;
 		}
@@ -401,7 +401,7 @@ fn bool visit_exprs(ModuleSection* sec, Node* node, Cursor parent, CursorVisitor
 	{
 		case ACCESS_EXPR:
 		{
-			AccessExpr* access = node.as(ACCESS_EXPR);
+			AccessExpr* access = node.as(AccessExpr);
 			if (access.left && !visit({sec, access.left}, parent, visitor, data)) return false;
 			if (access.member && !visit({sec, access.member}, parent, visitor, data)) return false;
 			break;
@@ -409,15 +409,15 @@ fn bool visit_exprs(ModuleSection* sec, Node* node, Cursor parent, CursorVisitor
 
 		case BINARY_EXPR:
 		{
-			BinaryExpr* bin = node.as(BINARY_EXPR);
+			BinaryExpr* bin = node.as(BinaryExpr);
 			if (bin.left && !visit({sec, bin.left}, parent, visitor, data)) return false;
 			if (bin.right && !visit({sec, bin.right}, parent, visitor, data)) return false;
 			break;
 		}
 		case TYPE_EXPR:
 		{
-			TypeExpr* te = node.as(TYPE_EXPR);
-			switch (te.kind)
+			TypeExpr* te = node.as(TypeExpr);
+			switch (te.type_kind)
 			{
 				case TYPE_IDENTIFIER:
 				{
@@ -476,7 +476,7 @@ fn bool visit_exprs(ModuleSection* sec, Node* node, Cursor parent, CursorVisitor
 		}
 		case EXPR_LIST:
 		{
-			ExprList* list = node.as(EXPR_LIST);
+			ExprList* list = node.as(ExprList);
 			foreach (val : list.exprs)
 			{
 				if (!visit({sec, val}, parent, visitor, data)) return false;
@@ -485,19 +485,19 @@ fn bool visit_exprs(ModuleSection* sec, Node* node, Cursor parent, CursorVisitor
 		}
 		case UNARY_EXPR:
 		{
-			UnaryExpr* expr = node.as(UNARY_EXPR);
+			UnaryExpr* expr = node.as(UnaryExpr);
 			if (expr.expr && !visit({sec, expr.expr}, parent, visitor, data)) return false;
 			break;
 		}
 		case POST_UNARY_EXPR:
 		{
-			PostUnaryExpr* expr = node.as(POST_UNARY_EXPR);
+			PostUnaryExpr* expr = node.as(PostUnaryExpr);
 			if (expr.expr && !visit({sec, expr.expr}, parent, visitor, data)) return false;
 			break;
 		}
 		case COND_EXPR:
 		{
-			CondExpr* list = node.as(COND_EXPR);
+			CondExpr* list = node.as(CondExpr);
 			foreach (val : list.exprs)
 			{
 				if (!visit({sec, val}, parent, visitor, data)) return false;
@@ -506,7 +506,7 @@ fn bool visit_exprs(ModuleSection* sec, Node* node, Cursor parent, CursorVisitor
 		}
 		case MACRO_BODY_EXPR:
 		{
-			MacroBodyExpr* expr = node.as(MACRO_BODY_EXPR);
+			MacroBodyExpr* expr = node.as(MacroBodyExpr);
 			foreach (val : expr.args)
 			{
 				if (!visit({sec, val}, parent, visitor, data)) return false;

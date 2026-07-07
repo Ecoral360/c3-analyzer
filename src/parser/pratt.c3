@@ -333,14 +333,13 @@ fn Node*? parse_infix(ContextScope scope, Node* left, Precedence rbp)
 				int start_pos = left.offset.start;
 				Node* init    = parse_initializer_list_expr(scope)!;
 
-				Node* node = ctx.ast.alloc_node(COMPOUND_LITERAL_EXPR, start_pos);
+				CompoundLiteralExpr* node = ctx.ast.alloc_node(CompoundLiteralExpr, start_pos);
 				node.offset.end = ctx.current().pos;
 
-				CompoundLiteralExpr* comp = node.as(COMPOUND_LITERAL_EXPR);
-				comp.type_expr = left;
-				comp.initializer_expr = init;
+				node.type_expr = left;
+				node.initializer_expr = init;
 
-				return node;
+				return (Node*)node;
 			}
 			return parse_generic_expr(scope)!;
 		case LBRACKET:

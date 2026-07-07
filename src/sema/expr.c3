@@ -24,7 +24,7 @@ fn String resolve_type_expr_spelling(SemaContext* ctx, Node* type)
 		return name_str;
 	}
 
-	TypeExpr* type_expr = type.as(TYPE_EXPR);
+	TypeExpr* type_expr = type.as(TypeExpr);
 
 	if (type_expr.unresolved.path != null)
 	{

@@ -121,7 +121,7 @@ fn Node*? parse_stmt(ContextScope scope)
 			return parse_decl_or_expr_stmt(scope)!;
 		case EOS:
 			advance(ctx)!;
-			return ctx.ast.alloc_node(NOP_STMT, t.pos);
+			return (Node*)ctx.ast.alloc_node(NopStmt, t.pos);
 		default:
 			break;
 	}
@@ -144,13 +144,12 @@ fn Node*? parse_decl_or_expr_stmt(ContextScope scope)
 		return decl;
 	}
 
-	Node* node = ctx.ast.alloc_node(EXPR_STMT, start_pos);
-	ExprStmt* es = node.as(EXPR_STMT);
-	es.expr_stmt = expr;
+	ExprStmt* node = ctx.ast.alloc_node(ExprStmt, start_pos);
+	node.expr_stmt = expr;
 	node.offset.end = ctx.current_pos();
 
 	expect(ctx, EOS)!;
-	return node;
+	return (Node*)node;
 }
 
 <*
@@ -160,14 +159,12 @@ fn Node*? parse_decl_or_expr_stmt(ContextScope scope)
 fn Node*? parse_expr_stmt(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
-
 	int start_pos = ctx.current().pos;
-	Node* node    = ctx.ast.alloc_node(EXPR_STMT, start_pos);
-	ExprStmt* es  = node.as(EXPR_STMT);
-	es.expr_stmt = parse_expr(scope)!;
+	ExprStmt* node = ctx.ast.alloc_node(ExprStmt, start_pos);
+	node.expr_stmt = parse_expr(scope)!;
 	node.offset.end = ctx.current_pos();
 	expect(ctx, EOS);
-	return node;
+	return (Node*)node;
 }
 
 <*
@@ -202,8 +199,7 @@ fn Node*? parse_compound_stmt(ContextScope scope) => @pool()
 
 	int start_pos = ctx.current().pos;
 	expect(ctx, LBRACE)!;
-	Node* node          = ctx.ast.alloc_node(COMPOUND_STMT, start_pos);
-	CompoundStmt* block = node.as(COMPOUND_STMT);
+	CompoundStmt* node = ctx.ast.alloc_node(CompoundStmt, start_pos);
 
 	List{Node*} temp_stmts;
 	temp_stmts.init(tmem, 8);
@@ -213,7 +209,7 @@ fn Node*? parse_compound_stmt(ContextScope scope) => @pool()
 		Node*? stmt = parse_stmt(scope);
 		if (catch err = stmt)
 		{
-			ctx.error("Malformed statement inside block");
+			ctx.error("Malformed statement inside compound");
 			Node* err_node = ctx.ast.error(ctx.current().pos);
 			temp_stmts.push(err_node);
 			ctx.skip_until({ RBRACE, EOS })!;
@@ -230,9 +226,9 @@ fn Node*? parse_compound_stmt(ContextScope scope) => @pool()
 
 	expect(ctx, RBRACE)!;
 
-	block.statements = alloc::clone_slice(ctx.arena, temp_stmts.array_view());
+	node.statements = alloc::clone_slice(ctx.arena, temp_stmts.array_view());
 
-	return node;
+	return (Node*)node;
 }
 
 <*
@@ -293,8 +289,7 @@ fn Node*? parse_case_stmts(ContextScope scope, sz row) => @pool()
 		}
 	}
 
-	Node* compound_node    = ctx.ast.alloc_node(COMPOUND_STMT, ctx.current().pos);
-	CompoundStmt* compound = compound_node.as(COMPOUND_STMT);
+	CompoundStmt* compound_node = ctx.ast.alloc_node(CompoundStmt, ctx.current().pos);
 
 	List{Node*} stmts;
 	stmts.tinit();
@@ -306,10 +301,10 @@ fn Node*? parse_case_stmts(ContextScope scope, sz row) => @pool()
 		stmts.push(child_stmt);
 	}
 
-	compound.statements = alloc::clone_slice(ctx.arena, stmts.array_view());
+	compound_node.statements = alloc::clone_slice(ctx.arena, stmts.array_view());
 	compound_node.offset.end = ctx.current().pos;
 
-	return compound_node;
+	return (Node*)compound_node;
 }
 
 <*
@@ -328,21 +323,20 @@ fn Node*? parse_case_stmt(ContextScope scope) => @pool()
 	Location loc = ctx.line_map.resolve((sz)pos);
 	sz case_row  = loc.line;
 
-	Node* node = ctx.ast.alloc_node(CASE_STMT, pos);
+	CaseStmt* node = ctx.ast.alloc_node(CaseStmt, pos);
 	defer node.offset.end = ctx.current().pos;
-	CaseStmt* case_stmt = node.as(CASE_STMT);
 
-	case_stmt.expr = parse_expr(scope)!;
+	node.expr = parse_expr(scope)!;
 	if (consume(ctx, DOTDOT)!)
 	{
-		case_stmt.to_expr = parse_expr(scope)!;
+		node.to_expr = parse_expr(scope)!;
 	}
 	@expect_else(ctx, COLON ; err)
 	{
 		return err;
 	}!;
 
-	case_stmt.body = parse_case_stmts(scope, case_row)!;
+	node.body = parse_case_stmts(scope, case_row)!;
 
 	return node;
 }
@@ -353,7 +347,7 @@ fn Node*? parse_case_stmt(ContextScope scope) => @pool()
 fn Node*? parse_default_stmt(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
-  ParseFlags flags = scope.flags;
+	ParseFlags flags = scope.flags;
 
 	int start_pos      = ctx.current().pos;
 	TokenKind expected = flags.is_comptime ? CT_DEFAULT : DEFAULT;
@@ -367,16 +361,15 @@ fn Node*? parse_default_stmt(ContextScope scope)
 		return err;
 	}!;
 
-	Node* node      = ctx.ast.alloc_node(DEFAULT_STMT, start_pos);
-	DefaultStmt* sw = node.as(DEFAULT_STMT);
-	defer node.offset.end = ctx.current().pos;
+	DefaultStmt* node = ctx.ast.alloc_node(DefaultStmt, start_pos);
+	defer node.offset.end = ctx.previous_end_pos();
 
 	Location loc = ctx.line_map.resolve((sz)start_pos);
 	sz row       = loc.line;
 
-	sw.body = parse_case_stmts(scope, row)!;
+	node.body = parse_case_stmts(scope, row)!;
 
-	return node;
+	return (Node*)node;
 }
 
 <*
@@ -392,9 +385,8 @@ fn Node*? parse_nextcase_stmt(ContextScope scope)
 		return err;
 	}!;
 
-	Node* node       = ctx.ast.alloc_node(NEXTCASE_STMT, start_pos);
-	NextcaseStmt* nc = node.as(NEXTCASE_STMT);
-	defer node.offset.end = ctx.current().pos;
+	NextcaseStmt* node = ctx.ast.alloc_node(NextcaseStmt, start_pos);
+	defer node.offset.end = ctx.previous_end_pos();
 
 	if (consume(ctx, EOS)!)
 	{
@@ -402,7 +394,7 @@ fn Node*? parse_nextcase_stmt(ContextScope scope)
 	}
 	if (ctx.is(CONST_IDENT) && ctx.peek(1)!.kind == COLON)
 	{
-		nc.label = ctx.ident(ctx.current());;
+		node.label = ctx.ident(ctx.current());;
 		advance(ctx)!;
 		@expect_else(ctx, COLON ; err)
 		{
@@ -411,13 +403,13 @@ fn Node*? parse_nextcase_stmt(ContextScope scope)
 	}
 	if (consume(ctx, DEFAULT)!)
 	{
-		nc.is_default = true;
+		node.is_default = true;
 	}
 	else
 	{
-		nc.expr = parse_expr(scope)!;
+		node.expr = parse_expr(scope)!;
 	}
-	return node;
+	return (Node*)node;
 }
 
 <*
@@ -431,15 +423,14 @@ fn Node*? parse_continue_break_stmt(ContextScope scope)
 	bool is_continue = consume(ctx, CONTINUE)!;
 	if (!is_continue) consume(ctx, BREAK)!;
 
-	Node* node            = ctx.ast.alloc_node(CONTINUE_BREAK_STMT, start_pos);
-	ContinueBreakStmt* cb = node.as(CONTINUE_BREAK_STMT);
+	ContinueBreakStmt* node = ctx.ast.alloc_node(ContinueBreakStmt, start_pos);
 
-	cb.is_continue = is_continue;
-	cb.label = ctx.empty_ident();
+	node.is_continue = is_continue;
+	node.label = ctx.empty_ident();
 
 	if (ctx.is(CONST_IDENT))
 	{
-		cb.label = ctx.ident(ctx.current());;
+		node.label = ctx.ident(ctx.current());;
 		advance(ctx)!;
 	}
 
@@ -447,7 +438,7 @@ fn Node*? parse_continue_break_stmt(ContextScope scope)
 
 	expect(ctx, EOS)!;
 
-	return node;
+	return (Node*)node;
 }
 
 <*
@@ -456,27 +447,25 @@ fn Node*? parse_continue_break_stmt(ContextScope scope)
 fn Node*? parse_switch_stmt(ContextScope scope) => @pool()
 {
 	ParseContext* ctx = scope.ctx;
-
 	int start_pos = ctx.current().pos;
 	@expect_else(ctx, SWITCH ; err)
 	{
 		return err;
 	}!;
 
-	Node* node     = ctx.ast.alloc_node(SWITCH_STMT, start_pos);
-	SwitchStmt* sw = node.as(SWITCH_STMT);
+	SwitchStmt* node = ctx.ast.alloc_node(SwitchStmt, start_pos);
 
 	if (ctx.is(CONST_IDENT))
 	{
 		Token label_tok = ctx.current();
-		sw.label = ctx.ident(label_tok);;
+		node.label = ctx.ident(label_tok);;
 		advance(ctx)!;
 		expect(ctx, COLON)!;
 	}
 
 	if (consume(ctx, LPAREN)!)
 	{
-		sw.cond = parse_cond_expr(scope)!;
+		node.cond = parse_cond_expr(scope)!;
 		expect(ctx, RPAREN)!;
 	}
 
@@ -493,7 +482,7 @@ fn Node*? parse_switch_stmt(ContextScope scope) => @pool()
 	node.offset.end = ctx.current_pos();
 	expect(ctx, RBRACE)!;
 
-	sw.cases = alloc::clone_slice(ctx.arena, bodies.array_view());
+	node.cases = alloc::clone_slice(ctx.arena, bodies.array_view());
 	return node;
 }
 
@@ -507,18 +496,17 @@ fn Node*? parse_return_stmt(ContextScope scope)
 	int start_pos = ctx.current().pos;
 	expect(ctx, RETURN)!;
 
-	Node* node      = ctx.ast.alloc_node(RETURN_STMT, start_pos);
-	ReturnStmt* ret = node.as(RETURN_STMT);
+	ReturnStmt* node = ctx.ast.alloc_node(ReturnStmt, start_pos);
 
 	if (!ctx.is(EOS))
 	{
-		ret.expr = parse_expr(scope)!;
+		node.expr = parse_expr(scope)!;
 	}
 
 	node.offset.end = ctx.current_pos();
 	expect(ctx, EOS)!;
 
-	return node;
+	return (Node*)node;
 }
 
 <*
@@ -532,9 +520,8 @@ fn Node*? parse_ct_switch_stmt(ContextScope scope) => @pool()
 	int start_pos = ctx.current().pos;
 	expect(ctx, CT_SWITCH)!;
 
-	Node* node       = ctx.ast.alloc_node(CT_SWITCH_STMT, start_pos);
-	CtSwitchStmt* cs = node.as(CT_SWITCH_STMT);
-	defer node.offset.end = ctx.current().pos;
+	CtSwitchStmt* node = ctx.ast.alloc_node(CtSwitchStmt, start_pos);
+	defer node.offset.end = ctx.previous_end_pos();
 
 	if (!ctx.is(COLON))
 	{
@@ -544,7 +531,7 @@ fn Node*? parse_ct_switch_stmt(ContextScope scope) => @pool()
 			return ctx.ast.error(ctx.current().pos);
 		}
 
-		cs.cond = parse_constant_expr(scope)!;
+		node.cond = parse_constant_expr(scope)!;
 	}
 
 	expect(ctx, COLON)!;
@@ -569,7 +556,7 @@ fn Node*? parse_ct_switch_stmt(ContextScope scope) => @pool()
 
 	expect(ctx, CT_ENDSWITCH)!;
 
-	cs.cases = alloc::clone_slice(ctx.arena, stmts.array_view());
+	node.cases = alloc::clone_slice(ctx.arena, stmts.array_view());
 	return node;
 }
 
@@ -584,32 +571,31 @@ fn Node*? parse_if_stmt(ContextScope scope)
 	int start_pos = ctx.current().pos;
 	expect(ctx, IF)!;
 
-	Node* node      = ctx.ast.alloc_node(IF_STMT, start_pos);
-	IfStmt* if_stmt = node.as(IF_STMT);
+	IfStmt* node = ctx.ast.alloc_node(IfStmt, start_pos);
 
 	if (ctx.is(CONST_IDENT))
 	{
-		if_stmt.label = ctx.ident(ctx.current());
+		node.label = ctx.ident(ctx.current());
 		advance(ctx)!;
 		expect(ctx, COLON)!;
 	}
 
 	expect(ctx, LPAREN)!;
 
-	if_stmt.condition = parse_cond_expr(scope)!;
+	node.condition = parse_cond_expr(scope)!;
 
 	expect(ctx, RPAREN)!;
 
-	if_stmt.then_body = parse_stmt(scope)!;
-	node.offset.end = if_stmt.then_body.offset.end;
+	node.then_body = parse_stmt(scope)!;
+	node.offset.end = node.then_body.offset.end;
 
 	if (consume(ctx, ELSE)!)
 	{
-		if_stmt.else_body = parse_stmt(scope)!;
-		node.offset.end = if_stmt.else_body.offset.end;
+		node.else_body = parse_stmt(scope)!;
+		node.offset.end = node.else_body.offset.end;
 	}
 	
-	return node;
+	return (Node*)node;
 }
 
 <*
@@ -625,11 +611,10 @@ fn Node*? parse_ct_if_stmt(ContextScope scope) => @pool()
 		return err;
 	}!;
 
-	Node* node        = ctx.ast.alloc_node(CT_IF_STMT, start_pos);
-	CtIfStmt* if_stmt = node.as(CT_IF_STMT);
-	defer node.offset.end = ctx.current().pos;
+	CtIfStmt* node = ctx.ast.alloc_node(CtIfStmt, start_pos);
+	defer node.offset.end = ctx.previous_end_pos();
 
-	if_stmt.expr = parse_expr(scope)!;
+	node.expr = parse_expr(scope)!;
 	@expect_else(ctx, COLON ; err)
 	{
 		ctx.skip_until({ EOS, EOF, RBRACE })!;
@@ -643,7 +628,7 @@ fn Node*? parse_ct_if_stmt(ContextScope scope) => @pool()
 		stmts.push(parse_stmt(scope)!);
 	}
 
-	if_stmt.then_stmts = alloc::clone_slice(ctx.arena, stmts.array_view());
+	node.then_stmts = alloc::clone_slice(ctx.arena, stmts.array_view());
 	if (ctx.is(CT_ELSE))
 	{
 		advance(ctx)!;
@@ -652,7 +637,7 @@ fn Node*? parse_ct_if_stmt(ContextScope scope) => @pool()
 		{
 			stmts.push(parse_stmt(scope)!);
 		}
-		if_stmt.else_stmts = alloc::clone_slice(ctx.arena, stmts.array_view());
+		node.else_stmts = alloc::clone_slice(ctx.arena, stmts.array_view());
 	}
 
 	@expect_else(ctx, CT_ENDIF ; err)
@@ -660,7 +645,7 @@ fn Node*? parse_ct_if_stmt(ContextScope scope) => @pool()
 		return err;
 	}!;
 
-	return node;
+	return (Node*)node;
 }
 
 <*
@@ -676,13 +661,12 @@ fn Node*? parse_for_stmt(ContextScope scope)
 		return err;
 	}!;
 
-	Node* node        = ctx.ast.alloc_node(FOR_STMT, start_pos);
-	ForStmt* for_stmt = node.as(FOR_STMT);
-	defer node.offset.end = ctx.current().pos;
+	ForStmt* node = ctx.ast.alloc_node(ForStmt, start_pos);
+	defer node.offset.end = ctx.previous_end_pos();
 
 	if (ctx.is(CONST_IDENT))
 	{
-		for_stmt.label = ctx.ident(ctx.current());
+		node.label = ctx.ident(ctx.current());
 		advance(ctx)!;
 		@expect_else(ctx, COLON ; err)
 		{
@@ -692,7 +676,7 @@ fn Node*? parse_for_stmt(ContextScope scope)
 	}
 	else
 	{
-		for_stmt.label = ctx.empty_ident();
+		node.label = ctx.empty_ident();
 	}
 
 	@expect_else(ctx, LPAREN ; err)
@@ -703,7 +687,7 @@ fn Node*? parse_for_stmt(ContextScope scope)
 
 	if (!consume(ctx, EOS)!)
 	{
-		for_stmt.init.set(parse_expr_list(scope))!;
+		node.init.set(parse_expr_list(scope))!;
 		@expect_else(ctx, EOS ; err)
 		{
 			return err;
@@ -712,7 +696,7 @@ fn Node*? parse_for_stmt(ContextScope scope)
 
 	if (!consume(ctx, EOS)!)
 	{
-		for_stmt.cond.set(parse_cond_expr(scope))!;
+		node.cond.set(parse_cond_expr(scope))!;
 		@expect_else(ctx, EOS ; err)
 		{
 			return err;
@@ -721,7 +705,7 @@ fn Node*? parse_for_stmt(ContextScope scope)
 
 	if (!consume(ctx, RPAREN)!)
 	{
-		for_stmt.incr.set(parse_expr_list(scope))!;
+		node.incr.set(parse_expr_list(scope))!;
 		@expect_else(ctx, RPAREN ; err)
 		{
 			return err;
@@ -729,15 +713,15 @@ fn Node*? parse_for_stmt(ContextScope scope)
 	}
 
 	Location prev_loc = ctx.line_map.resolve((sz)ctx.current().pos);
-	for_stmt.body = parse_stmt(scope)!;
-	Location body_loc = ctx.line_map.resolve((sz)for_stmt.body.offset.start);
-	if (for_stmt.body.kind != COMPOUND_STMT && prev_loc.line != body_loc.line)
+	node.body = parse_stmt(scope)!;
+	Location body_loc = ctx.line_map.resolve((sz)node.body.offset.start);
+	if (node.body.kind != COMPOUND_STMT && prev_loc.line != body_loc.line)
 	{
 		ctx.error("A single statement after 'for' must be placed on the same line, or be enclosed in {}");
 		return ctx.ast.error(ctx.current().pos);
 	}
 
-	return node;
+	return (Node*)node;
 }
 
 <*
@@ -754,28 +738,26 @@ fn Node*? parse_ct_for_stmt(ContextScope scope) => @pool()
 		return err;
 	}!;
 	
-	Node* node        = ctx.ast.alloc_node(CT_FOR_STMT, start_pos);
-	CtForStmt* for_stmt = node.as(CT_FOR_STMT);
-	defer node.offset.end = ctx.current().pos;
+	CtForStmt* node = ctx.ast.alloc_node(CtForStmt, start_pos);
+	defer node.offset.end = ctx.previous_end_pos();
 
 	if (!consume(ctx, EOS)!)
 	{
-		for_stmt.init.set(parse_expr_list(scope.with_only_flags({ .is_comptime = true })))!;
+		node.init.set(parse_expr_list(scope.with_only_flags({ .is_comptime = true })))!;
 		expect(ctx, EOS)!;
 	}
 
-	for_stmt.cond = parse_expr(scope.with_only_flags({ .is_comptime = true }))!;
+	node.cond = parse_expr(scope.with_only_flags({ .is_comptime = true }))!;
 	expect(ctx, EOS)!;
 	
 	if (!ctx.is(COLON))
 	{
-		for_stmt.incr.set(parse_expr_list(scope.with_only_flags({ .is_comptime = true })))!;
+		node.incr.set(parse_expr_list(scope.with_only_flags({ .is_comptime = true })))!;
 	}
 	expect(ctx, COLON)!;
 
-	Node* comp_node = ctx.ast.alloc_node(COMPOUND_STMT, ctx.current_pos());
-	for_stmt.body = comp_node;
-	CompoundStmt* comp = comp_node.as(COMPOUND_STMT);
+	CompoundStmt* comp_node = ctx.ast.alloc_node(CompoundStmt, ctx.current_pos());
+	node.body = comp_node;
 	
 	List{Node*} stmts; stmts.tinit();
 	while (!ctx.eof() && !consume(ctx, CT_ENDFOR)!)
@@ -784,9 +766,9 @@ fn Node*? parse_ct_for_stmt(ContextScope scope) => @pool()
 		stmts.push(stmt);
 	}
 
-	comp.statements = alloc::clone_slice(ctx.arena, stmts.array_view());
+	comp_node.statements = alloc::clone_slice(ctx.arena, stmts.array_view());
 
-	return node;
+	return (Node*)node;
 }
 
 <*
@@ -797,36 +779,35 @@ fn Node*? parse_while_stmt(ContextScope scope)
 	ParseContext* ctx = scope.ctx;
 
 	int start_pos = ctx.current().pos;
-	expect(ctx, WHILE);
+	expect(ctx, WHILE)!;
 
-	Node* node            = ctx.ast.alloc_node(WHILE_STMT, start_pos);
-	WhileStmt* while_stmt = node.as(WHILE_STMT);
-	defer node.offset.end = ctx.current().pos;
+	WhileStmt* node = ctx.ast.alloc_node(WhileStmt, start_pos);
+	defer node.offset.end = ctx.previous_end_pos();
 
 	if (ctx.is(CONST_IDENT))
 	{
-		while_stmt.label = ctx.ident(ctx.current());
+		node.label = ctx.ident(ctx.current());
 		advance(ctx)!;
 		expect(ctx, COLON)!;
 	}
 	else
 	{
-		while_stmt.label = ctx.empty_ident();
+		node.label = ctx.empty_ident();
 	}
 	expect(ctx, LPAREN)!;
-	while_stmt.cond = parse_cond_expr(scope)!;
+	node.cond = parse_cond_expr(scope)!;
 	expect(ctx, RPAREN)!;
 
 	Location prev_loc = ctx.line_map.resolve((sz)ctx.current().pos);
-	while_stmt.body = parse_stmt(scope)!;
-	Location body_loc = ctx.line_map.resolve((sz)while_stmt.body.offset.start);
-	if (while_stmt.body.kind != COMPOUND_STMT && prev_loc.line != body_loc.line)
+	node.body = parse_stmt(scope)!;
+	Location body_loc = ctx.line_map.resolve((sz)node.body.offset.start);
+	if (node.body.kind != COMPOUND_STMT && prev_loc.line != body_loc.line)
 	{
 		ctx.error("A single statement after 'while' must be placed on the same line, or be enclosed in {}.");
 		return ctx.ast.error(ctx.current().pos);
 	}
 
-	return node;
+	return (Node*)node;
 }
 
 <*
@@ -842,13 +823,11 @@ fn Node*? parse_do_while_stmt(ContextScope scope)
 		return err;
 	}!;
 
-	Node* node = ctx.ast.alloc_node(DO_WHILE_STMT, start_pos);
-	defer node.offset.end = ctx.current().pos;
-	DoWhileStmt* do_while_stmt = node.as(DO_WHILE_STMT);
+	DoWhileStmt* node = ctx.ast.alloc_node(DoWhileStmt, start_pos);
 
 	if (ctx.is(CONST_IDENT))
 	{
-		do_while_stmt.label = ctx.ident(ctx.current());
+		node.label = ctx.ident(ctx.current());
 		advance(ctx)!;
 		@expect_else(ctx, COLON ; err)
 		{
@@ -858,10 +837,10 @@ fn Node*? parse_do_while_stmt(ContextScope scope)
 	}
 	else
 	{
-		do_while_stmt.label = ctx.empty_ident();
+		node.label = ctx.empty_ident();
 	}
 
-	do_while_stmt.body = parse_compound_stmt(scope)!;
+	node.body = parse_compound_stmt(scope)!;
 
 	if (consume(ctx, WHILE)!)
 	{
@@ -869,7 +848,7 @@ fn Node*? parse_do_while_stmt(ContextScope scope)
 		{
 			return err;
 		}!;
-		do_while_stmt.cond.set(parse_cond_expr(scope)!);
+		node.cond.set(parse_cond_expr(scope)!);
 		@expect_else(ctx, RPAREN ; err)
 		{
 			return err;
@@ -881,7 +860,7 @@ fn Node*? parse_do_while_stmt(ContextScope scope)
 		return err;
 	}!;
 
-	return node;
+	return (Node*)node;
 }
 
 fn Node*? parse_foreach_var(ContextScope scope)
@@ -889,22 +868,21 @@ fn Node*? parse_foreach_var(ContextScope scope)
 	ParseContext* ctx = scope.ctx;
 
 	int start_pos  = ctx.current().pos;
-	Node* var_node = ctx.ast.alloc_node(VAR_DECL, start_pos);
+	VarDecl* var_node = ctx.ast.alloc_node(VarDecl, start_pos);
 	defer var_node.offset.end = ctx.current().pos;
-	VarDecl* v = var_node.as(VAR_DECL);
-	v.kind = VAR_LOCAL;
+	var_node.var_kind = VAR_LOCAL;
 
 	// Parse optional type: if not a plain identifier or '&', a type is expected.
 	if (!ctx.is(IDENT) && !ctx.is(AMP))
 	{
-		v.type = parse_type_expr(scope)!;
+		var_node.type = parse_type_expr(scope)!;
 	}
 
-	v.flags.is_ref = consume(ctx, AMP)!;
+	var_node.flags.is_ref = consume(ctx, AMP)!;
 
 	if (!ctx.is(IDENT))
 	{
-		if (v.type != null)
+		if (var_node.type != null)
 		{
 			ctx.error("Expected an identifier after the type.");
 		}
@@ -913,15 +891,15 @@ fn Node*? parse_foreach_var(ContextScope scope)
 			ctx.error("Expected an identifier or type.");
 		}
 		ctx.ast.missing(ctx.current().pos);
-		v.name = ctx.empty_ident();
+		var_node.name = ctx.empty_ident();
 		ctx.skip_until({ COMMA, COLON, RPAREN })!;
 		return var_node;
 	}
 
-	v.name = ctx.ident(ctx.current());
+	var_node.name = ctx.ident(ctx.current());
 	advance(ctx)!;
 
-	return var_node;
+	return (Node*)var_node;
 }
 
 <*
@@ -937,14 +915,13 @@ fn Node*? parse_foreach_stmt(ContextScope scope)
 	bool is_reverse = ctx.is(FOREACH_R);
 	advance(ctx)!;
 
-	Node* node                = ctx.ast.alloc_node(FOREACH_STMT, start_pos);
-	ForeachStmt* foreach_stmt = node.as(FOREACH_STMT);
-	defer node.offset.end = ctx.current().pos;
-	foreach_stmt.is_reverse = is_reverse;
+	ForeachStmt* node = ctx.ast.alloc_node(ForeachStmt, start_pos);
+	defer node.offset.end = ctx.peek(-1)!!.pos;
+	node.is_reverse = is_reverse;
 
 	if (ctx.is(CONST_IDENT))
 	{
-		foreach_stmt.label = ctx.ident(ctx.current());
+		node.label = ctx.ident(ctx.current());
 		advance(ctx)!;
 		@expect_else_skip(ctx, COLON, { EOS, EOF } ; err)
 		{
@@ -953,7 +930,7 @@ fn Node*? parse_foreach_stmt(ContextScope scope)
 	}
 	else
 	{
-		foreach_stmt.label = ctx.empty_ident();
+		node.label = ctx.empty_ident();
 	}
 
 	@expect_else_skip(ctx, LPAREN, { RPAREN, EOS, EOF } ; err)
@@ -963,21 +940,21 @@ fn Node*? parse_foreach_stmt(ContextScope scope)
 
 
 	Node* idx_or_variable = parse_foreach_var(scope)!;
-	VarDecl* var_decl     = idx_or_variable.as(VAR_DECL);
+	VarDecl* var_decl     = idx_or_variable.as(VarDecl);
 
 	if (consume(ctx, COMMA)!)
 	{
-		foreach_stmt.index = idx_or_variable;
-		foreach_stmt.index_by_ref = var_decl.flags.is_ref;
+		node.index = idx_or_variable;
+		node.index_by_ref = var_decl.flags.is_ref;
 
-		foreach_stmt.variable = parse_foreach_var(scope)!;
-		var_decl = foreach_stmt.variable.as(VAR_DECL);
-		foreach_stmt.value_by_ref = var_decl.flags.is_ref;
+		node.variable = parse_foreach_var(scope)!;
+		var_decl = node.variable.as(VarDecl);
+		node.value_by_ref = var_decl.flags.is_ref;
 	}
 	else
 	{
-		foreach_stmt.variable = idx_or_variable;
-		foreach_stmt.value_by_ref = var_decl.flags.is_ref;
+		node.variable = idx_or_variable;
+		node.value_by_ref = var_decl.flags.is_ref;
 	}
 
 	@expect_else_skip(ctx, COLON, { RPAREN, EOS, EOF } ; err)
@@ -985,16 +962,16 @@ fn Node*? parse_foreach_stmt(ContextScope scope)
 		return err;
 	}!;
 
-	foreach_stmt.enumeration = parse_expr(scope)!;
+	node.enumeration = parse_expr(scope)!;
 
 	@expect_else_skip(ctx, RPAREN, { EOS, EOF } ; err)
 	{
 		return err;
 	}!;
 
-	foreach_stmt.body = parse_stmt(scope)!;
+	node.body = parse_stmt(scope)!;
 
-	return node;
+	return (Node*)node;
 }
 
 <*
@@ -1006,13 +983,12 @@ fn Node*? parse_ct_assert_stmt(ContextScope scope) => @pool()
 
 	int start_pos = ctx.current().pos;
 	expect(ctx, CT_ASSERT)!;
-	Node* node                   = ctx.ast.alloc_node(CT_ASSERT_STMT, start_pos);
-	CtAssertStmt* ct_assert_stmt = node.as(CT_ASSERT_STMT);
+	CtAssertStmt* node = ctx.ast.alloc_node(CtAssertStmt, start_pos);
 
-	ct_assert_stmt.expr = parse_constant_expr(scope)!;
+	node.expr = parse_constant_expr(scope)!;
 	if (consume(ctx, COLON)!)
 	{
-		ct_assert_stmt.msg_expr.set(parse_constant_expr(scope)!);
+		node.msg_expr.set(parse_constant_expr(scope)!);
 		
 		List{Node*} args; args.tinit();
 
@@ -1021,12 +997,12 @@ fn Node*? parse_ct_assert_stmt(ContextScope scope) => @pool()
 			args.push(parse_constant_expr(scope)!);
 		}
 
-		ct_assert_stmt.args = alloc::clone_slice(ctx.arena, args.array_view());
+		node.args = alloc::clone_slice(ctx.arena, args.array_view());
 	}
 
 	expect(ctx, EOS)!;
 
-	return node;
+	return (Node*)node;
 }
 
 <*
@@ -1042,18 +1018,14 @@ fn Node*? parse_ct_error_stmt(ContextScope scope) => @pool()
 		return err;
 	}!;
 
-	Node* node                 = ctx.ast.alloc_node(CT_ERROR_STMT, start_pos);
-	CtErrorStmt* ct_error_stmt = node.as(CT_ERROR_STMT);
-	defer node.offset.end = ctx.current().pos;
+	CtErrorStmt* node = ctx.ast.alloc_node(CtErrorStmt, start_pos);
+	defer node.offset.end = ctx.peek(-1)!!.pos;
 
-	ct_error_stmt.expr = parse_constant_expr(scope)!;
+	node.expr = parse_constant_expr(scope)!;
 
-	@expect_else(ctx, EOS ; err)
-	{
-		return err;
-	}!;
+	expect(ctx, EOS)!;
 
-	return node;
+	return (Node*)node;
 }
 
 <*
@@ -1069,18 +1041,14 @@ fn Node*? parse_ct_echo_stmt(ContextScope scope) => @pool()
 		return err;
 	}!;
 
-	Node* node               = ctx.ast.alloc_node(CT_ECHO_STMT, start_pos);
-	CtEchoStmt* ct_echo_stmt = node.as(CT_ECHO_STMT);
-	defer node.offset.end = ctx.current().pos;
+	CtEchoStmt* node = ctx.ast.alloc_node(CtEchoStmt, start_pos);
+	defer node.offset.end = ctx.peek(-1)!!.pos;
 
-	ct_echo_stmt.expr = parse_constant_expr(scope)!;
+	node.expr = parse_constant_expr(scope)!;
 
-	@expect_else(ctx, EOS ; err)
-	{
-		return err;
-	}!;
+	expect(ctx, EOS)!;
 
-	return node;
+	return (Node*)node;
 }
 
 <*
@@ -1095,9 +1063,7 @@ fn Node*? parse_defer_stmt(ContextScope scope)
 
 	int start_pos = ctx.current().pos;
 	expect(ctx, DEFER)!;
-	Node* node     = ctx.ast.alloc_node(DEFER_STMT, start_pos);
-	DeferStmt* def = node.as(DEFER_STMT);
-
+	DeferStmt* node = ctx.ast.alloc_node(DeferStmt, start_pos);
 	DeferKind kind = NORMAL;
 
 	plog::debug("parse_defer");
@@ -1120,16 +1086,16 @@ fn Node*? parse_defer_stmt(ContextScope scope)
 			unexpected_at(ctx, ident_token, "Expected identifier here")!;
 		}
 
-		def.ident = ident;
+		node.ident = ident;
 		kind = CATCH_VAR;
 
 		expect(ctx, RPAREN)!;
 	}
 
-	def.kind = kind;
-	def.body = parse_stmt(scope)!;
+	node.defer_kind = kind;
+	node.body = parse_stmt(scope)!;
 
-	return node;
+	return (Node*)node;
 }
 
 <*
@@ -1141,14 +1107,13 @@ fn Node*? parse_assert_stmt(ContextScope scope)
 
 	int start_pos = ctx.current().pos;
 	expect(ctx, ASSERT)!;
-	Node* node      = ctx.ast.alloc_node(ASSERT_STMT, start_pos);
-	AssertStmt* ass = node.as(ASSERT_STMT);
+	AssertStmt* node = ctx.ast.alloc_node(AssertStmt, start_pos);
 
 	expect(ctx, LPAREN)!;
-	ass.expr = parse_expr(scope)!;
+	node.expr = parse_expr(scope)!;
 	if (consume(ctx, COMMA)!)
 	{
-		ass.message = parse_constant_expr(scope)!;
+		node.message = parse_constant_expr(scope)!;
 
 		@pool()
 		{
@@ -1160,12 +1125,12 @@ fn Node*? parse_assert_stmt(ContextScope scope)
 				args.push(parse_expr(scope)!);
 			}
 
-			ass.args = alloc::clone_slice(ctx.arena, args.array_view());
+			node.args = alloc::clone_slice(ctx.arena, args.array_view());
 		};
 	}
 	expect(ctx, RPAREN)!;
 	expect(ctx, EOS)!;
-	return node;
+	return (Node*)node;
 }
 
 <*
@@ -1182,19 +1147,18 @@ fn Node*? parse_ct_foreach_stmt(ContextScope scope) => @pool()
 		return err;
 	}!;
 
-	Node* node = ctx.ast.alloc_node(CT_FOREACH_STMT, start_pos);
-	defer node.offset.end = ctx.current().pos;
-	CtForeachStmt* ct_foreach_stmt = node.as(CT_FOREACH_STMT);
+	CtForeachStmt* node = ctx.ast.alloc_node(CtForeachStmt, start_pos);
+	defer node.offset.end = ctx.peek(-1)!!.pos;
 
 	Node* idx_or_variable = parse_ct_foreach_var(scope)!;
 	if (consume(ctx, COMMA)!)
 	{
-		ct_foreach_stmt.index = idx_or_variable;
-		ct_foreach_stmt.value = parse_ct_foreach_var(scope)!;
+		node.index = idx_or_variable;
+		node.value = parse_ct_foreach_var(scope)!;
 	}
 	else
 	{
-		ct_foreach_stmt.value = idx_or_variable;
+		node.value = idx_or_variable;
 	}
 
 	@expect_else_skip(ctx, COLON, { EOS, EOF, CT_ENDFOREACH } ; err)
@@ -1202,7 +1166,7 @@ fn Node*? parse_ct_foreach_stmt(ContextScope scope) => @pool()
 		return err;
 	}!;
 
-	ct_foreach_stmt.expr = parse_expr(scope)!;
+	node.expr = parse_expr(scope)!;
 
 	@expect_else_skip(ctx, COLON, { EOS, EOF, CT_ENDFOREACH } ; err)
 	{
@@ -1216,11 +1180,10 @@ fn Node*? parse_ct_foreach_stmt(ContextScope scope) => @pool()
 		stmts.push(parse_stmt(scope)!);
 	}
 
-	Node* body = ctx.ast.alloc_node(COMPOUND_STMT, start_pos);
+	CompoundStmt* body = ctx.ast.alloc_node(CompoundStmt, start_pos);
 	body.offset.end = ctx.current().pos;
-	CompoundStmt* block = body.as(COMPOUND_STMT);
-	block.statements = alloc::clone_slice(ctx.arena, stmts.array_view());
-	ct_foreach_stmt.body = body;
+	body.statements = alloc::clone_slice(ctx.arena, stmts.array_view());
+	node.body = (Node*)body;
 
 	@expect_else(ctx, CT_ENDFOREACH ; err)
 	{
@@ -1235,19 +1198,18 @@ fn Node*? parse_ct_foreach_var(ContextScope scope)
 	ParseContext* ctx = scope.ctx;
 
 	int start_pos  = ctx.current().pos;
-	Node* node = ctx.ast.alloc_node(VAR_DECL, start_pos);
+	VarDecl* node = ctx.ast.alloc_node(VarDecl, start_pos);
 	defer node.offset.end = ctx.current().pos;
-	VarDecl* var_decl = node.as(VAR_DECL);
-	var_decl.kind = VAR_LOCAL;
+	node.var_kind = VAR_LOCAL;
 
 	Token token = @expect_else_skip(ctx, CT_IDENT, { COMMA, COLON, EOS, EOF } ; err)
 	{
-		var_decl.name = ctx.empty_ident();
+		node.name = ctx.empty_ident();
 		return node;
 	}!;
 
-	var_decl.name = ctx.ident(token);
-	return node;
+	node.name = ctx.ident(token);
+	return (Node*)node;
 }
 
 <*
@@ -1259,13 +1221,12 @@ fn Node*? parse_ct_expand_stmt(ContextScope scope)
 	expect(ctx, CT_EXPAND)!;
 
 	int start_pos = ctx.current().pos;
-	Node* node    = ctx.ast.alloc_node(CT_EXPAND_STMT, start_pos);
-	CtExpandStmt* exp = node.as(CT_EXPAND_STMT);
+	CtExpandStmt* node = ctx.ast.alloc_node(CtExpandStmt, start_pos);
 
 	expect(ctx, LPAREN)!;
-	exp.expr = parse_expr(scope)!;
+	node.expr = parse_expr(scope)!;
 	expect(ctx, RPAREN)!;
 	node.offset.end = ctx.current_pos();
 	expect(ctx, EOS)!;
-	return node;
+	return (Node*)node;
 }

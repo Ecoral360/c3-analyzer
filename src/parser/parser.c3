@@ -204,6 +204,11 @@ fn int ParseContext.current_pos(&self)
 	return self.current().pos;
 }
 
+fn int ParseContext.previous_end_pos(&self)
+{
+	return self.peek(-1)!!.end_pos();
+}
+
 fn void? ParseContext.advance(ParseContext* ctx, int len = 1)
 {
 	return advance(ctx, len)!;
@@ -290,7 +295,6 @@ macro @expect_else_skip(ParseContext* ctx, TokenKind kind, TokenKind[] targets; 
 	return @expect_else(ctx, kind ; err)
 	{
 		ctx.skip_until(targets)!;
-		err.kind = ERROR;
 		err.offset.end = ctx.current().pos;
 		@body(err);
 	};
@@ -594,9 +598,9 @@ fn void? parse_top_level(ParseContext* ctx)
 		case CT_ASSERT:
 			int start_pos = ctx.current().pos;
 			Node* stmt = parse_ct_assert_stmt(scope)!;
-			node = ctx.ast.alloc_node(CT_ASSERT_DECL, start_pos);
+			node = (Node*)ctx.ast.alloc_node(CtAssertDecl, start_pos);
 			node.offset.end = ctx.current().pos;
-			CtAssertDecl* ctassert = node.as(CT_ASSERT_DECL);
+			CtAssertDecl* ctassert = node.as(CtAssertDecl);
 			ctassert.stmt = stmt;
 		default:
 			ctx.error("Couldn't find any matching top level declaration: \"%s\" %s", ctx.token_text(ctx.current()), string::from_struct(tmem, ctx.current()));
@@ -616,16 +620,16 @@ fn void attach_contract(ParseContext* ctx, Node* node, Node* contract)
 	switch (node.kind)
 	{
 		case MODULE_DECL:
-			ModuleDecl* mod = node.as(MODULE_DECL);
+			ModuleDecl* mod = node.as(ModuleDecl);
 			mod.contract.set(contract);
 		case FN_DECL:
-			FnDecl* func = node.as(FN_DECL);
+			FnDecl* func = node.as(FnDecl);
 			func.contract.set(contract);
 		case FAULTDEF_DECL:
-			FaultdefDecl* fd = node.as(FAULTDEF_DECL);
+			FaultdefDecl* fd = node.as(FaultdefDecl);
 			fd.contract.set(contract);
 		case VAR_DECL:
-			VarDecl* vd = node.as(VAR_DECL);
+			VarDecl* vd = node.as(VarDecl);
 			vd.contract.set(contract);
 		default:
 			break;
