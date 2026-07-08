@@ -194,6 +194,80 @@ enum TypeInfoKind
 	GENERIC
 }
 
+enum TypeKind : char
+{
+	TYPE_VOID,
+	TYPE_BOOL,
+	TYPE_I8,
+	TYPE_I16,
+	TYPE_I32,
+	TYPE_I64,
+	TYPE_I128,
+	TYPE_U8,
+	TYPE_U16,
+	TYPE_U32,
+	TYPE_U64,
+	TYPE_U128,
+	TYPE_F16,
+	TYPE_BF16,
+	TYPE_F32,
+	TYPE_F64,
+	TYPE_F128,
+	TYPE_ANY,
+	TYPE_INTERFACE,
+	TYPE_ANYFAULT,
+	TYPE_TYPEID,
+	TYPE_FUNC_PTR,
+	TYPE_POINTER,
+	TYPE_TYPEDEF,
+	TYPE_CONSTDEF,
+	TYPE_ENUM,
+	TYPE_FUNC_RAW,
+	TYPE_STRUCT,
+	TYPE_UNION,
+	TYPE_BITSTRUCT,
+	TYPE_ALIAS,
+	TYPE_UNTYPEDLIST,
+	TYPE_SLICE,
+	TYPE_ARRAY,
+	TYPE_FLEXIBLE_ARRAY,
+	TYPE_INFERRED_ARRAY,
+	TYPE_VECTOR,
+	TYPE_SIMD_VECTOR,
+	TYPE_INFERRED_VECTOR,
+	TYPE_OPTIONAL,
+	TYPE_WILDCARD,
+	TYPE_TYPEINFO,
+	TYPE_MEMBER,
+	TYPE_REFLECTION,
+}
+
+enum BitSizes : char
+{
+	BIT1,
+	BITS8,
+	BITS16,
+	BITS32,
+	BITS64,
+	BITS128,
+	BITS256,
+}
+
+fn BitSizes int_to_bit_size(sz bits)
+{
+	switch (bits)
+	{
+		case 1: return BIT1;
+		case 8: return BITS8;
+		case 16: return BITS16;
+		case 32: return BITS32;
+		case 64: return BITS64;
+		case 128: return BITS128;
+		case 256: return BITS256;
+		default: unreachable("Not a valid bit size");
+	}
+}
+
 enum BuiltinFunction
 {
 	ABS,

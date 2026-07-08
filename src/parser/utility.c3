@@ -402,7 +402,7 @@ fn Node* alloc_any_type_expr(ParseContext* ctx)
 	type_node.unresolved.name.id = ctx.ast.string_pool.internalize("any");
 	type_node.unresolved.name.range = { pos, pos + 3 };
 
-	return (Node*)type_node;
+	return type_node;
 }
 
 <*
