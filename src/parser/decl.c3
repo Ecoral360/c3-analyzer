@@ -880,7 +880,8 @@ fn NodeArray? parse_attributes(ContextScope scope, Node* parent_node, AttributeP
 					case LSHIFT_ASSIGN:
 						if (!next_is_rparen) nextcase default;
 						expr = make_overload(ctx, ctx.current());
-						plog::debug("parse_attributes - found op overload: %s", expr.overload_expr.kind.description);
+						OverloadExpr* ov_expr = expr.as(OverloadExpr);
+						plog::debug("parse_attributes - found op overload: %s", ov_expr.kind.description);
 						break;
 					case AMP:
 						if (next_is_rparen)
