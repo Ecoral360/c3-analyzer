@@ -10,6 +10,7 @@ struct SemaLocalContext @local
 {
 	SemaScope* current_scope;
 	ModuleSection* section;
+	SemaContext* ctx;
 	Allocator arena;
 }
 
@@ -22,99 +23,111 @@ fn void run_variable_pass(SemaContext* ctx)
 
 	String source = section.source_file.source;
 
-    section.scope.range = {
-        .start = 0,
-        .end = (int)source.len - 1,
-    };
+	section.scope.range = {
+		.start = 0,
+		.end = (int)source.len - 1,
+	};
 
 	SemaLocalContext build_ctx = {
 		.current_scope = &section.scope,
 		.section = section,
+		.ctx = ctx,
 		.arena = &mod.arena
 	};
 
 	foreach (root_node : section.section.nodes)
 	{
 		if (!root_node) continue;
+
+		switch (root_node.kind)
+		{
+			case FN_DECL:
+			case MACRO_DECL:
+				break;
+			default: 
+				continue;
+		}
 		
 		build_ctx.current_scope = &section.scope;
 		
-		Cursor root_cursor = { .section = (ModuleSection*)section, .node = root_node };
-		cursor::visit(root_cursor, {}, (CursorVisitor)&build_section_scopes_callback, &build_ctx);
+		Cursor root_cursor = { .node = root_node };
+		cursor::visit(root_cursor, {}, { &sema_on_enter, &sema_on_exit }, &build_ctx);
 	}
 }
 
-fn ChildVisitResult build_section_scopes_callback(Cursor cursor, Cursor parent, void* user_data)
+fn ChildVisitResult sema_on_enter(Cursor cursor, Cursor parent, void* user_data) @local
 {
 	SemaLocalContext* ctx = (SemaLocalContext*)user_data;
 	Node* node = cursor.node;
-	if (!node) return CONTINUE;
 
 	while (ctx.current_scope.parent && node.offset.start > ctx.current_scope.range.end)
 	{
 		ctx.current_scope = ctx.current_scope.parent;
 	}
-
-	switch (node.kind)
+	
+	if (node.kind == FN_DECL)
 	{
-		case COMPOUND_STMT:
-		{
-			SemaScope* sub_scope = alloc::new(ctx.arena, SemaScope);
-			sub_scope.parent = ctx.current_scope;
-			sub_scope.range = node.offset;
-			
-			sub_scope.children.init(ctx.arena, 4);
-			sub_scope.variables.init(ctx.arena, 4);
+		plog::debug("SCOPE: Pushed new scope for %s at [%d:%d]", "FUNCTION", node.offset.start, node.offset.end);
+		SemaScope* func_scope = alloc::new(ctx.arena, SemaScope);
+		func_scope.parent = ctx.current_scope;
+		func_scope.range = node.offset;
+		func_scope.children.init(ctx.arena, 4);
+		func_scope.variables.init(ctx.arena, 4);
+		
+		ctx.current_scope.children.push(func_scope);
+		ctx.current_scope = func_scope; 
+	}
 
-			ctx.current_scope.children.push(sub_scope);
-			ctx.current_scope = sub_scope;
-			
-			if (parent.node && parent.node.kind == FN_DECL)
-			{
-				FnDecl* func = parent.node.as(FnDecl);
-				foreach (param_node : func.params)
-				{
-					if (!param_node) continue;
-					if (param_node.kind != VAR_DECL) continue;
-
-					VarDecl* vardecl = param_node.as(VarDecl);
-					if (vardecl.flags.is_self || vardecl.flags.is_self_by_ref)
-					{
-						vardecl.type = func.associated_type;
-					}
-
-					SemaVar param_entry = {
-						.def = param_node,
-						.lifetime = { 
-							.start = param_node.offset.start, 
-							.end = sub_scope.range.end 
-						}
-					};
-					sub_scope.variables.push(param_entry);
-				}
+	if (node.kind == COMPOUND_STMT)
+	{
+		plog::debug("SCOPE: Pushed new scope for %s at [%d:%d]", "COMPOUND", node.offset.start, node.offset.end);
+		SemaScope* sub_scope = alloc::new(ctx.arena, SemaScope);
+		sub_scope.parent = ctx.current_scope;
+		sub_scope.range = node.offset;
+		sub_scope.children.init(ctx.arena, 4);
+		sub_scope.variables.init(ctx.arena, 4);
+		ctx.current_scope.children.push(sub_scope);
+		ctx.current_scope = sub_scope; // Pushing the stack
+	}
+	
+	if VD: (node.kind == VAR_DECL)
+	{
+		SemaVar var_entry = {
+			.def = node,
+			.lifetime = {
+				.start = node.offset.start,
+				.end = ctx.current_scope.range.end
 			}
-			
-			break;
-		}
-
-		case VAR_DECL:
+		};
+		VarDecl* vardecl = node.as(VarDecl);
+		if (!vardecl.name)
 		{
-			if (parent.node && parent.node.kind == FN_DECL) break;
-			SemaVar var_entry = {
-				.def = node,
-				.lifetime = { 
-					.start = node.offset.start, 
-					.end = ctx.current_scope.range.end 
-				}
-			};
-			
-			ctx.current_scope.variables.push(var_entry);
-			break;
+			break VD;
 		}
-
-		default:
-			break;
+		plog::debug("REG: Found decl '%s' (kind: %s) at offset %d. Adding to scope at %d", 
+				   vardecl.name.text, node.kind.description, node.offset.start, ctx.current_scope.range.start);
+		String name = vardecl.name.text;
+		ctx.current_scope.variables.set(name, var_entry);
 	}
 
 	return RECURSE;
+}
+
+fn ChildVisitResult sema_on_exit(Cursor cursor, Cursor parent, void* user_data) @local
+{
+	SemaLocalContext* ctx = (SemaLocalContext*)user_data;
+	
+	switch (cursor.node.kind)
+	{
+		case COMPOUND_STMT:
+		case FN_DECL:
+		case MACRO_DECL:
+			if (ctx.current_scope.parent)
+			{
+				ctx.current_scope = ctx.current_scope.parent; // Popping the stack
+			}
+		default:
+	}
+
+	return CONTINUE;
 }

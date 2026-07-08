@@ -97,3 +97,14 @@ enum NodeKind : char
 
 	CONTRACT_PARAM,
 }
+
+fn bool NodeKind.is_decl(self) @inline
+{
+	return self.ordinal >= NodeKind.ATTRDEF_DECL.ordinal && self.ordinal <= NodeKind.BODY_PARAM_DECL.ordinal;
+}
+
+fn bool NodeKind.is_stmt(self) @inline
+{
+	return self.ordinal >= NodeKind.COMPOUND_STMT.ordinal && self.ordinal <= NodeKind.ASM_BLOCK_STMT.ordinal;
+}
+

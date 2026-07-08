@@ -12,7 +12,7 @@ import std::collections::list;
 *>
 fn String resolve_type_expr_spelling(SemaContext* ctx, Node* type)
 {
-	Cursor cursor = { ctx.section, type };
+	Cursor cursor = { type };
 	if (!type) return "";
 	if (type.kind == ERROR || type.kind == MISSING) return "";
 
@@ -28,7 +28,7 @@ fn String resolve_type_expr_spelling(SemaContext* ctx, Node* type)
 
 	if (type_expr.unresolved.path != null)
 	{
-		Cursor path_cursor = { ctx.section, type_expr.unresolved.path };
+		Cursor path_cursor = { type_expr.unresolved.path };
 		String path_str = path_cursor.spelling(tmem) ?? "";
 		return string::tformat("%s::%s", path_str, name_str);
 	}

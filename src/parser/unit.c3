@@ -12,16 +12,17 @@ import analyzer::core::string_pool;
 <*
  @require t.kind == IDENT
 *>
-fn StringID parse_identifier(ContextScope scope, Token t) 
+fn Ident* parse_identifier(ContextScope scope, Token t) 
 {   
 	ParseContext* ctx = scope.ctx;
 	String name = ctx.token_text(t);
 	if (!constants::is_valid_name(name)) 
 	{
 		unexpected_at(ctx, t, "Reserved identifier");
-		return string_pool::EMPTY_STR;
+		return null;
 	}
-	return ctx.ast.string_pool.internalize(name);
+
+	return ctx.ident(ctx.current());
 }
 
 <*

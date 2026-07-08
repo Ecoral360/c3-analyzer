@@ -269,7 +269,7 @@ fn Node*? parse_ident_expr(ContextScope scope)
 <*
  @param [&inout] list
 *>
-fn void? parse_join_strings(ContextScope scope, StringID* list)
+fn void? parse_join_strings(ContextScope scope, String* list)
 {	
 	ParseContext* ctx = scope.ctx;
 
@@ -289,7 +289,7 @@ fn void? parse_join_strings(ContextScope scope, StringID* list)
 		advance(ctx)!;
 	}
 
-	*list = ctx.ast.string_pool.internalize(current_str);
+	*list = current_str.copy(ctx.arena);
 }	
 
 fn Node*? parse_literal_expr(ContextScope scope) => @pool()
@@ -420,7 +420,7 @@ fn Node*? parse_literal_expr(ContextScope scope) => @pool()
 			}
 		case STRING_LITERAL:
 			literal.literal_kind = STRING_LITERAL;
-			literal.string = string_pool::EMPTY_STR;
+			literal.string = "";
 			parse_join_strings(scope, &literal.string)!;
 			break;
 		case BYTES_LITERAL:
@@ -576,8 +576,7 @@ fn Node*? parse_path_expr(ContextScope scope, PathExprOptions options = { }) => 
 
 	PathExpr* node = ctx.ast.alloc_node(PathExpr, start_pos, ctx.current().end_pos());
 
-	List{Ident} temp_segments;
-	temp_segments.init(tmem, 8);
+	DString sb; sb.tinit();
 
 	while (true)
 	{
@@ -587,24 +586,37 @@ fn Node*? parse_path_expr(ContextScope scope, PathExprOptions options = { }) => 
 		}
 
 		Token t = ctx.current();
-		temp_segments.push(ctx.ident(t));
+		sb.append(ctx.token_text(t));
 		node.offset.end = ctx.current_pos();
 		advance(ctx)!;
 
-		if (!consume(ctx, SCOPE)!) break;
-		if (!is_some_ident(ctx.current().kind))
+		if (consume(ctx, SCOPE)!)
 		{
-			if (!options.as_prefix)
+			if (is_some_ident(ctx.current().kind))
 			{
-				temp_segments.push(ctx.empty_ident());
-				node.offset.end = ctx.current_pos();
-				advance(ctx)!;
+				sb.append("::");
+				continue;
 			}
-			break;
+			else
+			{
+				if (!options.as_prefix)
+				{
+					unexpected(ctx, "Expected an identifier after '::'")!;
+					node.offset.end = ctx.current_pos();
+					advance(ctx)!;
+				}
+				break;
+			}
 		}
+
+		break;
 	}
 
-	node.segments = alloc::clone_slice(ctx.arena, temp_segments.array_view());
+	node.path = ctx.ident_string(sb.str_view());
+	node.path.range = {
+		.start = start_pos,
+		.end = ctx.previous_end_pos()
+	};
 	return (Node*)node;
 }
 
@@ -1041,7 +1053,7 @@ fn Node*? parse_builtin_expr(ContextScope scope)
 	ParseContext* ctx = scope.ctx;
 	expect(ctx, BUILTIN)!;
 
-	Ident name;
+	Ident* name;
 	BuiltinFunction builtin;
 
 	plog::debug("builtin");
@@ -1050,7 +1062,6 @@ fn Node*? parse_builtin_expr(ContextScope scope)
 	{
 		Token t = @expect_some_else(ctx, { IDENT, CONST_IDENT, TYPE_IDENT } ; err)
 		{
-			name = ctx.empty_ident();
 			break COND;
 		}!;
 

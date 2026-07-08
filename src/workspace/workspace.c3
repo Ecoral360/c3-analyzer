@@ -266,7 +266,7 @@ fn List{ModuleSection*} Workspace.find_section_by_path(&self, String file_path)
 	return sections;
 }
 
-fn Cursor Workspace.find_top_level_statement_at_location(&self, String file_path, Location loc) @if($feature(SEMA))
+fn Cursor Workspace.find_top_level_statement_at_location(&self, String file_path, Location loc, ModuleSection** out_section) @if($feature(SEMA))
 {
     List{ModuleSection*} secs = self.find_section_by_path(file_path);
     if (secs.len() == 0) return {};
@@ -281,7 +281,8 @@ fn Cursor Workspace.find_top_level_statement_at_location(&self, String file_path
 
             if ((int)offset >= global_decl.offset.start && (int)offset <= global_decl.offset.end)
             {
-                return { .node = global_decl, .section = sec };
+				*out_section = sec;
+                return { .node = global_decl };
             }
         }
     }
@@ -320,7 +321,7 @@ fn List{Cursor}? Workspace.lookup_cursors(&self, String module_name, String symb
 		foreach (sec : mod.sections)
 		{
 			if (sec.id != (ulong) sym.section_id) continue;
-			cursors.push({ .node = sym.node, .section = sec });
+			cursors.push({ .node = sym.node });
 		}
 	}
 
@@ -393,53 +394,6 @@ fn ModuleSection* get_section_from_id(Workspace* ws, ulong id)
 		foreach (section : mod.sections)
 		{
 			if (section.id == id) return section;
-		}
-	};
-
-	return null;
-}
-
-<*
- @param [&in] ws
- @param [&in] node
-*>
-fn ModuleSection* get_section_from_node(Workspace* ws, Node* node) => @pool()
-{
-	sz target_id = node.id;
-	
-	HashSet{void*} visited_files; visited_files.tinit();
-
-	ws.modules.@each(; name, mod)
-	{
-		foreach (section : mod.sections)
-		{
-			SourceFile* sf = section.source_file;
-			if (visited_files.contains(sf)) continue;
-			visited_files.add(sf);
-				
-			List{sz}* ids = &sf.ast.node_ids;
-
-			sz low = 0;
-			sz high = ids.len() - 1;
-
-			while (low <= high)
-			{
-				sz mid = low + (high - low) / 2;
-				sz current_id = ids.get(mid);
-
-				if (current_id == target_id) 
-				{
-					return section;
-				}
-				else if (current_id < target_id) 
-				{
-					low = mid + 1;
-				}
-				else 
-				{
-					high = mid - 1;
-				}
-			}
 		}
 	};
 

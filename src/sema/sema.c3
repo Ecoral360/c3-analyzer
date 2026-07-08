@@ -7,6 +7,9 @@ import analyzer::core::diagnostics;
 
 import std::collections::map;
 import std::collections::list;
+import std::collections::set;
+
+faultdef NOT_FOUND;
 
 struct SemaContext
 {
@@ -21,6 +24,7 @@ struct SemaMod
 	DynamicArenaAllocator arena;
 	HashMap{String, List{SymbolEntry}} symbols;
 	Registry registry;
+	HashMap{void*, Type*} resolved_types;
 }
 
 fn void SemaMod.init(&self, String name, Allocator backing_allocator)
@@ -30,6 +34,7 @@ fn void SemaMod.init(&self, String name, Allocator backing_allocator)
 	self.arena.init(backing_allocator, 4096);
 	self.symbols.init(backing_allocator);
 	self.registry.init(&self.arena);
+	self.resolved_types.init(&self.arena);
 }
 
 fn void SemaMod.free(&self, Allocator allocator)
@@ -38,7 +43,7 @@ fn void SemaMod.free(&self, Allocator allocator)
 
 	self.symbols.free();
 	self.registry.free();
-
+	self.resolved_types.free();
 	self.arena.free();
 }
 
@@ -73,38 +78,71 @@ struct SemaVar
 *>
 struct SemaScope
 {
-	SemaScope* parent; // can be null
+	SemaScope* parent;
 	ByteOffset range;
-	List{SemaScope*} children; // a list of all children defined in this scope
-
-	List{SemaVar} variables;
+	List{SemaScope*} children;
+	// Only used for LOOKUP (Shadowing/Visibility)
+	HashMap{String, SemaVar} variables;
 }
 
-fn List{SemaVar} SemaModSection.get_active_vars(&self, int offset) => get_active_vars(offset, &self.scope);
-
-fn List{SemaVar} get_active_vars(int offset, SemaScope* scope)
+fn SemaVar? SemaScope.find_variable(&self, String name)
 {
-	List{SemaVar} active_vars; active_vars.tinit();
-	SemaScope* current = scope;
-	while LOOP: (true)
+	SemaScope* current = self;
+
+	while (current != null)
 	{
-		foreach (v : current.variables)
+		if (try var_ = current.variables.get(name))
 		{
-			if (v.lifetime.start <= offset && v.lifetime.end >= offset)
-			{
-				active_vars.push(v);
-			}
+			return var_;
 		}
-		foreach (sub_scope : current.children) 
-		{
-			if (sub_scope.range.start <= offset && sub_scope.range.end >= offset) 
-			{
-				current = sub_scope;
-				continue LOOP;
-			}
-		}
-		break;
+
+		current = current.parent;
 	}
 
-	return active_vars;
+	return NOT_FOUND~;
+}
+
+<*
+ Recursively finds the deepest child scope at the given offset.
+*>
+fn SemaScope* find_deepest_scope(SemaScope* current, int offset)
+{
+	foreach (child : current.children)
+	{
+		if (offset >= child.range.start && offset <= child.range.end)
+		{
+			return find_deepest_scope(child, offset);
+		}
+	}
+	
+	// If no children contain the offset, the current scope is the leaf.
+	return current;
+}
+
+fn List{SemaVar} collect_visible_symbols(Allocator allocator, SemaScope* leaf_scope, int cursor_offset)
+{
+	List{SemaVar} visible_symbols; visible_symbols.init(allocator);
+	HashSet{String} seen_names; seen_names.tinit();
+
+	SemaScope* current = leaf_scope;
+	
+	while (current != null)
+	{
+		current.variables.@each(; name, var_)
+		{
+			if (!seen_names.contains(name))
+			{
+				bool in_range = (cursor_offset >= var_.lifetime.start && cursor_offset <= var_.lifetime.end);
+
+				if (in_range)
+				{
+					visible_symbols.push(var_);
+					seen_names.add(name);
+				}
+			}
+		};
+		current = current.parent;
+	}
+
+	return visible_symbols;
 }

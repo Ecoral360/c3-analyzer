@@ -9,7 +9,7 @@ struct IfStmt
 	Node* condition;
 	Node* then_body;
 	Node* else_body;
-	Ident label;
+	Ident* label;
 }
 
 struct CtIfStmt
@@ -31,7 +31,7 @@ struct SwitchStmt
 	inline Node node;
 	NodeArray cases;
 	Node* cond;
-	Ident label;
+	Ident* label;
 }
 
 <*
@@ -60,14 +60,14 @@ struct NextcaseStmt
 {
 	inline Node node;
 	Node* expr;
-	Ident label;
+	Ident* label;
 	bool is_default;
 }
 
 struct ContinueBreakStmt
 {
 	inline Node node;
-	Ident label;
+	Ident* label;
 	bool is_continue;
 }
 
@@ -104,7 +104,7 @@ struct ForStmt
 	NullableNode cond;
 	NullableNode incr;
 	Node* body;
-	Ident label;
+	Ident* label;
 }
 
 <*
@@ -128,7 +128,7 @@ struct WhileStmt
 	inline Node node;
 	Node* cond;
 	Node* body;
-	Ident label;
+	Ident* label;
 }
 
 struct DoWhileStmt
@@ -136,7 +136,7 @@ struct DoWhileStmt
 	inline Node node;
 	Node* body;
 	NullableNode cond;
-	Ident label;
+	Ident* label;
 }
 
 struct ForeachStmt
@@ -146,7 +146,7 @@ struct ForeachStmt
 	Node* variable;
 	Node* enumeration;
 	Node* body;
-	Ident label;
+	Ident* label;
 	bool is_reverse;
 	bool value_by_ref;
 	bool index_by_ref;

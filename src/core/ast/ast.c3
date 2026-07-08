@@ -30,7 +30,6 @@ struct Node
 	Visibility visibility;
 	NodeFlags flags;
 	ByteOffset offset;
-	sz id;
 }
 
 <*
@@ -46,19 +45,15 @@ fn bool Node.is_valid(&self) @inline
 struct Ast
 {
 	DynamicArenaAllocator arena;
-	StringPool string_pool;
 	List{Node*} top_level_nodes;
 	List{Node*} error_nodes;
-	List{sz} node_ids;
 }
 
 fn void Ast.init(&self, Allocator backing_allocator = mem)
 {
 	self.arena.init(backing_allocator, ARENA_PAGE_SIZE);
-	self.string_pool.init(&self.arena, 128);
 	self.top_level_nodes.init(&self.arena, 32);
 	self.error_nodes.init(&self.arena);
-	self.node_ids.init(&self.arena);
 }
 
 macro Node* Ast.error(&self, int start, int end = -1)
@@ -90,21 +85,16 @@ fn sz Ast.next_node_idx(&self) => self.top_level_nodes.len();
 fn void Ast.clear(&self)
 {
 	self.arena.reset();
-	self.string_pool = { };
 	self.top_level_nodes = { };
 	self.error_nodes = { };
-	self.node_ids = { };
 
-	self.string_pool.init(&self.arena, 128);
 	self.top_level_nodes.init(&self.arena, 32);
 	self.error_nodes.init(&self.arena);
-	self.node_ids.init(&self.arena);
 }
 
 fn void Ast.free(&self)
 {
 	self.top_level_nodes.clear();
-	self.string_pool.clear();
 	self.error_nodes.clear();
 	self.arena.free();
 }
@@ -120,9 +110,6 @@ macro Ast.alloc_node(&self, $Type, int start, int end = -1)
 	node.kind = NodeKind.$eval(@typename_to_constname($Type::name));
 	node.offset.start = start;
 	node.offset.end = end == -1 ? node.offset.start : end;
-	node.id = next_node_id++;
-
-	self.node_ids.push(node.id);
 	
 	return node;
 }

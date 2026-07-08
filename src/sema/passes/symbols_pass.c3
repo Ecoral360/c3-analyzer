@@ -38,7 +38,7 @@ fn void reindex_module(SemaContext* ctx)
 				if (func.associated_type != null) continue;
 			}
 
-			Cursor c = { section, node };
+			Cursor c = { node };
 			String symbol_name = c.spelling(tmem) ?? "";
 
 			plog::debug("symbol_name: %s", symbol_name);
@@ -75,7 +75,7 @@ fn void reindex_module(SemaContext* ctx)
 			Node* type = func.associated_type;
 			if (!type) continue;
 
-			Cursor mc = { section, node };
+			Cursor mc = { node };
 			String? method_name = mc.spelling(tmem);
 			if (catch method_name) continue;
 
@@ -102,7 +102,7 @@ fn void refresh_section_imports(SemaContext* ctx, ModuleSection* section)
 	{
 		if (node.kind == IMPORT_DECL)
 		{
-			Cursor cursor = { section, node };
+			Cursor cursor = { node };
 			String? path = cursor.spelling(tmem);
 			if (catch path)
 			{

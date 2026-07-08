@@ -399,7 +399,7 @@ fn Node* alloc_any_type_expr(ParseContext* ctx)
 	TypeExpr* type_node = ctx.ast.alloc_node(TypeExpr, pos, pos);
 
 	type_node.type_kind = TYPE_IDENTIFIER;
-	type_node.unresolved.name.id = ctx.ast.string_pool.internalize("any");
+	type_node.unresolved.name = ctx.ident_string("any");
 	type_node.unresolved.name.range = { pos, pos + 3 };
 
 	return type_node;

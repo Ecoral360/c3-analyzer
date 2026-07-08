@@ -26,8 +26,7 @@ fn Node*? parse_module_decl(ContextScope scope)
 	expect(ctx, EOS)!;
 
 	PathExpr* path = node.path.as(PathExpr);
-    String mod_name = path.full_path(&ctx.ast.string_pool, ctx.allocator)!;
-    defer mod_name.free(ctx.allocator);
+    String mod_name = path.path.text;
 
     if (ctx.on_new_module != null)
     {
@@ -256,7 +255,6 @@ fn Node*? parse_alias_decl(ContextScope scope)
 		Token t = @expect_some_else(ctx, { TYPE_IDENT, IDENT, CONST_IDENT, AT_IDENT } ; err)
 		{
 			ctx.error("Expected alias name identifier");
-			node.name = ctx.empty_ident();
 			break CHECK_NAME;
 		}!;
 
@@ -419,7 +417,6 @@ fn Node*? parse_macro_decl(ContextScope scope)
 			t = @expect_else_skip(ctx, IDENT, { EOS, LPAREN } ; err)
 			{
 				ctx.error("Expected macro name identifier");
-				node.name = ctx.empty_ident();
 				break NAME;
 			}!;
 		}
@@ -603,7 +600,6 @@ fn Node*? parse_param_decl(ContextScope scope, ParamParseFlags flags = {})
 				ctx.skip_until({ EOF, EOS, RPAREN, RBRACE })!;
 				return ctx.ast.error(start_pos);
 			}
-			node.name = ctx.empty_ident();
 			node.var_kind = VAR_PARAM;
 			break;
 
@@ -712,7 +708,7 @@ fn Node*? parse_var_decl(ContextScope scope, Node* type = null)
 		//}
 
 
-		Ident name = ctx.ident(t);
+		Ident* name = ctx.ident(t);
 		plog::debug("var name: %s", ctx.token_text(t));
 		advance(ctx)!;
 
@@ -991,7 +987,6 @@ fn Node*? parse_struct_union_decl(ContextScope scope, bool is_sub = false) => @p
 			Token t = @expect_some_else(ctx, { TYPE_IDENT } ; err)
 			{
 				ctx.error("Structs must have a 'Type' identifier");
-				node.name = ctx.empty_ident();
 				break NAME_CHECK;
 			}!;
 
@@ -1078,7 +1073,6 @@ fn Node*? parse_bitstruct_decl(ContextScope scope, bool is_nested = false) => @p
 		Token t = @expect_some_else(ctx, { IDENT, TYPE_IDENT } ; err)
 		{
 			ctx.error("Bitstructs must have a name identifier");
-			node.name = ctx.empty_ident();
 			break COND;
 		}!;
 
@@ -1115,7 +1109,6 @@ fn Node*? parse_bitstruct_decl(ContextScope scope, bool is_nested = false) => @p
 		{
 			Token t = @expect_else_skip(ctx, IDENT, { COLON, EOS, RBRACE } ; name_err)
 			{
-				field_node.name = ctx.empty_ident();
 				break IF_IDENT;
 			}!;
 
@@ -1166,7 +1159,6 @@ fn Node*? parse_faultdef_decl(ContextScope scope) => @pool()
 		{
 			Token t = @expect_else(ctx, CONST_IDENT ; err)
 			{
-				fault_node.name = ctx.empty_ident();
 				break CHECK_IDENT;
 			}!;
 
@@ -1202,7 +1194,6 @@ fn Node*? parse_interface_decl(ContextScope scope) => @pool()
 	{
 		Token t = @expect_else_skip(ctx, TYPE_IDENT, { EOS, AT_IDENT, COLON, LBRACE } ; err)
 		{
-			node.name = ctx.empty_ident();
 			break CHECK_NAME;
 		}!;
 
@@ -1262,7 +1253,6 @@ fn Node*? parse_attrdef_decl(ContextScope scope) => @pool()
 	{
 		Token t = @expect_else_skip(ctx, AT_TYPE_IDENT, { EOS, EQ, LPAREN, RPAREN } ; err)
 		{
-			node.name = ctx.empty_ident();
 			break CHECK_NAME;
 		}!;
 
@@ -1313,7 +1303,6 @@ fn Node*? parse_enum_constdef_decl(ContextScope scope) => @pool()
 	{
 		Token t = @expect_else_skip(ctx, TYPE_IDENT, { COLON, LBRACE, EOS } ; err)
 		{
-			node.name = ctx.empty_ident();
 			break CHECK_IDENT;
 		}!;
 

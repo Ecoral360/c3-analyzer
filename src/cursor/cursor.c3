@@ -22,59 +22,60 @@ faultdef
 
 struct Cursor
 {
-	ModuleSection* section;
 	Node* node;
 }
 
 fn bool Cursor.is_valid(self) @inline
 {
-	return self.section != null && self.node != null;
+	return self.node != null;
 }
 
 <*
  Get the spelling/text for the current node
  @require self.node != null
- @require self.section != null
- @require self.section.source_file != null
- @require self.section.source_file.ast != null
 *>
 fn String? Cursor.spelling(&self, Allocator allocator) => @pool()
 {
-	StringPool* pool = &self.section.source_file.ast.string_pool;
-	assert(pool != null);
-
 	switch (self.node.kind)
 	{
 		case STRUCT_DECL:
 			StructDecl* s = self.node.as(StructDecl);
-			return pool.get(s.name.id)!;
+			if (!s.name) return "";
+			return s.name.text;
 		case VAR_DECL:
 			VarDecl* v = self.node.as(VarDecl);
-			return pool.get(v.name.id)!;
+			if (!v.name) return "";
+			return v.name.text;
 		case FN_DECL:
 			FnDecl* func = self.node.as(FnDecl);
-			return pool.get(func.name.id)!;
+			if (!func.name) return "";
+			return func.name.text;
 		case MACRO_DECL:
 			MacroDecl* mac = self.node.as(MacroDecl);
-			return pool.get(mac.name.id)!;
+			if (!mac.name) return "";
+			return mac.name.text;
 		case TYPEDEF_DECL:
 			TypedefDecl* td = self.node.as(TypedefDecl);
-			return pool.get(td.name.id)!;
+			if (!td.name) return "";
+			return td.name.text;
 		case ALIAS_DECL:
 			AliasDecl* ad = self.node.as(AliasDecl);
-			return pool.get(ad.name.id)!;
+			if (!ad.name) return "";
+			return ad.name.text;
 		case INTERFACE_DECL:
 			InterfaceDecl* id = self.node.as(InterfaceDecl);
-			return pool.get(id.name.id)!;
+			if (!id.name) return "";
+			return id.name.text;
 		case TYPE_EXPR:
 			TypeExpr* type_data = self.node.as(TypeExpr);
 			if (type_data.type_kind == TYPE_IDENTIFIER)
 			{
-				String type_name = pool.get(type_data.unresolved.name.id)!;
+				if (!type_data.unresolved.name) return "";
+				String type_name = type_data.unresolved.name.text;
 				if (type_data.unresolved.path != null)
 				{
 					PathExpr* prefix_path = type_data.unresolved.path.as(PathExpr);
-					String prefix_str     = prefix_path.full_path(pool, tmem)!;
+					String prefix_str     = prefix_path.path.text;
 					return prefix_str.tconcat(type_name).copy(allocator);
 				}
 				return type_name;
@@ -82,7 +83,8 @@ fn String? Cursor.spelling(&self, Allocator allocator) => @pool()
 			return "";
 		case IDENT_EXPR:
 			IdentExpr* ident = self.node.as(IdentExpr);
-			return pool.get(ident.ident.id);
+			if (!ident.ident) return "";
+			return ident.ident.text;
 		default:
 			return "";
 	}
@@ -133,10 +135,11 @@ fn bool Cursor.has_attribute(&self, AttributeKind kind, Node** out_attribute)
  use a binary-search to find wether any error node has
  the byte offset / byte range of this cursor
  Note: has not yet been tested
+ @param [&in] section
 *>
-fn bool Cursor.has_error(&self)
+fn bool Cursor.has_error(&self, ModuleSection* section)
 {
-	NodeArray errors = self.section.source_file.ast.error_nodes.array_view();
+	NodeArray errors = section.source_file.ast.error_nodes.array_view();
 	sz len           = errors.len;
 	if (len == 0) return false;
 
@@ -186,15 +189,6 @@ fn Node* find_node_from_offset(Node* node, int offset)
 	return node;
 }
 
-<*
- Checks if the cursor's current node matches an access or path expression layout
-*>
-fn bool Cursor.is_access_node(&self)
-{
-	if (self.node == null) return false;
-	return self.node.kind == ACCESS_EXPR || self.node.kind == IDENT_EXPR;
-}
-
 macro Node* find_innermost_from_nodes(SourceFile* sf, int offset, ...) @local 
 {
 	Node* result;
@@ -211,95 +205,6 @@ macro Node* find_innermost_from_nodes(SourceFile* sf, int offset, ...) @local
 		$endif
 	$endfor
 	return null;
-}
-
-fn Node* find_innermost_node(Node* node, int offset, SourceFile* sf)
-{
-	if (node == null) return null;
-
-	if (offset < node.offset.start || offset > node.offset.end)
-	{
-		return null;
-	}
-
-	switch (node.kind)
-	{
-		case FN_DECL:
-		{
-			FnDecl* fndecl = node.as(FnDecl);
-			return find_innermost_from_nodes(sf, offset, fndecl.associated_type, fndecl.ret_type, fndecl.params, fndecl.attributes, fndecl.body) ?: node;
-		}
-		case COMPOUND_STMT:
-		{
-			CompoundStmt* comp = node.as(CompoundStmt);
-
-			foreach (stmt : comp.statements)
-			{
-				Node* inner = find_innermost_node(stmt, offset, sf);
-				if (inner != null)
-				{
-					return inner;
-				}
-			}
-			
-			return node;
-		}
-		case VAR_DECL:
-			VarDecl* vardecl = node.as(VarDecl);
-			return find_innermost_from_nodes(sf, offset, vardecl.type, vardecl.init_expr, vardecl.bit_end, vardecl.attributes, vardecl.assoc_values, vardecl.next) ?: node;
-		case IF_STMT:
-		{
-			IfStmt* if_stmt = node.as(IfStmt);
-			return find_innermost_from_nodes(sf, offset, if_stmt.condition, if_stmt.then_body, if_stmt.else_body) ?: node;
-		}
-		case RETURN_STMT:
-		{
-			ReturnStmt* ret = node.as(ReturnStmt);
-			if (ret.expr != null)
-			{
-				Node* inner = find_innermost_node(ret.expr, offset, sf);
-				if (inner) return inner;
-			}
-			return node;
-		}
-		case EXPR_STMT:
-		{
-			Node* inner = find_innermost_node(node.as(ExprStmt).expr_stmt, offset, sf);
-			return inner != null ? inner : node;
-		}
-		case BINARY_EXPR:
-		{
-			BinaryExpr* bin = node.as(BinaryExpr);
-			return find_innermost_from_nodes(sf, offset, bin.left, bin.right) ?: node;
-		}
-		case ACCESS_EXPR:
-		{
-			AccessExpr* access = node.as(AccessExpr);
-			Node* left_inner = find_innermost_node(access.left, offset, sf);
-			if (left_inner) return left_inner;
-			
-			if (access.member != null && access.member.kind != MISSING)
-			{
-				Node* member_inner = find_innermost_node(access.member, offset, sf);
-				if (member_inner) return member_inner;
-			}
-			
-			if (offset >= (int)access.left.offset.end)
-			{
-				return find_innermost_node(access.left, (int)access.left.offset.end, sf) ?: access.left;
-			}
-
-			return node;
-		}
-		case IDENT_EXPR:
-		{
-			return node;
-		}
-		default:
-			break;
-	}
-
-	return node;
 }
 
 fn List{Node*} get_node_path(Node* node, int offset, SourceFile* sf)
@@ -368,8 +273,8 @@ fn String? Cursor.raw_type_identifier(&self)
 		{
 			case TYPE_IDENTIFIER:
 			{
-				StringPool* pool = &self.section.source_file.ast.string_pool;
-				return pool.get(data.unresolved.name.id)!;
+				if (!data.unresolved.name) return "";
+				return data.unresolved.name.text;
 			}
 			case TYPE_POINTER:
 			case TYPE_SLICE:
@@ -435,9 +340,9 @@ fn Cursor find_at(ModuleSection* sec, int offset)
 
 	foreach (root_node : sf.ast.top_level_nodes)
 	{
-		Cursor root_cursor = { .section = sec, .node = root_node };
+		Cursor root_cursor = { .node = root_node };
 		
-		if (!visit(root_cursor, {}, (CursorVisitor)&find_at_callback, &ctx)) 
+		if (!visit(root_cursor, {}, { .on_enter = &find_at_callback }, &ctx)) 
 		{
 			break;
 		}
@@ -448,14 +353,11 @@ fn Cursor find_at(ModuleSection* sec, int offset)
 
 <*
  Get the raw source code fragment corresponding exactly to this node.
- @require self.section.source_file != null
+ @param [&in] sf : "Which file to acquire the source from"
 *>
-fn String? Cursor.source_text(&self)
+fn String? Cursor.source_text(&self, SourceFile* sf)
 {
 	if (!self.is_valid()) return NOT_FOUND~;
-
-	SourceFile* sf = self.section.source_file;
-	if (sf == null) return NOT_FOUND~;
 
 	String full_source = sf.source; 
 
@@ -472,10 +374,11 @@ fn String? Cursor.source_text(&self)
 
 <*
  Extracts just the signature part of a declaration node
+ @param [&in] sf
 *>
-fn String? Cursor.signature_text(&self)
+fn String? Cursor.signature_text(&self, SourceFile* sf)
 {
-	String text = self.source_text()!;
+	String text = self.source_text(sf)!;
 
 	switch (self.node.kind)
 	{
@@ -483,7 +386,7 @@ fn String? Cursor.signature_text(&self)
 			FnDecl* fn_decl = self.node.as(FnDecl);
 			if (fn_decl.body)
 			{
-				return self.section.source_file.source[self.node.offset.start..fn_decl.body.offset.start - 1]
+				return sf.source[self.node.offset.start..fn_decl.body.offset.start - 1]
 					.trim()
 					.strip_suffix("{")
 					.strip_suffix("=>")
@@ -491,13 +394,13 @@ fn String? Cursor.signature_text(&self)
 			}
 			else 
 			{
-				return self.section.source_file.source[self.node.offset.start..self.node.offset.end - 1].trim();
+				return sf.source[self.node.offset.start..self.node.offset.end - 1].trim();
 			}
 
 
 		case MACRO_DECL:
 			MacroDecl* mac_decl = self.node.as(MacroDecl);
-			return self.section.source_file.source[self.node.offset.start..mac_decl.body.offset.start - 1]
+			return sf.source[self.node.offset.start..mac_decl.body.offset.start - 1]
 				.trim()
 				.strip_suffix("{")
 				.strip_suffix("=>")
@@ -565,8 +468,7 @@ fn String? Cursor.docs(&self)
 
 	if (try val = self.contract() && val)
 	{
-		StringPool* pool = &self.section.source_file.ast.string_pool;
-		return pool.get(val.as(ContractDecl).comment.id);
+		return val.as(ContractDecl).comment.text;
 	}
 
 	return "";

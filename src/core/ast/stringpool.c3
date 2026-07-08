@@ -1,3 +1,6 @@
+<*
+ @deprecated
+*>
 module analyzer::core::string_pool;
 
 import std::io;

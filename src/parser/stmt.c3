@@ -426,7 +426,6 @@ fn Node*? parse_continue_break_stmt(ContextScope scope)
 	ContinueBreakStmt* node = ctx.ast.alloc_node(ContinueBreakStmt, start_pos);
 
 	node.is_continue = is_continue;
-	node.label = ctx.empty_ident();
 
 	if (ctx.is(CONST_IDENT))
 	{
@@ -674,10 +673,6 @@ fn Node*? parse_for_stmt(ContextScope scope)
 			return err;
 		}!;
 	}
-	else
-	{
-		node.label = ctx.empty_ident();
-	}
 
 	@expect_else(ctx, LPAREN ; err)
 	{
@@ -790,10 +785,6 @@ fn Node*? parse_while_stmt(ContextScope scope)
 		advance(ctx)!;
 		expect(ctx, COLON)!;
 	}
-	else
-	{
-		node.label = ctx.empty_ident();
-	}
 	expect(ctx, LPAREN)!;
 	node.cond = parse_cond_expr(scope)!;
 	expect(ctx, RPAREN)!;
@@ -834,10 +825,6 @@ fn Node*? parse_do_while_stmt(ContextScope scope)
 			ctx.skip_until({ EOS, EOF })!;
 			return err;
 		}!;
-	}
-	else
-	{
-		node.label = ctx.empty_ident();
 	}
 
 	node.body = parse_compound_stmt(scope)!;
@@ -891,7 +878,6 @@ fn Node*? parse_foreach_var(ContextScope scope)
 			ctx.error("Expected an identifier or type.");
 		}
 		ctx.ast.missing(ctx.current().pos);
-		var_node.name = ctx.empty_ident();
 		ctx.skip_until({ COMMA, COLON, RPAREN })!;
 		return var_node;
 	}
@@ -927,10 +913,6 @@ fn Node*? parse_foreach_stmt(ContextScope scope)
 		{
 			return err;
 		}!;
-	}
-	else
-	{
-		node.label = ctx.empty_ident();
 	}
 
 	@expect_else_skip(ctx, LPAREN, { RPAREN, EOS, EOF } ; err)
@@ -1204,7 +1186,6 @@ fn Node*? parse_ct_foreach_var(ContextScope scope)
 
 	Token token = @expect_else_skip(ctx, CT_IDENT, { COMMA, COLON, EOS, EOF } ; err)
 	{
-		node.name = ctx.empty_ident();
 		return node;
 	}!;
 

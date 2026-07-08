@@ -8,13 +8,11 @@ import std::collections::list;
 struct ContractParam
 {
 	inline Node node;
-	Ident ident;
-	Ident description;
+	Ident* ident;
+	Ident* description;
 	InOutModifier modifier;
 	bool by_ref;
 }
-
-fn String? ContractParam.get_description(&self, StringPool* pool) => pool.get(self.description.id);
 
 struct ContractDecl
 {
@@ -23,13 +21,11 @@ struct ContractDecl
 	NodeArray ensures;
 	NodeArray returns;
 	NodeArray params; // ContractParam
-	Ident comment;
+	Ident* comment;
 	Node* return_desc; // ident_expr
 	Node* deprecated;
 	bool is_pure;
 }
-
-fn String? ContractDecl.get_comment(&self, StringPool* pool) => pool.get(self.comment.id);
 
 <*
  - `generics`: generic_decl | null
@@ -68,7 +64,7 @@ Fields:
 struct AliasDecl
 {
 	inline Node node;
-	Ident name;
+	Ident* name;
 	TokenKind name_kind;
 	AliasDeclKind alias_kind;
 	Node* generics;
@@ -90,7 +86,7 @@ struct AliasDecl
 struct TypedefDecl
 {
 	inline Node node;
-	Ident name;
+	Ident* name;
 	Node* base_type;
 	Node* generics;
 	NodeArray interfaces;
@@ -101,7 +97,7 @@ struct TypedefDecl
 struct FnDecl
 {
 	inline Node node;
-	Ident name;
+	Ident* name;
 	Node* associated_type;
 	Node* ret_type;
 	Node* body;
@@ -114,7 +110,7 @@ struct FnDecl
 struct MacroDecl
 {
 	inline Node node;
-	Ident name;
+	Ident* name;
 	NullableNode associated_type;
 	NullableNode ret_type;
 	Node* body;
@@ -137,7 +133,7 @@ struct VarDecl
 	inline Node node;
 	VarDeclKind var_kind;
 	VarDeclFlags flags;
-	Ident name;
+	Ident* name;
 	NullableNode contract;
 	Node* type;
 	Node* init_expr;
@@ -150,7 +146,7 @@ struct VarDecl
 struct EnumDecl
 {
 	inline Node node;
-	Ident name;
+	Ident* name;
 	NodeArray interfaces; // optional implemented interfaces: "(" type ("," type)* ")"
 	bool is_inline_backing;
 	Node* backing_type; // optional: ":" type
@@ -163,7 +159,7 @@ struct AttributeDecl
 {
 	inline Node node;
 	NullableNode path;
-	Ident name;
+	Ident* name;
 	NodeArray exprs;
 	AttributeKind attribute_kind;
 	bool is_custom;
@@ -190,7 +186,7 @@ struct StructDecl
 	Node* generics;
 	Node* type;
 	Node* next;
-	Ident name;
+	Ident* name;
 	bool is_union;
 	bool is_bitstruct;
 }
@@ -200,7 +196,7 @@ struct FaultDecl
 	inline Node node;
 	NullableNode contract;
 	NodeArray attributes;
-	Ident name;
+	Ident* name;
 }
 
 struct FaultdefDecl
@@ -220,7 +216,7 @@ struct InterfaceDecl
 	NodeArray interfaces;
 	NodeArray attributes;
 	NodeArray methods;
-	Ident name;
+	Ident* name;
 }
 
 <*
@@ -229,7 +225,7 @@ struct InterfaceDecl
 struct AttrdefDecl
 {
 	inline Node node;
-	Ident name;
+	Ident* name;
 	NodeArray params;
 	NodeArray attributes;
 	NodeArray defined_attributes;

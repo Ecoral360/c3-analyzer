@@ -165,30 +165,28 @@ fn void ParseContext.print_current(&self)
  make a ident from token
  Note: Does not advance
 *>
-fn Ident ParseContext.ident(&self, Token t) @inline
+fn Ident* ParseContext.ident(&self, Token t) @inline
 {
-	Ident ident = {
+	Ident* ident = alloc::new(self.arena, Ident);
+	*ident = {
 		.range = {
 			t.pos,
 			t.end_pos()
 		},
-		.id = self.ast.string_pool.internalize(self.token_text(t))
+		.text = self.token_text(t).copy(self.arena)
 	};
 
 	return ident;
 }
 
-fn Ident ParseContext.empty_ident(&self) @inline
+fn Ident* ParseContext.ident_string(&self, String str) @inline
 {
-	return { .range = { -1, -1 }, .id = string_pool::EMPTY_STR };
-}
-
-fn Ident ParseContext.ident_string(&self, String str) @inline
-{
-	return { 
+	Ident* ident = alloc::new(self.arena, Ident);
+	*ident = { 
 		.range = { -1, -1 },
-		.id = self.ast.string_pool.internalize(str) 
+		.text = str.copy(self.arena)
 	};
+	return ident;
 }
 
 fn Token ParseContext.current(&self) @inline => self.peek(0)!!;

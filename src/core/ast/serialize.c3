@@ -25,20 +25,20 @@ fn void push_newline(JsonOutput* output, int indent, String or = "")
 	}
 }
 
-macro void serialize(JsonOutput* output, item, LineMap* map, StringPool* spool, int indent, int depth) @local
+macro void serialize(JsonOutput* output, item, LineMap* map, int indent, int depth) @local
 {
 	$switch:
 		$case $defined(Nullable{Node} x = item):
 		$case $Typeof(item) == Node*:
-			node_serialize((Node*) item, output, map, spool, indent, depth);
+			node_serialize((Node*) item, output, map, indent, depth);
 
 		$case $Typeof(item)::kind == BITSTRUCT:
 			output.start_obj(indent);
 			$foreach $m : $Typeof(item)::members:
 				$if $Typeof(item.$m) == bool:
-					if (item.$m) output.ser_entry($m.name, item.$m, map, spool, indent, depth + 1);
+					if (item.$m) output.ser_entry($m.name, item.$m, map,  indent, depth + 1);
 				$else
-					output.ser_entry($m.name, item.$m, spool, indent, depth + 1);
+					output.ser_entry($m.name, item.$m, indent, depth + 1);
 				$endif
 			$endforeach
 			output.end_obj(indent, depth);
@@ -49,11 +49,11 @@ macro void serialize(JsonOutput* output, item, LineMap* map, StringPool* spool, 
 			$endif
 			output.start_obj(indent);
 
-			output.ser_entry("kind", item.kind, map, spool, indent, depth + 1);
-			output.ser_entry("optional", item.optional, map, spool, indent, depth + 1);
+			output.ser_entry("kind", item.kind, map,  indent, depth + 1);
+			output.ser_entry("optional", item.optional, map, indent, depth + 1);
 			var $sw = "switch (item.kind.ordinal) {";
 			$foreach $i, $m : TypeExpr::members[^1].members:
-				$sw +++= @sprintf(`case %s: output.ser_entry("%s", item.$eval("%s"), map, spool, indent, depth + 1);`, $i, $m.name, $m.name);
+				$sw +++= @sprintf(`case %s: output.ser_entry("%s", item.$eval("%s"), map,  indent, depth + 1);`, $i, $m.name, $m.name);
 			$endforeach
 			$sw +++= "default: }";
 			$expand($sw);
@@ -63,7 +63,7 @@ macro void serialize(JsonOutput* output, item, LineMap* map, StringPool* spool, 
 		$case $Typeof(item)::kind == STRUCT:
 			output.start_obj(indent);
 			$foreach $m : $Typeof(item)::members:
-				output.ser_entry($m.name, item.$m, map, spool, indent, depth + 1);
+				output.ser_entry($m.name, item.$m, map,  indent, depth + 1);
 			$endforeach
 			output.end_obj(indent, depth);
 
@@ -87,9 +87,9 @@ macro void serialize(JsonOutput* output, item, LineMap* map, StringPool* spool, 
       foreach (i, el : item) {
 				push_indent(output, indent, depth + 1);
 				$if $Typeof(el) == Node*:
-					node_serialize(el, output, map, spool, indent, depth);
+					node_serialize(el, output, map,  indent, depth);
 				$else
-					serialize(output, el, map, spool, indent, depth + 1);
+					serialize(output, el, map,  indent, depth + 1);
 				$endif
         if (i < l_len - 1) output.append_char(',');
         push_newline(output, indent, or: " ");
@@ -100,7 +100,7 @@ macro void serialize(JsonOutput* output, item, LineMap* map, StringPool* spool, 
 		$case $defined(item.get()) &&& $defined(item.get()!) &&& $defined(Maybe{$Typeof(item.get()!!)} x = item):
 			if (try v = item.get())
 			{
-				serialize(output, v, spool, indent, depth);
+				serialize(output, v,  indent, depth);
 			}
 			else
 			{
@@ -113,11 +113,11 @@ macro void serialize(JsonOutput* output, item, LineMap* map, StringPool* spool, 
 	$endswitch
 }
 
-macro void JsonOutput.ser_entry(&self, String key, item, LineMap* map, StringPool* spool, int indent, int depth)
+macro void JsonOutput.ser_entry(&self, String key, item, LineMap* map, int indent, int depth)
 {
 	push_indent(self, indent, depth);
 	self.appendf("\"%s\": ", key.treplace("\"", "\\\""));
-	serialize(self, item, map, spool, indent, depth);
+	serialize(self, item, map,  indent, depth);
 	self.append(",");
 	push_newline(self, indent, or: " ");
 }
@@ -143,7 +143,7 @@ fn void JsonOutput.end_obj(&self, int indent, int depth)
 	}
 }
 
-fn void node_serialize(Node* self, JsonOutput* output, LineMap* map, StringPool* spool, int indent, int depth) @local
+fn void node_serialize(Node* self, JsonOutput* output, LineMap* map, int indent, int depth) @local
 {
 	if (self == null)
 	{
@@ -152,16 +152,16 @@ fn void node_serialize(Node* self, JsonOutput* output, LineMap* map, StringPool*
 	}
 
 	output.start_obj(indent);
-	output.ser_entry("kind", self.kind, map, spool, indent, depth + 1);
-	output.ser_entry("visibility", self.visibility, map, spool, indent, depth + 1);
-	output.ser_entry("flags", self.flags, map, spool, indent, depth + 1);
-	output.ser_entry("start", map.resolve(self.offset.start), map, spool, indent, depth + 1);
-	output.ser_entry("end", map.resolve(self.offset.end), map, spool, indent, depth + 1);
+	output.ser_entry("kind", self.kind, map,  indent, depth + 1);
+	output.ser_entry("visibility", self.visibility, map,  indent, depth + 1);
+	output.ser_entry("flags", self.flags, map,  indent, depth + 1);
+	output.ser_entry("start", map.resolve(self.offset.start), map,  indent, depth + 1);
+	output.ser_entry("end", map.resolve(self.offset.end), map,  indent, depth + 1);
 
 	var $sw = "switch (self.kind) {";
-	$foreach $m : Node::members[^1].members:
-		$sw +++= @sprintf(`case %s: output.ser_entry("%s", self.$eval("%s"), map, spool, indent, depth + 1);`, @str_upper($m.name), $m.name, $m.name);
-	$endforeach
+	//$foreach $m : Node::members[^1].members:
+	//	$sw +++= @sprintf(`case %s: output.ser_entry("%s", self.$eval("%s"), map, indent, depth + 1);`, @str_upper($m.name), $m.name, $m.name);
+	//$endforeach
 	$sw +++= "default: }";
 	$expand($sw);
 
@@ -171,11 +171,11 @@ fn void node_serialize(Node* self, JsonOutput* output, LineMap* map, StringPool*
 <* 
 	@param indent : "if its value is -1, the output won't be prettified (all on one line). Else, it will be the indent size"
 *>
-fn String Node.serialize(&self, LineMap* map, StringPool spool, Allocator allocator = tmem, int indent = -1)
+fn String Node.serialize(&self, LineMap* map, Allocator allocator = tmem, int indent = -1)
 {
 	JsonOutput output;
 	output = output.init(allocator);
 
-	node_serialize(self, &output, map, &spool, indent, 0);
+	node_serialize(self, &output, map, indent, 0);
 	return output.str_view();
 }

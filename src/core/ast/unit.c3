@@ -6,5 +6,5 @@ import std::collections::list;
 struct Ident
 {
 	ByteOffset range;
-	StringID id;
+	String text;
 }

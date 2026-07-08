@@ -18,7 +18,7 @@ fn void run_cleanup_pass(SemaContext* ctx)
 	{
 		section.resolved_imports.init(ctx.allocator, 4);
 		section.scope = {};
-		section.scope.children.init(ctx.allocator);
 		section.scope.variables.init(ctx.allocator);
+		section.scope.children.init(ctx.allocator);
 	}
 }
