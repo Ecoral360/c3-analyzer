@@ -204,6 +204,7 @@ fn int ParseContext.current_pos(&self)
 
 fn int ParseContext.previous_end_pos(&self)
 {
+	if (self.pos == 0) return self.current().end_pos();
 	return self.peek(-1)!!.end_pos();
 }
 
