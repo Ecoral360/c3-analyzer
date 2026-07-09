@@ -70,6 +70,7 @@ struct SemaVar
 {
 	Node* def;
 	ByteOffset lifetime;
+	sz section_id;
 }
 
 <*
