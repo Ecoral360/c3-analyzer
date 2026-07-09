@@ -9,6 +9,8 @@ const String KW_AT_RETURN     = "@return";
 
 const String KW_LEN = "len";
 
+const String STD_CORE = "std::core";
+
 constdef Primitives : inline String
 {
 	PRIM_BOOL   = "bool",
