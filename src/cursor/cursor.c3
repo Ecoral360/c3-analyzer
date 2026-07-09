@@ -473,3 +473,29 @@ fn String? Cursor.docs(&self)
 
 	return "";
 }
+
+<*
+ @require self.is_valid()
+*>
+fn Node* Cursor.find_member_in_type(&self, String name)
+{
+	switch (self.node.kind)
+	{
+		case STRUCT_DECL:
+		{
+			StructDecl* decl = self.node.as(StructDecl);
+			foreach (field : decl.fields)
+			{
+				Cursor field_cursor = { field };
+				String field_name = field_cursor.spelling(tmem) ?? "";
+				if (field_name == name)
+				{
+					return field;
+				}
+			}
+			return null;
+		}
+		default:
+			return null;
+	}
+}
