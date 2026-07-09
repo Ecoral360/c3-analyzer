@@ -499,3 +499,25 @@ fn Node* Cursor.find_member_in_type(&self, String name)
 			return null;
 	}
 }
+
+fn Node* Cursor.get_type(&self)
+{
+	switch (self.node.kind)
+	{
+		case STRUCT_DECL:
+			StructDecl* decl = self.node.as(StructDecl);
+			return decl.type;
+		case FN_DECL:
+			FnDecl* decl = self.node.as(FnDecl);
+			return decl.associated_type == null ? decl.ret_type : decl.associated_type;
+		case ENUM_DECL:
+			EnumDecl* decl = self.node.as(EnumDecl);
+			return decl.backing_type;
+		case VAR_DECL:
+			VarDecl* decl = self.node.as(VarDecl);
+			return decl.type;
+		default:
+			return null;
+	}
+}
+
