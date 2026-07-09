@@ -159,7 +159,8 @@ fn ChildVisitResult sema_on_enter(Cursor cursor, Cursor parent, void* user_data)
 			.lifetime = {
 				.start = node.offset.start,
 				.end = ctx.current_scope.range.end
-			}
+			},
+			.section_id = (sz)ctx.section.id
 		};
 		VarDecl* vardecl = node.as(VarDecl);
 		if (!vardecl.name)

@@ -40,6 +40,7 @@ fn void reindex_module(SemaContext* ctx)
 
 			Cursor c = { node };
 			String symbol_name = c.spelling(tmem) ?? "";
+			String qn = string::format(ctx.allocator, "%s::%s", mod.name, symbol_name);
 
 			plog::debug("symbol_name: %s", symbol_name);
 			
@@ -59,7 +60,12 @@ fn void reindex_module(SemaContext* ctx)
 			}
 
 			plog::debug("reindex_module: Set node: %s in module %s", node.kind.description, mod.name);
-			list.push({ .node = node, .condition = guard_expr, .section_id = (sz)section.id });
+			list.push({ 
+				.node = node, 
+				.condition = guard_expr, 
+				.qualified_name = qn,
+				.section_id = (sz)section.id
+			});
 		}
 	}
 
@@ -114,6 +120,8 @@ fn void refresh_section_imports(SemaContext* ctx, ModuleSection* section)
 		
 		//TODO: resolve alias module
 	}
+
+	section.resolved_imports.push(constants::STD_CORE);
 }
 
 <*
