@@ -102,16 +102,16 @@ fn void refresh_section_imports(SemaContext* ctx, ModuleSection* section)
 	{
 		if (node.kind == IMPORT_DECL)
 		{
-			Cursor cursor = { node };
-			String? path = cursor.spelling(tmem);
-			if (catch path)
-			{
-				ctx.warn(node, "Failed to get import path");
-				continue;
+			ImportDecl* imp = node.as(ImportDecl);
+			foreach (p : imp.paths)
+			{	
+				PathExpr* expr = p.as(PathExpr);
+				if (!expr.path) continue;
+				String path = expr.path.text;
+				section.resolved_imports.push(path.copy(ctx.allocator));
 			}
-			section.resolved_imports.push(path.copy(ctx.allocator));
 		}
-
+		
 		//TODO: resolve alias module
 	}
 }
