@@ -53,19 +53,18 @@ fn void reindex_module(SemaContext* ctx)
 			Node* guard_expr;
 			decl::node_has_if_attribute(ctx, node, &guard_expr);
 
-			List{SymbolEntry}* list = mod.symbols.get_or_create_ref(symbol_name);
-			if (!list.is_initialized())
-			{
-				list.init(ctx.allocator, 2);
-			}
+			Symbol* head = mod.symbols.get(symbol_name) ?? "";
 
 			plog::debug("reindex_module: Set node: %s in module %s", node.kind.description, mod.name);
-			list.push({ 
+			Symbol* new_entry = alloc::new(ctx.allocator, Symbol);
+			*new_entry = { 
 				.node = node, 
 				.condition = guard_expr, 
 				.qualified_name = qn,
-				.section_id = (sz)section.id
-			});
+				.section_id = (sz)section.id,
+				.next = head
+			};
+			mod.symbols.set(symbol_name, new_entry);
 		}
 	}
 
