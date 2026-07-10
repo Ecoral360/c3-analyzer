@@ -20,7 +20,7 @@ fn Node*? parse_module_decl(ContextScope scope)
 	{
 		return INVALID_PATH~;
 	}
-
+	
 	if (ctx.is(AT_IDENT))
 	{
 		node.attributes = parse_attributes(scope, node)!;

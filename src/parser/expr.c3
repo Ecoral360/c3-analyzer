@@ -235,7 +235,7 @@ fn Node*? parse_ident_expr(ContextScope scope)
 	ParseContext* ctx = scope.ctx;
 	int start = ctx.current().pos;
 	Node* path_prefix;
-
+	
 	plog::debug("parse_ident: %s", ctx.current_text());
 
 	if (ctx.peek(1)!.kind == SCOPE)
