@@ -26,7 +26,7 @@ struct SemaMod
 	Registry registry;
 }
 
-fn void SemaMod.init(&self, String name, Allocator backing_allocator)
+fn void SemaMod.init(&self, String name, GlobalTypeRegistry* registry, Allocator backing_allocator)
 {
 	Mod.init(self, name, backing_allocator);
 
@@ -143,4 +143,36 @@ fn List{SemaVar} collect_visible_symbols(Allocator allocator, SemaScope* leaf_sc
 	}
 
 	return visible_symbols;
+}
+
+fn Node* lookup_symbol(SemaContext* ctx, Node* path, Ident* name)
+{
+    // Qualified Lookup (e.g., "pkg::mod::Name")
+    if (path != null)
+    {
+        Module* target_mod = resolve_module_path(ctx, path);
+        if (!target_mod) return null;
+        return target_mod.symbol_table.get(name);
+    }
+
+    if (Node* found = ctx.current_scope.get(name)) 
+    {
+        return found;
+    }
+
+    // B. Check the current module's exported symbols
+    if (Node* found = ctx.current_module.symbol_table.get(name))
+    {
+        return found;
+    }
+
+    foreach (imp : ctx.current_module.imports)
+    {
+        if (Node* found = imp.mod.symbol_table.get(name))
+        {
+            return found;
+        }
+    }
+
+    return null;
 }

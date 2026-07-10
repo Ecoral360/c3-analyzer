@@ -19,30 +19,25 @@ faultdef
 	OVERFLOW_PARSING,
 	EOT;
 
-alias NewSectionCallback = fn ModuleSection* (void* user_data, String module_name);
-
 struct ParseContext
 {
-	LineMap* line_map;
-	Ast* ast;
-	ModuleSection* section;
-	Token[] tokens;
-	String file_path; // current file being parsed
-	String uri;
-	String src;
+	SourceFile* sf;
 	Allocator allocator;
-	Allocator arena;
-
-	int pos;
 	Node* contract;
+	int pos;
+}
 
-	NewSectionCallback on_new_module;
-	void* user_data;
-	
-	// for when using debbugers so i can keep track of what its at
-	Token current_token @if(env::DEBUG_SYMBOLS);
-	String current_token_string @if(env::DEBUG_SYMBOLS);
-	// bool allow_submodules;
+<*
+ @param [&in] ctx : "The main context"
+ @param [&in] sf
+*>
+fn ParseContext* create(AnalyzerContext* context, SourceFile* sf)
+{
+	ParseContext* ctx = alloc::new(context.allocator, ParseContext);
+
+	ctx.allocator = alloc;
+
+	return ctx;
 }
 
 struct ContextScope

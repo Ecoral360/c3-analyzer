@@ -19,7 +19,6 @@ struct Diagnostic
 *>
 fn void diagnose(
 	Allocator alloc,
-	ModuleSection* section,
 	int byte_offset_start,
 	int byte_offset_end,
 	LogPriority level,

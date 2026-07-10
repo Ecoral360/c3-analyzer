@@ -11,6 +11,7 @@ struct TypeRegistry
 {
 	Allocator allocator;
 	Primitives primitives;
+	HashMap{void*, Type*} types;
 	HashMap{void*, Type*} pointer_cache;
 }
 
@@ -56,6 +57,7 @@ struct Primitives
 fn void TypeRegistry.init(&self, Allocator allocator)
 {
 	self.allocator = allocator;
+	self.types.init(allocator);
 	self.pointer_cache.init(allocator);
 
 	BitSizes pointer_bits = core::int_to_bit_size(bitsizeof(void*));
@@ -91,17 +93,6 @@ fn void TypeRegistry.init(&self, Allocator allocator)
 	//self.primitives.type_void = create_primitive("void", TYPE_WILDCARD, 1, 1, 1);
 }
 
-macro void TypeRegistry.free(&self)
-{
-	foreach (prim : self.primitives.members)
-	{
-		if (!prim) continue;
-		alloc::free(self.allocator, prim);
-	}
-
-	self.pointer_cache.free();
-}
-
 fn Type* TypeRegistry.get_pointer(&self, Type* base)
 {
 	if (try Type* existing = self.pointer_cache.get(base)) 
@@ -117,6 +108,26 @@ fn Type* TypeRegistry.get_pointer(&self, Type* base)
 	return t;
 }
 
+macro void TypeRegistry.free(&self)
+{
+	$foreach $member : Primitives::members:
+		if (self.primitives.$member)
+		{
+			alloc::free(self.allocator, self.primitives.$member);
+		}
+	$endforeach
+
+	self.pointer_cache.free();
+
+	foreach (type : self.types)
+	{
+		type.name.free(self.allocator);
+		alloc::free(self.allocator, type);
+	}
+
+	self.types.free();
+}
+
 macro Type* TypeRegistry.create_primitive(&self, String name, TypeKind kind, BitSizes bitsize, type)
 {
 	Type* t = alloc::alloc(self.allocator, Type);
@@ -126,11 +137,13 @@ macro Type* TypeRegistry.create_primitive(&self, String name, TypeKind kind, Bit
 
 	t.kind = kind;
 	t.size = byte_size;
-	t.name = name;
+	t.name = name.copy(self.allocator);
 	t.data.builtin.bytesize = (char)byte_size;
 	t.data.builtin.bitsize = bitsize.ordinal;
 	t.data.builtin.abi_alignment = (char)align;
 	t.data.builtin.pref_alignment = (char)align;
+
+	self.types.set(t.name, t);
 
 	return t;
 }

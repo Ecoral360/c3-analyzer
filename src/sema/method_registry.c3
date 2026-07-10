@@ -5,17 +5,11 @@ import std::collections::list;
 
 import analyzer::core::ast;
 
-alias MethodMap = HashMap{MethodKey, Symbol*};
-
 struct MethodBucket
 {
     HashMap{String, Symbol*} methods;
 }
 
-<*
- -`methods`: Maps a type string (e.g., "int", "String") to a sub-map of its methods (Name -> AST Node)
-   User defined types will be prefixd with module name
-*>
 struct MethodRegistry
 {
 	// Type*
@@ -53,15 +47,15 @@ fn void MethodRegistry.register_method(&self, Type* type, String method_name, No
 
 	Symbol* new_entry = alloc::new(self.arena, Symbol);
 	*new_entry = { 
-		.node = method_node, 
-		.condition = condition, 
-		.next = head 
+		.node = method_node,
+		.condition = condition,
+		.next = head
 	};
 
 	bucket.methods[method_name] = new_entry;
 }
 
-fn MethodBucket* MethodRegistry.get_bucket(Type* type) 
+fn MethodBucket* MethodRegistry.get_bucket(Type* type)
 {
 	return self.buckets.get(type) ?? null;
 }

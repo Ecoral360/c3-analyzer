@@ -4,8 +4,9 @@ import analyzer::core;
 
 import analyzer::workspace;
 
-struct SymbolEntry
+struct Symbol
 {
+	Symbol* next;
 	Node* node;
 	<* `@if(expr)` *>
 	Node* condition;
@@ -13,7 +14,7 @@ struct SymbolEntry
 	sz section_id;
 }
 
-fn SymbolEntry get_qualified_symbol(Workspace* ws, String target_fqn)
+fn Symbol* get_qualified_symbol(Workspace* ws, String target_fqn)
 {
 	sz? index = target_fqn.rindex_of("::");
 	if (catch index) return {};
