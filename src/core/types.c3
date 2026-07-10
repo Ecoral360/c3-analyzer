@@ -16,8 +16,6 @@ ulong next_source_file_id = 1;
 ulong next_section_id     = 1;
 ulong next_module_id      = 1;
 
-alias CanonicalType = Type;
-
 struct Type 
 {
 	TypeKind kind;
@@ -49,8 +47,6 @@ struct Type
 			char pref_alignment : 24..31;
 		}
 	}
-
-	CanonicalType* canonical;
 }
 
 struct SourceFile
