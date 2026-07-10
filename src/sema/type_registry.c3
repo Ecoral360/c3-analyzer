@@ -112,7 +112,6 @@ fn Type* TypeRegistry.get_pointer(&self, Type* base)
 	Type* t = alloc::new(self.allocator, Type);
 	t.kind = TYPE_POINTER;
 	t.data.pointer_base = base;
-	t.canonical = t;
 
 	self.pointer_cache.set(base, t);
 	return t;
@@ -132,7 +131,6 @@ macro Type* TypeRegistry.create_primitive(&self, String name, TypeKind kind, Bit
 	t.data.builtin.bitsize = bitsize.ordinal;
 	t.data.builtin.abi_alignment = (char)align;
 	t.data.builtin.pref_alignment = (char)align;
-	t.canonical = t;
 
 	return t;
 }

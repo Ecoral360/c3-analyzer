@@ -24,7 +24,6 @@ struct SemaMod
 	DynamicArenaAllocator arena;
 	HashMap{String, List{SymbolEntry}} symbols;
 	Registry registry;
-	HashMap{void*, Type*} resolved_types;
 }
 
 fn void SemaMod.init(&self, String name, Allocator backing_allocator)
@@ -34,7 +33,6 @@ fn void SemaMod.init(&self, String name, Allocator backing_allocator)
 	self.arena.init(backing_allocator, 4096);
 	self.symbols.init(backing_allocator);
 	self.registry.init(&self.arena);
-	self.resolved_types.init(&self.arena);
 }
 
 fn void SemaMod.free(&self, Allocator allocator)
@@ -43,7 +41,6 @@ fn void SemaMod.free(&self, Allocator allocator)
 
 	self.symbols.free();
 	self.registry.free();
-	self.resolved_types.free();
 	self.arena.free();
 }
 
