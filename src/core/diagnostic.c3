@@ -1,59 +1,92 @@
 module analyzer::core::diagnostics;
 
-import analyzer::core::line_map;
-
 import std::io;
 
-struct Diagnostic
+alias DiagnosticsCallback = fn void(SourceFile* file, Range range, DiagnosticLevel level, String message);
+
+DiagnosticsCallback callback;
+
+enum DiagnosticLevel : char
 {
-    LogPriority level;
-    Location start_loc;
-    Location end_loc;
-    String message;
-    String file_path;
+	NOTE,
+	INFO,
+	WARN,
+	ERROR,
 }
 
 <*
- @param alloc : "allocator"
- @param [&in] section
+ @param [&in] ctx
 *>
 fn void diagnose(
-	Allocator alloc,
-	int byte_offset_start,
-	int byte_offset_end,
-	LogPriority level,
+	AnalyzerContext* ctx,
+	Range range,
+	DiagnosticLevel level,
 	String fmt,
-	args...
-)
+	args...) => @pool()
 {
-	LineMap* map = &section.source_file.line_map;
-	Location loc = map.resolve((sz)byte_offset_start);
-	Location end_loc = map.resolve((sz)byte_offset_end);
-	String file_path = section.source_file.file_path;
+	SourceFile* sf = ctx.current_source_file;
 
-	String msg = string::format(alloc, fmt, ...args);
-	section.diagnostics.push({ level, loc, end_loc, msg, file_path });
-	
-	$if $feature(ANALYZER_CLI):
- 		io::printf("%s:%s:%s: %s%s:%s ", file_path, loc.line + 1, loc.column + 1, Ansi.RED, level.description, Ansi.RESET);
-		io::printf(fmt, ...args);
-		io::printn("");
+	if (callback)
+	{
+		callback(sf, range, level, string::format(ctx.allocator, fmt, ...args));
+	}
 
-		String line_text = map.get_line_from_src(section.source_file.source, loc.line);
-		io::printf(" %4s | %s\n", loc.line + 1, line_text);
+	$if $feature(ANALYZER_PRINT):
+		String line_str = sf.content.tsplit("\n")[start.line != 0 ? start.line - 1 : 0];
 
-		io::printf(" %4s | ", "");
-		for (sz i = 0; i < loc.column; i++)
+		Ansi color;
+		switch (level)
 		{
-			if (i < line_text.len && line_text[i] == '\t') 
-			{
-				io::print("\t");
-			}
-			else 
-			{
-				io::print(" ");
-			}
+			case NOTE:  color = Ansi.BRIGHT_BLUE; break;
+			case INFO:  color = Ansi.GREEN;       break;
+			case WARN:  color = Ansi.BG_YELLOW;   break;
+			case ERROR: color = Ansi.RED;         break;
 		}
-		io::printf("%s^%s\n", Ansi.RED, Ansi.RESET);
+
+ 		io::eprintf("%s:%s:%s: %s%s%s:%s ", sf.path, loc.line + 1, loc.column + 1, color, Ansi.BOLD, level.description, Ansi.RESET);
+		io::eprintf(fmt, ...args);
+		io::eprintn("");
+
+		io::eprintf(" %4s | %s\n", loc.line + 1, line_text);
+
+		io::eprintf(" %4s | ", "");
+		for (sz i = math::max(0, range.start.line - 3); i < range.start.line; i++)
+		{
+			io::eprintfn("%-*d: %s…", padding, i + 1, sf.content.tsplit("\n")[i]);
+		}
+		io::eprintf("%s^%s\n", Ansi.RED, Ansi.RESET);
 	$endif
 }
+
+macro void note(AnalyzerContext* ctx, Range range, String fmt, ...)
+{
+	diagnose(ctx, range, NOTE, fmt, ...$vaarg);
+}
+
+macro void info(AnalyzerContext* ctx, Range range, String fmt, ...)
+{
+	diagnose(ctx, range, INFO, fmt, ...$vaarg);
+}
+
+macro void warn(AnalyzerContext* ctx, Range range, String fmt, ...)
+{
+	diagnose(ctx, range, WARN, fmt, ...$vaarg);
+}
+
+macro void error(AnalyzerContext* ctx, Range range, String fmt, ...)
+{
+	diagnose(ctx, range, ERROR, fmt, ...$vaarg);
+}
+
+
+macro void log(LogPriority priority, String fmt, ...)
+{
+	$if $feature(ANALYZER_PRINT):
+		std::core::log::call_log(priority, std::core::log::default_category, fmt, ...$vaarg);
+	$endif
+}
+
+macro void log_debug(String fmt, ...) => log(DEBUG, fmt, ...$vaarg);
+macro void log_info(String fmt, ...) => log(INFO, fmt, ...$vaarg);
+macro void log_error(String fmt, ...) => log(ERROR, fmt, ...$vaarg);
+macro void log_warn(String fmt, ...) => log(WARN, fmt, ...$vaarg);

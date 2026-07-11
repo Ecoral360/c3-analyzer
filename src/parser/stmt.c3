@@ -6,9 +6,9 @@ import std::collections::list;
 fn Node*? parse_stmt(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
-	Token t = ctx.current();
+	Token t = ctx.current;
 
-	plog::debug("parse_stmt: current = %s (%s)", ctx.token_text(t), t.kind.description);
+	diagnostics::log_debug("parse_stmt: current = %s (%s)", ctx.token_text(t), t.kind.description);
 
 	if (is_type(ctx))
 	{
@@ -133,7 +133,7 @@ fn Node*? parse_stmt(ContextScope scope)
 fn Node*? parse_decl_or_expr_stmt(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
-	Token t = ctx.current();
+	Token t = ctx.current;
 
 	Node* expr = parse_expr(scope)!;
 	
@@ -159,7 +159,7 @@ fn Node*? parse_decl_or_expr_stmt(ContextScope scope)
 fn Node*? parse_expr_stmt(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
-	int start_pos = ctx.current().pos;
+	int start_pos = ctx.current.pos;
 	ExprStmt* node = ctx.ast.alloc_node(ExprStmt, start_pos);
 	node.expr_stmt = parse_expr(scope)!;
 	node.offset.end = ctx.current_pos();
@@ -174,10 +174,10 @@ fn Node*? parse_decl_stmt(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
 
-	int start_pos = ctx.current().pos;
+	int start_pos = ctx.current.pos;
 
 	Node* type = parse_type_expr(scope)!;
-	switch (ctx.current().kind)
+	switch (ctx.current.kind)
 	{
 		case IDENT:
 		case CT_IDENT:
@@ -197,7 +197,7 @@ fn Node*? parse_compound_stmt(ContextScope scope) => @pool()
 {
 	ParseContext* ctx = scope.ctx;
 
-	int start_pos = ctx.current().pos;
+	int start_pos = ctx.current.pos;
 	expect(ctx, LBRACE)!;
 	CompoundStmt* node = ctx.ast.alloc_node(CompoundStmt, start_pos);
 
@@ -210,7 +210,7 @@ fn Node*? parse_compound_stmt(ContextScope scope) => @pool()
 		if (catch err = stmt)
 		{
 			ctx.error("Malformed statement inside compound");
-			Node* err_node = ctx.ast.error(ctx.current().pos);
+			Node* err_node = ctx.ast.error(ctx.current.pos);
 			temp_stmts.push(err_node);
 			ctx.skip_until({ RBRACE, EOS })!;
 			continue;
@@ -226,7 +226,7 @@ fn Node*? parse_compound_stmt(ContextScope scope) => @pool()
 
 	expect(ctx, RBRACE)!;
 
-	node.statements = alloc::clone_slice(ctx.arena, temp_stmts.array_view());
+	node.statements = alloc::clone_slice(ctx.allocator, temp_stmts.array_view());
 
 	return (Node*)node;
 }
@@ -238,7 +238,7 @@ fn bool? parse_switch_body(ContextScope scope, List{Node*}* cases)
 {
 	ParseContext* ctx = scope.ctx;
 
-	int start_pos = ctx.current().pos;
+	int start_pos = ctx.current.pos;
 	while (!ctx.eof() && !ctx.is(RBRACE))
 	{
 		if (ctx.eof())
@@ -248,7 +248,7 @@ fn bool? parse_switch_body(ContextScope scope, List{Node*}* cases)
 		}
 
 		Node* result   = null;
-		TokenKind kind = ctx.current().kind;
+		TokenKind kind = ctx.current.kind;
 
 		switch (kind)
 		{
@@ -276,33 +276,33 @@ fn Node*? parse_case_stmts(ContextScope scope, sz row) => @pool()
 {
 	ParseContext* ctx = scope.ctx;
 
-	if (token_type_ends_case(ctx.current().kind))
+	if (token_type_ends_case(ctx.current.kind))
 	{
-		Location next_loc = ctx.line_map.resolve(ctx.current().pos);
+		Location next_loc = ctx.line_map.resolve(ctx.current.pos);
 
-		if (next_loc.line > row + 1 && ctx.current().kind != RBRACE)
+		if (next_loc.line > row + 1 && ctx.current.kind != RBRACE)
 		{
 			ctx.error(
 				"Fallthrough cases with empty rows or comments have unclear meaning, an explicit 'break' or 'nextcase' is needed (or remove the spacing)."
 			);
-			return ctx.ast.error(ctx.current().pos);
+			return ctx.ast.error(ctx.current.pos);
 		}
 	}
 
-	CompoundStmt* compound_node = ctx.ast.alloc_node(CompoundStmt, ctx.current().pos);
+	CompoundStmt* compound_node = ctx.ast.alloc_node(CompoundStmt, ctx.current.pos);
 
 	List{Node*} stmts;
 	stmts.tinit();
 
-	while (!ctx.eof() && !token_type_ends_case(ctx.current().kind))
+	while (!ctx.eof() && !token_type_ends_case(ctx.current.kind))
 	{
 		Node* child_stmt = parse_stmt(scope.with_only_flags({}))!;
 		if (child_stmt.kind == ERROR) return child_stmt;
 		stmts.push(child_stmt);
 	}
 
-	compound_node.statements = alloc::clone_slice(ctx.arena, stmts.array_view());
-	compound_node.offset.end = ctx.current().pos;
+	compound_node.statements = alloc::clone_slice(ctx.allocator, stmts.array_view());
+	compound_node.offset.end = ctx.current.pos;
 
 	return (Node*)compound_node;
 }
@@ -316,7 +316,7 @@ fn Node*? parse_case_stmt(ContextScope scope) => @pool()
 	ParseContext* ctx = scope.ctx;
 	ParseFlags flags = scope.flags;
 
-	int pos            = ctx.current().pos;
+	int pos            = ctx.current.pos;
 	TokenKind expected = flags.is_comptime ? CT_CASE : CASE;
 	expect(ctx, expected);
 
@@ -324,7 +324,7 @@ fn Node*? parse_case_stmt(ContextScope scope) => @pool()
 	sz case_row  = loc.line;
 
 	CaseStmt* node = ctx.ast.alloc_node(CaseStmt, pos);
-	defer node.offset.end = ctx.current().pos;
+	defer node.offset.end = ctx.current.pos;
 
 	node.expr = parse_expr(scope)!;
 	if (consume(ctx, DOTDOT)!)
@@ -349,7 +349,7 @@ fn Node*? parse_default_stmt(ContextScope scope)
 	ParseContext* ctx = scope.ctx;
 	ParseFlags flags = scope.flags;
 
-	int start_pos      = ctx.current().pos;
+	int start_pos      = ctx.current.pos;
 	TokenKind expected = flags.is_comptime ? CT_DEFAULT : DEFAULT;
 	@expect_else(ctx, expected ; err)
 	{
@@ -379,7 +379,7 @@ fn Node*? parse_nextcase_stmt(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
 
-	int start_pos = ctx.current().pos;
+	int start_pos = ctx.current.pos;
 	@expect_else(ctx, NEXTCASE ; err)
 	{
 		return err;
@@ -392,9 +392,9 @@ fn Node*? parse_nextcase_stmt(ContextScope scope)
 	{
 		return node;
 	}
-	if (ctx.is(CONST_IDENT) && ctx.peek(1)!.kind == COLON)
+	if (ctx.is(CONST_IDENT) && ctx.peek(1).kind == COLON)
 	{
-		node.label = ctx.ident(ctx.current());;
+		node.label = ctx.ident(ctx.current);;
 		advance(ctx)!;
 		@expect_else(ctx, COLON ; err)
 		{
@@ -419,7 +419,7 @@ fn Node*? parse_continue_break_stmt(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
 
-	int start_pos    = ctx.current().pos;
+	int start_pos    = ctx.current.pos;
 	bool is_continue = consume(ctx, CONTINUE)!;
 	if (!is_continue) consume(ctx, BREAK)!;
 
@@ -429,7 +429,7 @@ fn Node*? parse_continue_break_stmt(ContextScope scope)
 
 	if (ctx.is(CONST_IDENT))
 	{
-		node.label = ctx.ident(ctx.current());;
+		node.label = ctx.ident(ctx.current);;
 		advance(ctx)!;
 	}
 
@@ -446,7 +446,7 @@ fn Node*? parse_continue_break_stmt(ContextScope scope)
 fn Node*? parse_switch_stmt(ContextScope scope) => @pool()
 {
 	ParseContext* ctx = scope.ctx;
-	int start_pos = ctx.current().pos;
+	int start_pos = ctx.current.pos;
 	@expect_else(ctx, SWITCH ; err)
 	{
 		return err;
@@ -456,7 +456,7 @@ fn Node*? parse_switch_stmt(ContextScope scope) => @pool()
 
 	if (ctx.is(CONST_IDENT))
 	{
-		Token label_tok = ctx.current();
+		Token label_tok = ctx.current;
 		node.label = ctx.ident(label_tok);;
 		advance(ctx)!;
 		expect(ctx, COLON)!;
@@ -481,7 +481,7 @@ fn Node*? parse_switch_stmt(ContextScope scope) => @pool()
 	node.offset.end = ctx.current_pos();
 	expect(ctx, RBRACE)!;
 
-	node.cases = alloc::clone_slice(ctx.arena, bodies.array_view());
+	node.cases = alloc::clone_slice(ctx.allocator, bodies.array_view());
 	return node;
 }
 
@@ -492,7 +492,7 @@ fn Node*? parse_return_stmt(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
 
-	int start_pos = ctx.current().pos;
+	int start_pos = ctx.current.pos;
 	expect(ctx, RETURN)!;
 
 	ReturnStmt* node = ctx.ast.alloc_node(ReturnStmt, start_pos);
@@ -516,7 +516,7 @@ fn Node*? parse_ct_switch_stmt(ContextScope scope) => @pool()
 {
 	ParseContext* ctx = scope.ctx;
 
-	int start_pos = ctx.current().pos;
+	int start_pos = ctx.current.pos;
 	expect(ctx, CT_SWITCH)!;
 
 	CtSwitchStmt* node = ctx.ast.alloc_node(CtSwitchStmt, start_pos);
@@ -527,7 +527,7 @@ fn Node*? parse_ct_switch_stmt(ContextScope scope) => @pool()
 		if (ctx.is(CT_CASE))
 		{
 			ctx.error("Expected ':' after $switch");
-			return ctx.ast.error(ctx.current().pos);
+			return ctx.ast.error(ctx.current.pos);
 		}
 
 		node.cond = parse_constant_expr(scope)!;
@@ -539,8 +539,8 @@ fn Node*? parse_ct_switch_stmt(ContextScope scope) => @pool()
 	stmts.tinit();
 	while (!ctx.eof() && !ctx.is(CT_ENDSWITCH))
 	{
-		TokenKind kind = ctx.current().kind;
-		plog::debug("parse_ct_switch_stmt - kind: %s", kind.description);
+		TokenKind kind = ctx.current.kind;
+		diagnostics::log_debug("parse_ct_switch_stmt - kind: %s", kind.description);
 		switch (kind)
 		{
 			case CT_CASE:
@@ -549,13 +549,13 @@ fn Node*? parse_ct_switch_stmt(ContextScope scope) => @pool()
 				stmts.push(parse_default_stmt(scope.with_only_flags({ .is_comptime = true }))!);
 			default:
 				ctx.error("'$case' or '$default' expected");
-				return ctx.ast.error(ctx.current().pos - 1);
+				return ctx.ast.error(ctx.current.pos - 1);
 		}
 	}
 
 	expect(ctx, CT_ENDSWITCH)!;
 
-	node.cases = alloc::clone_slice(ctx.arena, stmts.array_view());
+	node.cases = alloc::clone_slice(ctx.allocator, stmts.array_view());
 	return node;
 }
 
@@ -567,14 +567,14 @@ fn Node*? parse_if_stmt(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
 
-	int start_pos = ctx.current().pos;
+	int start_pos = ctx.current.pos;
 	expect(ctx, IF)!;
 
 	IfStmt* node = ctx.ast.alloc_node(IfStmt, start_pos);
 
 	if (ctx.is(CONST_IDENT))
 	{
-		node.label = ctx.ident(ctx.current());
+		node.label = ctx.ident(ctx.current);
 		advance(ctx)!;
 		expect(ctx, COLON)!;
 	}
@@ -604,7 +604,7 @@ fn Node*? parse_ct_if_stmt(ContextScope scope) => @pool()
 {
 	ParseContext* ctx = scope.ctx;
 
-	int start_pos = ctx.current().pos;
+	int start_pos = ctx.current.pos;
 	@expect_else(ctx, CT_IF ; err)
 	{
 		return err;
@@ -627,7 +627,7 @@ fn Node*? parse_ct_if_stmt(ContextScope scope) => @pool()
 		stmts.push(parse_stmt(scope)!);
 	}
 
-	node.then_stmts = alloc::clone_slice(ctx.arena, stmts.array_view());
+	node.then_stmts = alloc::clone_slice(ctx.allocator, stmts.array_view());
 	if (ctx.is(CT_ELSE))
 	{
 		advance(ctx)!;
@@ -636,7 +636,7 @@ fn Node*? parse_ct_if_stmt(ContextScope scope) => @pool()
 		{
 			stmts.push(parse_stmt(scope)!);
 		}
-		node.else_stmts = alloc::clone_slice(ctx.arena, stmts.array_view());
+		node.else_stmts = alloc::clone_slice(ctx.allocator, stmts.array_view());
 	}
 
 	@expect_else(ctx, CT_ENDIF ; err)
@@ -654,7 +654,7 @@ fn Node*? parse_for_stmt(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
 
-	int start_pos = ctx.current().pos;
+	int start_pos = ctx.current.pos;
 	@expect_else(ctx, FOR ; err)
 	{
 		return err;
@@ -665,7 +665,7 @@ fn Node*? parse_for_stmt(ContextScope scope)
 
 	if (ctx.is(CONST_IDENT))
 	{
-		node.label = ctx.ident(ctx.current());
+		node.label = ctx.ident(ctx.current);
 		advance(ctx)!;
 		@expect_else(ctx, COLON ; err)
 		{
@@ -707,13 +707,13 @@ fn Node*? parse_for_stmt(ContextScope scope)
 		}!;
 	}
 
-	Location prev_loc = ctx.line_map.resolve((sz)ctx.current().pos);
+	Location prev_loc = ctx.line_map.resolve((sz)ctx.current.pos);
 	node.body = parse_stmt(scope)!;
 	Location body_loc = ctx.line_map.resolve((sz)node.body.offset.start);
 	if (node.body.kind != COMPOUND_STMT && prev_loc.line != body_loc.line)
 	{
 		ctx.error("A single statement after 'for' must be placed on the same line, or be enclosed in {}");
-		return ctx.ast.error(ctx.current().pos);
+		return ctx.ast.error(ctx.current.pos);
 	}
 
 	return (Node*)node;
@@ -727,7 +727,7 @@ fn Node*? parse_ct_for_stmt(ContextScope scope) => @pool()
 {
 	ParseContext* ctx = scope.ctx;
 
-	int start_pos = ctx.current().pos;
+	int start_pos = ctx.current.pos;
 	@expect_else(ctx, CT_FOR ; err)
 	{
 		return err;
@@ -761,7 +761,7 @@ fn Node*? parse_ct_for_stmt(ContextScope scope) => @pool()
 		stmts.push(stmt);
 	}
 
-	comp_node.statements = alloc::clone_slice(ctx.arena, stmts.array_view());
+	comp_node.statements = alloc::clone_slice(ctx.allocator, stmts.array_view());
 
 	return (Node*)node;
 }
@@ -773,7 +773,7 @@ fn Node*? parse_while_stmt(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
 
-	int start_pos = ctx.current().pos;
+	int start_pos = ctx.current.pos;
 	expect(ctx, WHILE)!;
 
 	WhileStmt* node = ctx.ast.alloc_node(WhileStmt, start_pos);
@@ -781,7 +781,7 @@ fn Node*? parse_while_stmt(ContextScope scope)
 
 	if (ctx.is(CONST_IDENT))
 	{
-		node.label = ctx.ident(ctx.current());
+		node.label = ctx.ident(ctx.current);
 		advance(ctx)!;
 		expect(ctx, COLON)!;
 	}
@@ -789,13 +789,13 @@ fn Node*? parse_while_stmt(ContextScope scope)
 	node.cond = parse_cond_expr(scope)!;
 	expect(ctx, RPAREN)!;
 
-	Location prev_loc = ctx.line_map.resolve((sz)ctx.current().pos);
+	Location prev_loc = ctx.line_map.resolve((sz)ctx.current.pos);
 	node.body = parse_stmt(scope)!;
 	Location body_loc = ctx.line_map.resolve((sz)node.body.offset.start);
 	if (node.body.kind != COMPOUND_STMT && prev_loc.line != body_loc.line)
 	{
 		ctx.error("A single statement after 'while' must be placed on the same line, or be enclosed in {}.");
-		return ctx.ast.error(ctx.current().pos);
+		return ctx.ast.error(ctx.current.pos);
 	}
 
 	return (Node*)node;
@@ -808,7 +808,7 @@ fn Node*? parse_do_while_stmt(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
 
-	int start_pos = ctx.current().pos;
+	int start_pos = ctx.current.pos;
 	@expect_else(ctx, DO ; err)
 	{
 		return err;
@@ -818,7 +818,7 @@ fn Node*? parse_do_while_stmt(ContextScope scope)
 
 	if (ctx.is(CONST_IDENT))
 	{
-		node.label = ctx.ident(ctx.current());
+		node.label = ctx.ident(ctx.current);
 		advance(ctx)!;
 		@expect_else(ctx, COLON ; err)
 		{
@@ -854,9 +854,9 @@ fn Node*? parse_foreach_var(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
 
-	int start_pos  = ctx.current().pos;
+	int start_pos  = ctx.current.pos;
 	VarDecl* var_node = ctx.ast.alloc_node(VarDecl, start_pos);
-	defer var_node.offset.end = ctx.current().pos;
+	defer var_node.offset.end = ctx.current.pos;
 	var_node.var_kind = VAR_LOCAL;
 
 	// Parse optional type: if not a plain identifier or '&', a type is expected.
@@ -877,12 +877,12 @@ fn Node*? parse_foreach_var(ContextScope scope)
 		{
 			ctx.error("Expected an identifier or type.");
 		}
-		ctx.ast.missing(ctx.current().pos);
+		ctx.ast.missing(ctx.current.pos);
 		ctx.skip_until({ COMMA, COLON, RPAREN })!;
 		return var_node;
 	}
 
-	var_node.name = ctx.ident(ctx.current());
+	var_node.name = ctx.ident(ctx.current);
 	advance(ctx)!;
 
 	return (Node*)var_node;
@@ -897,7 +897,7 @@ fn Node*? parse_foreach_stmt(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
 
-	int start_pos   = ctx.current().pos;
+	int start_pos   = ctx.current.pos;
 	bool is_reverse = ctx.is(FOREACH_R);
 	advance(ctx)!;
 
@@ -907,7 +907,7 @@ fn Node*? parse_foreach_stmt(ContextScope scope)
 
 	if (ctx.is(CONST_IDENT))
 	{
-		node.label = ctx.ident(ctx.current());
+		node.label = ctx.ident(ctx.current);
 		advance(ctx)!;
 		@expect_else_skip(ctx, COLON, { EOS, EOF } ; err)
 		{
@@ -963,7 +963,7 @@ fn Node*? parse_ct_assert_stmt(ContextScope scope) => @pool()
 {
 	ParseContext* ctx = scope.ctx;
 
-	int start_pos = ctx.current().pos;
+	int start_pos = ctx.current.pos;
 	expect(ctx, CT_ASSERT)!;
 	CtAssertStmt* node = ctx.ast.alloc_node(CtAssertStmt, start_pos);
 
@@ -979,7 +979,7 @@ fn Node*? parse_ct_assert_stmt(ContextScope scope) => @pool()
 			args.push(parse_constant_expr(scope)!);
 		}
 
-		node.args = alloc::clone_slice(ctx.arena, args.array_view());
+		node.args = alloc::clone_slice(ctx.allocator, args.array_view());
 	}
 
 	expect(ctx, EOS)!;
@@ -994,7 +994,7 @@ fn Node*? parse_ct_error_stmt(ContextScope scope) => @pool()
 {
 	ParseContext* ctx = scope.ctx;
 
-	int start_pos = ctx.current().pos;
+	int start_pos = ctx.current.pos;
 	@expect_else(ctx, CT_ERROR ; err)
 	{
 		return err;
@@ -1017,7 +1017,7 @@ fn Node*? parse_ct_echo_stmt(ContextScope scope) => @pool()
 {
 	ParseContext* ctx = scope.ctx;
 
-	int start_pos = ctx.current().pos;
+	int start_pos = ctx.current.pos;
 	@expect_else(ctx, CT_ECHO ; err)
 	{
 		return err;
@@ -1043,12 +1043,12 @@ fn Node*? parse_defer_stmt(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
 
-	int start_pos = ctx.current().pos;
+	int start_pos = ctx.current.pos;
 	expect(ctx, DEFER)!;
 	DeferStmt* node = ctx.ast.alloc_node(DeferStmt, start_pos);
 	DeferKind kind = NORMAL;
 
-	plog::debug("parse_defer");
+	diagnostics::log_debug("parse_defer");
 
 	if CHECK: (consume(ctx, TRY)!)
 	{
@@ -1058,10 +1058,10 @@ fn Node*? parse_defer_stmt(ContextScope scope)
 	{
 		kind = CATCH;
 	}
-	else if (ctx.is(LPAREN) && ctx.peek(1)!.kind == CATCH)
+	else if (ctx.is(LPAREN) && ctx.peek(1).kind == CATCH)
 	{
 		advance(ctx, 2)!; // ( and catch
-		Token ident_token = ctx.current();
+		Token ident_token = ctx.current;
 		Node* ident       = parse_expr(scope)!;
 		if (ident.kind != IDENT_EXPR)
 		{
@@ -1087,7 +1087,7 @@ fn Node*? parse_assert_stmt(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
 
-	int start_pos = ctx.current().pos;
+	int start_pos = ctx.current.pos;
 	expect(ctx, ASSERT)!;
 	AssertStmt* node = ctx.ast.alloc_node(AssertStmt, start_pos);
 
@@ -1107,7 +1107,7 @@ fn Node*? parse_assert_stmt(ContextScope scope)
 				args.push(parse_expr(scope)!);
 			}
 
-			node.args = alloc::clone_slice(ctx.arena, args.array_view());
+			node.args = alloc::clone_slice(ctx.allocator, args.array_view());
 		};
 	}
 	expect(ctx, RPAREN)!;
@@ -1123,7 +1123,7 @@ fn Node*? parse_ct_foreach_stmt(ContextScope scope) => @pool()
 {
 	ParseContext* ctx = scope.ctx;
 
-	int start_pos = ctx.current().pos;
+	int start_pos = ctx.current.pos;
 	@expect_else(ctx, CT_FOREACH ; err)
 	{
 		return err;
@@ -1163,8 +1163,8 @@ fn Node*? parse_ct_foreach_stmt(ContextScope scope) => @pool()
 	}
 
 	CompoundStmt* body = ctx.ast.alloc_node(CompoundStmt, start_pos);
-	body.offset.end = ctx.current().pos;
-	body.statements = alloc::clone_slice(ctx.arena, stmts.array_view());
+	body.offset.end = ctx.current.pos;
+	body.statements = alloc::clone_slice(ctx.allocator, stmts.array_view());
 	node.body = (Node*)body;
 
 	@expect_else(ctx, CT_ENDFOREACH ; err)
@@ -1179,9 +1179,9 @@ fn Node*? parse_ct_foreach_var(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
 
-	int start_pos  = ctx.current().pos;
+	int start_pos  = ctx.current.pos;
 	VarDecl* node = ctx.ast.alloc_node(VarDecl, start_pos);
-	defer node.offset.end = ctx.current().pos;
+	defer node.offset.end = ctx.current.pos;
 	node.var_kind = VAR_LOCAL;
 
 	Token token = @expect_else_skip(ctx, CT_IDENT, { COMMA, COLON, EOS, EOF } ; err)
@@ -1201,7 +1201,7 @@ fn Node*? parse_ct_expand_stmt(ContextScope scope)
 	ParseContext* ctx = scope.ctx;
 	expect(ctx, CT_EXPAND)!;
 
-	int start_pos = ctx.current().pos;
+	int start_pos = ctx.current.pos;
 	CtExpandStmt* node = ctx.ast.alloc_node(CtExpandStmt, start_pos);
 
 	expect(ctx, LPAREN)!;

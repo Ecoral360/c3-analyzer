@@ -1,7 +1,6 @@
 module analyzer::core::ast;
 
-import analyzer::core::string_pool;
-import analyzer::core::lexer;
+import analyzer::lexer;
 
 import std::collections::list;
 

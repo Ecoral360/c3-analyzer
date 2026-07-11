@@ -7,6 +7,7 @@
 module analyzer::parser;
 import std::collections;
 import analyzer::core;
+import analyzer::lexer;
 
 <*
  Should be aligned to C3C
@@ -161,10 +162,10 @@ fn Node*? parse_expr(ContextScope scope, Precedence min_bp = LOWEST)
 	while (true)
 	{
 		int lbp, rbp;
-		get_binding_power(ctx.current().kind, &lbp, &rbp);
+		get_binding_power(ctx.current.kind, &lbp, &rbp);
 
 		// debug purposes
-		plog::debug("Current Token: %s, LBP: %d, MinBP: %d", ctx.current().kind, lbp, min_bp);
+		diagnostics::log_debug("Current Token: %s, LBP: %d, MinBP: %d", ctx.current.kind, lbp, min_bp);
 
 		// BREAK if:
 		// 1. Token is not an infix operator (lbp is -1)
@@ -188,7 +189,7 @@ fn Node*? parse_expr(ContextScope scope, Precedence min_bp = LOWEST)
 fn Node*? parse_prefix_expr(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
-	Token t = ctx.current();
+	Token t = ctx.current;
 
 	if (is_type(ctx))
 	{
@@ -252,10 +253,10 @@ fn Node*? parse_prefix_expr(ContextScope scope)
 		case LPAREN:
 			return parse_group_expr(scope)!;
 		default:
-			plog::error(
+			diagnostics::log_error(
 				"parse_prefix_expr - Expected expression for token: ((%s) %s - %s)",
-				ctx.token_text(ctx.current()),
-				ctx.current()
+				ctx.token_text(ctx.current),
+				ctx.current
 				.kind);
 
 			advance(ctx)!;
@@ -271,7 +272,7 @@ fn Node*? parse_prefix_expr(ContextScope scope)
 fn Node*? parse_infix(ContextScope scope, Node* left, Precedence rbp)
 {
 	ParseContext* ctx = scope.ctx;
-	Token t = ctx.current();
+	Token t = ctx.current;
 
 	switch (t.kind)
 	{
@@ -334,7 +335,7 @@ fn Node*? parse_infix(ContextScope scope, Node* left, Precedence rbp)
 				Node* init    = parse_initializer_list_expr(scope)!;
 
 				CompoundLiteralExpr* node = ctx.ast.alloc_node(CompoundLiteralExpr, start_pos);
-				node.offset.end = ctx.current().pos;
+				node.offset.end = ctx.current.pos;
 
 				node.type_expr = left;
 				node.initializer_expr = init;
@@ -365,14 +366,14 @@ fn Node*? parse_decl_or_expr(ContextScope scope)
 
 	Node* expr = parse_expr(scope)!;
 
-	plog::debug("parse_decl_or_expr - (%s)", expr.kind.description);
+	diagnostics::log_debug("parse_decl_or_expr - (%s)", expr.kind.description);
 
 	if (expr.kind != TYPE_EXPR && expr.kind != COMPOUND_LITERAL_EXPR)
 	{
 		return expr;
 	}
 
-	TokenKind next = ctx.current().kind;
+	TokenKind next = ctx.current.kind;
 	switch (next)
 	{
 		case RPAREN:
@@ -397,7 +398,7 @@ fn Node*? parse_expr_resuming_with_left(ContextScope scope, Node* left, Preceden
 	while (true)
 	{
 		int lbp, rbp;
-		get_binding_power(ctx.current().kind, &lbp, &rbp);
+		get_binding_power(ctx.current.kind, &lbp, &rbp);
 		if (lbp < min_bp) break;
 
 		left = parse_infix(scope, left, (Precedence)rbp)!;

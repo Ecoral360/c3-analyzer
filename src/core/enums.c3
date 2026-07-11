@@ -1,5 +1,5 @@
 module analyzer::core;
-import analyzer::core::lexer;
+import analyzer::lexer;
 
 faultdef NOT_FOUND;
 

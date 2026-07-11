@@ -5,8 +5,6 @@
 	represents some Node in the abstract syntax tree for a module
 *>
 module analyzer::cursor;
-
-import analyzer::workspace;
 import analyzer::core;
 import analyzer::sema;
 
@@ -131,64 +129,6 @@ fn bool Cursor.has_attribute(&self, AttributeKind kind, Node** out_attribute)
 	return false;
 }
 
-<*
- use a binary-search to find wether any error node has
- the byte offset / byte range of this cursor
- Note: has not yet been tested
- @param [&in] section
-*>
-fn bool Cursor.has_error(&self, ModuleSection* section)
-{
-	NodeArray errors = section.source_file.ast.error_nodes.array_view();
-	sz len           = errors.len;
-	if (len == 0) return false;
-
-	sz node_start = self.node.offset.start;
-	sz node_end   = self.node.offset.end;
-
-	sz low  = 0;
-	sz high = len - 1;
-
-	while (low <= high)
-	{
-		sz mid    = low + (high - low) / 2;
-		Node* err = errors[mid];
-
-		if (node_start <= err.offset.start && err.offset.end <= node_end)
-		{
-			return true;
-		}
-
-		if (err.offset.start > node_end)
-		{
-			high = mid - 1;
-		}
-		else
-		{
-			low = mid + 1;
-		}
-	}
-
-	return false;
-}
-
-<*
-
-*>
-fn Node* find_node_from_offset(Node* node, int offset)
-{
-	if (node == null) return null;
-
-	if (offset < node.offset.start || offset > node.offset.end)
-	{
-		return null;
-	}
-
-	plog::debug("Found node: (%s) - (%s) %s:%s", node.kind, offset, node.offset.start, node.offset.end);
-
-	return node;
-}
-
 macro Node* find_innermost_from_nodes(SourceFile* sf, int offset, ...) @local 
 {
 	Node* result;
@@ -296,7 +236,7 @@ fn String? Cursor.raw_type_identifier(&self)
 
 struct FindAtContext
 {
-	int target_offset;
+	Range target;
 	Cursor best_match;
 	sz best_span;
 }
@@ -324,23 +264,17 @@ fn ChildVisitResult find_at_callback(Cursor cursor, Cursor parent, void* user_da
 	return CONTINUE;
 }
 
-fn Cursor find_at(ModuleSection* sec, int offset)
+fn Cursor find_at(Node[] slice, Range range)
 {
-	SourceFile* sf = sec.source_file;
-	if (sf.ast == null || sf.ast.top_level_nodes.len() == 0)
-	{
-		return {};
-	}
-
 	FindAtContext ctx = {
-		.target_offset = offset,
+		.target = range,
 		.best_match = {},
 		.best_span = 99999999 // Start with a massive fallback span
 	};
 
-	foreach (root_node : sf.ast.top_level_nodes)
+	foreach (node : slice)
 	{
-		Cursor root_cursor = { .node = root_node };
+		Cursor root_cursor = { .node = node };
 		
 		if (!visit(root_cursor, {}, { .on_enter = &find_at_callback }, &ctx)) 
 		{

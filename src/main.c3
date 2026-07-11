@@ -1,9 +1,7 @@
 module parser @if($feature(ANALYZER_CLI));
 import utils::ast;
 import std::io;
-import analyzer::workspace;
 import analyzer::parser;
-import analyzer::core::plog;
 import std::collections::maybe;
 import std::collections::list;
 import seali;
@@ -77,22 +75,4 @@ fn int main(String[] args) => @pool()
 	}
 
 	return 0;
-}
-
-fn void? test_std_lib(Workspace* ws, String std_path)
-{
-	plog::info("Walking std lib at: %s", std_path);
-	List{FileInput} paths; paths.tinit();
-
-	Path path = path::tnew(std_path)!!;
-	PathWalker walker = fn bool? (Path p, bool is_dir, void* data)
-	{
-		if (is_dir) return false;
-		List{FileInput}* inputs = (List{FileInput}*)data;
-		String sub_path = ((String)p).copy(tmem);
-		inputs.push({ .path = sub_path });
-		return false;
-	};
-	path.walk(walker, &paths)!!;
-	workspace::process_batch(ws, tmem, paths.array_view())!!;
 }

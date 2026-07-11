@@ -23,7 +23,7 @@ import analyzer::core;
 fn Node*? parse_fn_type_expr(ContextScope scope) => @pool()
 {
 	ParseContext* ctx = scope.ctx;
-	int start = ctx.current().pos;
+	int start = ctx.current.pos;
 	expect(ctx, FN)!;
 	TypeExpr* node = ctx.ast.alloc_node(TypeExpr, start);
 
@@ -31,7 +31,7 @@ fn Node*? parse_fn_type_expr(ContextScope scope) => @pool()
 	node.func.ret_type = parse_type_expr(scope)!;
 
 	node.func.params = parse_parameter_list(scope)!;
-	node.offset.end = ctx.current().pos;
+	node.offset.end = ctx.current.pos;
 
 	node.func.attributes = parse_attributes(scope, node)!;
 
@@ -67,11 +67,11 @@ fn Node*? parse_type_expr(ContextScope scope, Node* path_expr = null)
 {
 	ParseContext* ctx = scope.ctx;
 	ParseFlags flags = scope.flags;
-	int start = ctx.current().pos;
+	int start = ctx.current.pos;
 
-	plog::debug("parse_type_expr");
+	diagnostics::log_debug("parse_type_expr");
 
-	TypeExpr* current_type = ctx.ast.alloc_node(TypeExpr, start, ctx.current().end_pos());
+	TypeExpr* current_type = ctx.ast.alloc_node(TypeExpr, start, ctx.current.end_pos());
 	defer {
 		if (try end = ctx.peek(-1))
 		{
@@ -97,9 +97,9 @@ fn Node*? parse_type_expr(ContextScope scope, Node* path_expr = null)
 	}
 
 	// Check for built-in primitive keywords (int, void, double, etc.)
-	else if IS_PRIM: (is_type_primitive(ctx.current().kind))
+	else if IS_PRIM: (is_type_primitive(ctx.current.kind))
 	{
-		Token t = ctx.current();
+		Token t = ctx.current;
 		advance(ctx)!;
 
 		current_type.type_kind = TYPE_IDENTIFIER;
@@ -126,13 +126,13 @@ fn Node*? parse_type_expr(ContextScope scope, Node* path_expr = null)
 
 	while (true)
 	{
-		Token t = ctx.current();
+		Token t = ctx.current;
 
 		if (t.kind == QUESTION)
 		{
 			if (flags.type_as_expression) break;
 			advance(ctx)!;
-			plog::debug("set type to optional");
+			diagnostics::log_debug("set type to optional");
 			current_type.optional = true;
 			current_type.offset.end = t.end_pos();
 			continue;
@@ -157,7 +157,7 @@ fn Node*? parse_type_expr(ContextScope scope, Node* path_expr = null)
 		{
 			advance(ctx)!;
 
-			TypeExpr* vec_node = ctx.ast.alloc_node(TypeExpr, start, ctx.current().pos);
+			TypeExpr* vec_node = ctx.ast.alloc_node(TypeExpr, start, ctx.current.pos);
 
 			vec_node.type_kind = TYPE_VECTOR;
 			vec_node.array.base = current_type;
@@ -169,7 +169,7 @@ fn Node*? parse_type_expr(ContextScope scope, Node* path_expr = null)
 
 			expect(ctx, RVEC)!;
 
-			vec_node.offset.end = ctx.current().pos;
+			vec_node.offset.end = ctx.current.pos;
 			current_type = vec_node;
 			continue;
 		}
@@ -178,7 +178,7 @@ fn Node*? parse_type_expr(ContextScope scope, Node* path_expr = null)
 		{
 			advance(ctx)!;
 
-			TypeExpr* arr_node = ctx.ast.alloc_node(TypeExpr, start, ctx.current().pos);
+			TypeExpr* arr_node = ctx.ast.alloc_node(TypeExpr, start, ctx.current.pos);
 
 			if (ctx.is(RBRACKET))
 			{
@@ -186,7 +186,7 @@ fn Node*? parse_type_expr(ContextScope scope, Node* path_expr = null)
 				arr_node.type_kind = TYPE_SLICE;
 				arr_node.modify.base = current_type;
 			}
-			else if (ctx.is(ASTERISK) && ctx.peek(1)!.kind == RBRACKET)
+			else if (ctx.is(ASTERISK) && ctx.peek(1).kind == RBRACKET)
 			{
 				advance(ctx)!; // Consume '*'
 				advance(ctx)!; // Consume ']'
@@ -203,7 +203,7 @@ fn Node*? parse_type_expr(ContextScope scope, Node* path_expr = null)
 				expect(ctx, RBRACKET)!;
 			}
 
-			arr_node.offset.end = ctx.current().pos;
+			arr_node.offset.end = ctx.current.pos;
 			current_type = arr_node;
 			continue;
 		}
@@ -213,13 +213,13 @@ fn Node*? parse_type_expr(ContextScope scope, Node* path_expr = null)
 		{
 			if (flags.no_generics) break;
 
-			TypeExpr* gen_node = ctx.ast.alloc_node(TypeExpr, start, ctx.current().pos);
+			TypeExpr* gen_node = ctx.ast.alloc_node(TypeExpr, start, ctx.current.pos);
 
 			gen_node.type_kind = TYPE_GENERIC;
 			gen_node.generic.base = current_type;
 			gen_node.generic.params = parse_generics_list(scope)!;
 
-			gen_node.offset.end = ctx.current().pos;
+			gen_node.offset.end = ctx.current.pos;
 			current_type = gen_node;
 			continue;
 		}
@@ -233,16 +233,16 @@ fn Node*? parse_type_expr(ContextScope scope, Node* path_expr = null)
 fn Node*? parse_ident_expr(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
-	int start = ctx.current().pos;
+	int start = ctx.current.pos;
 	Node* path_prefix;
 	
-	plog::debug("parse_ident: %s", ctx.current_text());
+	diagnostics::log_debug("parse_ident: %s", ctx.current_text());
 
-	if (ctx.peek(1)!.kind == SCOPE)
+	if (ctx.peek(1).kind == SCOPE)
 	{
 		path_prefix = parse_path_expr(scope, { .as_prefix = true })!;
 	}
-	Token t = ctx.current();
+	Token t = ctx.current;
 	switch (t.kind)
 	{
 		case TYPE_IDENT:
@@ -253,7 +253,7 @@ fn Node*? parse_ident_expr(ContextScope scope)
 		case CT_IDENT:
 		case HASH_IDENT:
 			{
-				IdentExpr* ident = ctx.ast.alloc_node(IdentExpr, start, ctx.current().end_pos());
+				IdentExpr* ident = ctx.ast.alloc_node(IdentExpr, start, ctx.current.end_pos());
 				ident.ident = ctx.ident(t);
 				ident.path_expr = path_prefix;
 
@@ -275,13 +275,13 @@ fn void? parse_join_strings(ContextScope scope, String* list)
 
 	if (ctx.eof() || !ctx.is(STRING_LITERAL)) return;
 
-	Token first_tok = ctx.current();
+	Token first_tok = ctx.current;
 	String current_str = ctx.token_text(first_tok)[1:^2];
 	advance(ctx)!;
 
 	while (!ctx.eof() && ctx.is(STRING_LITERAL))
 	{
-		Token next_tok = ctx.current();
+		Token next_tok = ctx.current;
 		String next_str = ctx.token_text(next_tok)[1:^2];
 		
 		current_str = current_str.tconcat(next_str);
@@ -289,20 +289,20 @@ fn void? parse_join_strings(ContextScope scope, String* list)
 		advance(ctx)!;
 	}
 
-	*list = current_str.copy(ctx.arena);
+	*list = current_str.copy(ctx.allocator);
 }	
 
 fn Node*? parse_literal_expr(ContextScope scope) => @pool()
 {
 	ParseContext* ctx = scope.ctx;
-	Token token = ctx.current();
+	Token token = ctx.current;
 	int start   = token.pos;
 
 	LiteralExpr* literal = ctx.ast.alloc_node(LiteralExpr, start);
 	defer literal.offset.end = ctx.previous_end_pos();
 	String token_text    = ctx.token_text(token);
 
-	plog::debug("literal_expr: %s", token.kind.description);
+	diagnostics::log_debug("literal_expr: %s", token.kind.description);
 
 	switch (token.kind)
 	{
@@ -432,7 +432,7 @@ fn Node*? parse_literal_expr(ContextScope scope) => @pool()
 						.treplace("\t", "")
 						.treplace("\n", "")
 						.treplace("\r", "");
-				plog::debug(clean);
+				diagnostics::log_debug(clean);
 				char[]? b64 = base64::decode(tmem, clean);
 				if (catch err = b64)
 				{
@@ -440,7 +440,7 @@ fn Node*? parse_literal_expr(ContextScope scope) => @pool()
 					advance(ctx)!;
 					return ctx.ast.error(start);
 				}
-				literal.bytes = alloc::clone_slice(ctx.arena, b64);
+				literal.bytes = alloc::clone_slice(ctx.allocator, b64);
 				advance(ctx)!;
 			}
 			else if (token_text.starts_with("x"))
@@ -450,7 +450,7 @@ fn Node*? parse_literal_expr(ContextScope scope) => @pool()
 						.treplace("\t", "")
 						.treplace("\n", "")
 						.treplace("\r", "");
-				plog::debug("%s", clean);
+				diagnostics::log_debug("%s", clean);
 				if (clean.len % 2 != 0)
 				{
 					ctx.error(
@@ -468,7 +468,7 @@ fn Node*? parse_literal_expr(ContextScope scope) => @pool()
 					advance(ctx)!;
 					return ctx.ast.error(start);
 				}
-				literal.bytes = alloc::clone_slice(ctx.arena, hex);
+				literal.bytes = alloc::clone_slice(ctx.allocator, hex);
 				advance(ctx)!;
 			}
 			break;
@@ -549,8 +549,8 @@ fn Node*? parse_literal_expr(ContextScope scope) => @pool()
 fn Node*? parse_path_expr(ContextScope scope, PathExprOptions options = { }) => @pool()
 {
 	ParseContext* ctx = scope.ctx;
-	int start_pos = ctx.current().pos;
-	plog::debug("parse_path_expr");
+	int start_pos = ctx.current.pos;
+	diagnostics::log_debug("parse_path_expr");
 
 	if (is_type(ctx))
 	{
@@ -562,7 +562,7 @@ fn Node*? parse_path_expr(ContextScope scope, PathExprOptions options = { }) => 
 
 	if (!ctx.is(IDENT))
 	{
-		if (ctx.peek(1)!.kind != SCOPE)
+		if (ctx.peek(1).kind != SCOPE)
 		{
 			if (options.as_prefix)
 			{
@@ -574,25 +574,25 @@ fn Node*? parse_path_expr(ContextScope scope, PathExprOptions options = { }) => 
 		return ctx.ast.error(start_pos);
 	}
 
-	PathExpr* node = ctx.ast.alloc_node(PathExpr, start_pos, ctx.current().end_pos());
+	PathExpr* node = ctx.ast.alloc_node(PathExpr, start_pos, ctx.current.end_pos());
 
 	DString sb; sb.tinit();
 
 	while (true)
 	{
-		if (options.as_prefix && ctx.peek(1)!.kind != SCOPE)
+		if (options.as_prefix && ctx.peek(1).kind != SCOPE)
 		{
 			break;
 		}
 
-		Token t = ctx.current();
+		Token t = ctx.current;
 		sb.append(ctx.token_text(t));
 		node.offset.end = ctx.current_pos();
 		advance(ctx)!;
 
 		if (consume(ctx, SCOPE)!)
 		{
-			if (is_some_ident(ctx.current().kind))
+			if (is_some_ident(ctx.current.kind))
 			{
 				sb.append("::");
 				continue;
@@ -623,12 +623,12 @@ fn Node*? parse_path_expr(ContextScope scope, PathExprOptions options = { }) => 
 fn Node*? parse_binary_expr(ContextScope scope, Node* left, Precedence prec)
 {
 	ParseContext* ctx = scope.ctx;
-	int start      = ctx.current().pos;
-	TokenKind kind = ctx.current().kind;
+	int start      = ctx.current.pos;
+	TokenKind kind = ctx.current.kind;
 	advance(ctx)!;
 	Node* right = parse_expr(scope.with_flags({ .type_as_expression = true }), prec)!;
 
-	BinaryExpr* node = ctx.ast.alloc_node(BinaryExpr, start, ctx.current().end_pos());
+	BinaryExpr* node = ctx.ast.alloc_node(BinaryExpr, start, ctx.current.end_pos());
 	node.left = left;
 	node.right = right;
 	node.op = core::binaryop_from_token(kind);
@@ -641,11 +641,11 @@ fn Node*? parse_binary_expr(ContextScope scope, Node* left, Precedence prec)
 fn Node*? parse_unary_expr(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
-	plog::debug("parse_unary_expr");
-	int start_pos = ctx.current().pos;
+	diagnostics::log_debug("parse_unary_expr");
+	int start_pos = ctx.current.pos;
 	if (ctx.is(MINUS))
 	{
-		if (ctx.peek(1)!.kind.is_int_literal())
+		if (ctx.peek(1).kind.is_int_literal())
 		{
 			advance(ctx)!;
 			return parse_expr(scope)!;
@@ -653,18 +653,18 @@ fn Node*? parse_unary_expr(ContextScope scope)
 	}
 	bool is_bang_bang = ctx.is(BANGBANG);
 	UnaryExpr* node = ctx.ast.alloc_node(UnaryExpr, start_pos);
-	UnaryOpKind? op  = core::unaryop_from_token(ctx.current().kind);
+	UnaryOpKind? op  = core::unaryop_from_token(ctx.current.kind);
 	if (catch op)
 	{
-		ctx.error("Not a unary operator (%s)", ctx.current().kind);
-		return ctx.ast.error(ctx.current().pos);
+		ctx.error("Not a unary operator (%s)", ctx.current.kind);
+		return ctx.ast.error(ctx.current.pos);
 	}
 	advance(ctx)!;
 	node.expr = parse_expr(scope, UNARY)!;
 	node.offset.end = node.expr.offset.end;
 	if (is_bang_bang)
 	{
-		UnaryExpr* outer = ctx.ast.alloc_node(UnaryExpr, ctx.current().pos);
+		UnaryExpr* outer = ctx.ast.alloc_node(UnaryExpr, ctx.current.pos);
 		outer.expr = node;
 		outer.operator = UNARYOP_NOT;
 		return (Node*)outer;
@@ -675,13 +675,13 @@ fn Node*? parse_unary_expr(ContextScope scope)
 fn Node*? parse_post_unary_expr(ContextScope scope, Node* left, Precedence bp)
 {
 	ParseContext* ctx = scope.ctx;
-	int start_pos = ctx.current().pos;
+	int start_pos = ctx.current.pos;
 	PostUnaryExpr* node = ctx.ast.alloc_node(PostUnaryExpr, start_pos);
-	UnaryOpKind? op      = core::unaryop_from_token(ctx.current().kind);
+	UnaryOpKind? op      = core::unaryop_from_token(ctx.current.kind);
 	if (catch op)
 	{
-		ctx.error("Not a unary operator (%s)", ctx.current().kind);
-		return ctx.ast.error(ctx.current().pos);
+		ctx.error("Not a unary operator (%s)", ctx.current.kind);
+		return ctx.ast.error(ctx.current.pos);
 	}
 	node.operator = op;
 	node.expr = left;
@@ -697,7 +697,7 @@ fn Node*? parse_post_unary_expr(ContextScope scope, Node* left, Precedence bp)
 fn Node*? parse_expr_list(ContextScope scope) => @pool()
 {
 	ParseContext* ctx = scope.ctx;
-	int start_pos  = ctx.current().pos;
+	int start_pos  = ctx.current.pos;
 	ExprList* node = ctx.ast.alloc_node(ExprList, start_pos);
 	List{Node*} exprs;
 	exprs.tinit();
@@ -709,7 +709,7 @@ fn Node*? parse_expr_list(ContextScope scope) => @pool()
 
 	node.offset.end = exprs.last().offset.end ?? start_pos;
 
-	node.exprs = alloc::clone_slice(ctx.arena, exprs.array_view());
+	node.exprs = alloc::clone_slice(ctx.allocator, exprs.array_view());
 	return (Node*)node;
 }
 
@@ -719,7 +719,7 @@ fn Node*? parse_expr_list(ContextScope scope) => @pool()
 fn Node*? parse_contract_expr(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
-	int start_pos = ctx.current().pos;
+	int start_pos = ctx.current.pos;
 	ContractExpr* node = ctx.ast.alloc_node(ContractExpr, start_pos);
 	defer node.offset.end = ctx.previous_end_pos();
 
@@ -730,7 +730,7 @@ fn Node*? parse_contract_expr(ContextScope scope)
 		if (!ctx.is(STRING_LITERAL))
 		{
 			ctx.error("Expected a string after ':'");
-			ctx.ast.error(ctx.current().pos);
+			ctx.ast.error(ctx.current.pos);
 			ctx.skip_until({ EOS, EOF })!;
 			return (Node*)node;
 		}
@@ -744,16 +744,16 @@ fn Node*? parse_contract_expr(ContextScope scope)
 fn Node*? parse_call_expr(ContextScope scope, Node* callee)
 {
 	ParseContext* ctx = scope.ctx;
-	int start_pos = ctx.current().pos;
+	int start_pos = ctx.current.pos;
 	expect(ctx, LPAREN)!;
 	CallExpr* node = ctx.ast.alloc_node(CallExpr, callee.offset.start);
 	node.callee = callee;
 
-	plog::debug("call_expr: %s", ctx.current_text());
+	diagnostics::log_debug("call_expr: %s", ctx.current_text());
 
 	if (!ctx.is(RPAREN) && !ctx.is(EOS) && !ctx.eof())
 	{
-		plog::debug("call_expr - args");
+		diagnostics::log_debug("call_expr - args");
 		node.args = parse_arg_list(scope)!;
 	}
 	
@@ -768,7 +768,7 @@ fn Node*? parse_call_expr(ContextScope scope, Node* callee)
 	
 	if (ctx.is(AT_IDENT) && !scope.flags.is_contract)
 	{
-		Token t = ctx.current();
+		Token t = ctx.current;
 		node.attributes = parse_attributes(scope, node)!;
 		node.offset.end = t.pos;
 
@@ -818,7 +818,7 @@ fn Node*? parse_catch_expr(ContextScope scope) => @pool()
 		return err;
 	}!;
 
-	CatchExpr* node = ctx.ast.alloc_node(CatchExpr, ctx.current().pos);
+	CatchExpr* node = ctx.ast.alloc_node(CatchExpr, ctx.current.pos);
 	defer node.offset.end = ctx.previous_end_pos();
 	Node* sub_expr = parse_try_chain_expr(scope)!;
 	if (sub_expr.kind == ERROR)
@@ -841,7 +841,7 @@ fn Node*? parse_catch_expr(ContextScope scope) => @pool()
 			}
 			exprs.push(sub_expr);
 		} while (consume(ctx, COMMA)!);
-		node.exprs = alloc::clone_slice(ctx.arena, exprs.array_view());
+		node.exprs = alloc::clone_slice(ctx.allocator, exprs.array_view());
 		return node;
 	}
 
@@ -867,7 +867,7 @@ fn Node*? parse_catch_expr(ContextScope scope) => @pool()
 		if (node.type)
 		{
 			ctx.error("Expected '=' here");
-			return ctx.ast.error(ctx.current().pos);
+			return ctx.ast.error(ctx.current.pos);
 		}
 
 		exprs.push(node.variable);
@@ -885,7 +885,7 @@ fn Node*? parse_catch_expr(ContextScope scope) => @pool()
 		exprs.push(sub_expr);
 	} while (consume(ctx, COMMA)!);
 
-	node.exprs = alloc::clone_slice(ctx.arena, exprs.array_view());
+	node.exprs = alloc::clone_slice(ctx.allocator, exprs.array_view());
 
 	return (Node*)node;
 }
@@ -910,7 +910,7 @@ fn Node*? parse_cond_expr(ContextScope scope) => @pool()
 			if (ctx.is(COMMA))
 			{
 				ctx.error("'try' must be placed last");
-				return ctx.ast.error(ctx.current().pos);
+				return ctx.ast.error(ctx.current.pos);
 			}
 			break;
 		}
@@ -920,7 +920,7 @@ fn Node*? parse_cond_expr(ContextScope scope) => @pool()
 			if (ctx.is(COMMA))
 			{
 				ctx.error("'catch' must be placed last");
-				return ctx.ast.error(ctx.current().pos);
+				return ctx.ast.error(ctx.current.pos);
 			}
 			break;
 		}
@@ -931,7 +931,7 @@ fn Node*? parse_cond_expr(ContextScope scope) => @pool()
 
 	node.offset.end = exprs.last().offset.end ?? start_pos;
 
-	node.exprs = alloc::clone_slice(ctx.arena, exprs.array_view());
+	node.exprs = alloc::clone_slice(ctx.allocator, exprs.array_view());
 	return (Node*)node;
 }
 
@@ -943,7 +943,7 @@ fn Node*? parse_try_expr(ContextScope scope)
 		return err;
 	}!;
 
-	TryExpr* node = ctx.ast.alloc_node(TryExpr, ctx.current().pos);
+	TryExpr* node = ctx.ast.alloc_node(TryExpr, ctx.current.pos);
 	defer node.offset.end = ctx.previous_end_pos();
 
 	Node* lhs = parse_try_chain_expr(scope)!;
@@ -1025,7 +1025,7 @@ fn Node*? parse_try_unwrap_chain_expr(ContextScope scope)
 fn Node*? parse_ternary_expr(ContextScope scope, Node* left)
 {
 	ParseContext* ctx = scope.ctx;
-	TernaryExpr* node = ctx.ast.alloc_node(TernaryExpr, ctx.current().pos);
+	TernaryExpr* node = ctx.ast.alloc_node(TernaryExpr, ctx.current.pos);
 	defer node.offset.end = ctx.previous_end_pos();
 
 	node.is_const = ctx.is(CT_TERNARY);
@@ -1056,7 +1056,7 @@ fn Node*? parse_builtin_expr(ContextScope scope)
 	Ident* name;
 	BuiltinFunction builtin;
 
-	plog::debug("builtin");
+	diagnostics::log_debug("builtin");
 
 	do COND:
 	{
@@ -1069,13 +1069,13 @@ fn Node*? parse_builtin_expr(ContextScope scope)
 
 		if (t.kind == CONST_IDENT)
 		{
-			CompilerConstExpr* node = ctx.ast.alloc_node(CompilerConstExpr, ctx.current_pos(), ctx.current().end_pos());
+			CompilerConstExpr* node = ctx.ast.alloc_node(CompilerConstExpr, ctx.current_pos(), ctx.current.end_pos());
 			node.name = name;
 			return (Node*)node;
 		}
 	};
 
-	BuiltinExpr* node = ctx.ast.alloc_node(BuiltinExpr, ctx.current_pos(), ctx.current().end_pos());
+	BuiltinExpr* node = ctx.ast.alloc_node(BuiltinExpr, ctx.current_pos(), ctx.current.end_pos());
 	node.name = name;
 	return (Node*)node;
 }
@@ -1086,7 +1086,7 @@ fn Node*? parse_builtin_expr(ContextScope scope)
 fn Node*? parse_splat_expr(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
-	SplatExpr* node = ctx.ast.alloc_node(SplatExpr, ctx.current().pos);
+	SplatExpr* node = ctx.ast.alloc_node(SplatExpr, ctx.current.pos);
 	defer node.offset.end = ctx.previous_end_pos();
 
 	expect(ctx, ELLIPSIS)!;
@@ -1099,7 +1099,7 @@ fn Node*? parse_splat_expr(ContextScope scope)
 fn Node*? parse_vasplat_expr(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
-	int start_pos = ctx.current().pos;
+	int start_pos = ctx.current.pos;
 	VasplatExpr* node = ctx.ast.alloc_node(VasplatExpr, start_pos);
 	defer node.offset.end = ctx.previous_end_pos();
 
@@ -1109,7 +1109,7 @@ fn Node*? parse_vasplat_expr(ContextScope scope)
 	if (consume(ctx, LBRACKET)!)
 	{
 		ctx.warn("Not implemented!");
-		plog::warn("This is not implemented!");
+		diagnostics::log_warn("This is not implemented!");
 		advance(ctx)!;
 	}
 
@@ -1119,7 +1119,7 @@ fn Node*? parse_vasplat_expr(ContextScope scope)
 fn Node*? parse_ct_eval_expr(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
-	int start_pos = ctx.current().pos;
+	int start_pos = ctx.current.pos;
 	CtEvalExpr* node = ctx.ast.alloc_node(CtEvalExpr, start_pos);
 	defer node.offset.end = ctx.previous_end_pos();
 
@@ -1139,7 +1139,7 @@ fn Node*? parse_ct_eval_expr(ContextScope scope)
 fn Node*? parse_lambda_expr(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
-	int start_pos = ctx.current().pos;
+	int start_pos = ctx.current.pos;
 	LambdaExpr* node = ctx.ast.alloc_node(LambdaExpr, start_pos);
 	defer node.offset.end = ctx.previous_end_pos();
 
@@ -1181,7 +1181,7 @@ fn Node*? parse_lambda_expr(ContextScope scope)
 fn Node*? parse_generic_expr(ContextScope scope) => @pool()
 {
 	ParseContext* ctx = scope.ctx;
-	int start_pos = ctx.current().pos;
+	int start_pos = ctx.current.pos;
 	GenericIdentExpr* node = ctx.ast.alloc_node(GenericIdentExpr, start_pos);
 	expect(ctx, LBRACE)!;
 	List{Node*} exprs;
@@ -1197,25 +1197,25 @@ fn Node*? parse_generic_expr(ContextScope scope) => @pool()
 	} 
 	while (!consume(ctx, RBRACE)!);
 	node.offset.end = exprs.last().offset.end ?? start_pos;
-	node.exprs = alloc::clone_slice(ctx.arena, exprs.array_view());
+	node.exprs = alloc::clone_slice(ctx.allocator, exprs.array_view());
 	return (Node*)node;
 }
 
 fn Node*? parse_group_expr(ContextScope scope)
 {
-	plog::debug("parse_group_expr");
+	diagnostics::log_debug("parse_group_expr");
 	ParseContext* ctx = scope.ctx;
-	int start_pos = ctx.current().pos;
+	int start_pos = ctx.current.pos;
 
 	expect(ctx, LPAREN)!;
 	Node* inner = parse_expr(scope)!;
-	int end_pos = ctx.current().end_pos();
+	int end_pos = ctx.current.end_pos();
 	expect(ctx, RPAREN)!;
 
 	// can_start_expression might miss some cases
-	if ((inner.kind == TYPE_EXPR || inner.kind == COMPOUND_LITERAL_EXPR) && can_start_expression(ctx.current().kind))
+	if ((inner.kind == TYPE_EXPR || inner.kind == COMPOUND_LITERAL_EXPR) && can_start_expression(ctx.current.kind))
 	{
-		plog::debug("parse_cast_expr");
+		diagnostics::log_debug("parse_cast_expr");
 		Node* operand = parse_expr(scope, UNARY)!;
 
 		CastExpr* cast = ctx.ast.alloc_node(CastExpr, start_pos, end_pos);
@@ -1242,13 +1242,13 @@ fn Node*? parse_designator_expr(ContextScope scope)
 	{
 		if (ctx.is(DOT))
 		{
-			int start_pos = ctx.current().pos;
+			int start_pos = ctx.current.pos;
 			advance(ctx)!; // consume '.'
 
 			Node* field = parse_expr(scope, HIGHEST)!;
 
 			DesignatorExpr* node = ctx.ast.alloc_node(DesignatorExpr, start_pos);
-			node.offset.end = ctx.current().pos;
+			node.offset.end = ctx.current.pos;
 
 			node.designator_kind = DesignatorKind.PERIOD;
 			node.path = path; // will be null if this is the very first component
@@ -1260,7 +1260,7 @@ fn Node*? parse_designator_expr(ContextScope scope)
 
 		if (ctx.is(LBRACKET))
 		{
-			int start_pos = ctx.current().pos;
+			int start_pos = ctx.current.pos;
 			advance(ctx)!; // consume '['
 			Node* designator_node = parse_range_expr(scope, path, start_pos)!;
 			path = designator_node;
@@ -1281,9 +1281,9 @@ fn Node*? parse_initializer_list_expr(ContextScope scope) => @pool()
 	ParseContext* ctx = scope.ctx;
 	expect(ctx, LBRACE)!;
 
-	int start_pos = ctx.current().pos;
+	int start_pos = ctx.current.pos;
 	InitializerListExpr* node = ctx.ast.alloc_node(InitializerListExpr, start_pos);
-	defer node.offset.end = ctx.current().pos;
+	defer node.offset.end = ctx.current.pos;
 
 	// Handle empty initializer {}
 	if (consume(ctx, RBRACE)!)
@@ -1300,7 +1300,7 @@ fn Node*? parse_initializer_list_expr(ContextScope scope) => @pool()
 
 		if (ctx.is(ELLIPSIS))
 		{
-			if (ctx.peek(1)!.kind == CT_VAARG)
+			if (ctx.peek(1).kind == CT_VAARG)
 			{
 				expr = parse_vasplat_expr(scope)!;
 			}
@@ -1311,14 +1311,14 @@ fn Node*? parse_initializer_list_expr(ContextScope scope) => @pool()
 		}
 		else if (ctx.is(DOT) || ctx.is(LBRACKET))
 		{
-			Token path_token = ctx.current();
+			Token path_token = ctx.current;
 			Node* des_expr   = parse_designator_expr(scope)!;
 
 			if (consume(ctx, EQ)!)
 			{
 				Node* val           = parse_expr(scope)!;
 				DesignatedInitializerExpr* des_init_node = ctx.ast.alloc_node(DesignatedInitializerExpr, path_token.pos);
-				des_init_node.offset.end = ctx.current().end_pos();
+				des_init_node.offset.end = ctx.current.end_pos();
 
 				des_init_node.path = des_expr;
 				des_init_node.value = val;
@@ -1352,7 +1352,7 @@ fn Node*? parse_initializer_list_expr(ContextScope scope) => @pool()
 		}
 	}
 
-	node.exprs = alloc::clone_slice(ctx.arena, exprs.array_view());
+	node.exprs = alloc::clone_slice(ctx.allocator, exprs.array_view());
 
 	return (Node*)node;
 }
@@ -1361,18 +1361,18 @@ fn Node*? parse_access_expr(ContextScope scope, Node* left)
 {
 	ParseContext* ctx = scope.ctx;
 	int start_pos          = left.offset.start;
-	TokenKind op_kind      = ctx.current().kind;
+	TokenKind op_kind      = ctx.current.kind;
 	AccessKind access_kind = (op_kind == TokenKind.SCOPE) ? AccessKind.STATIC : AccessKind.INSTANCE;
 	advance(ctx)!;
-	Token member_token = ctx.current();
+	Token member_token = ctx.current;
 
-	plog::debug("parse_access_expr");
+	diagnostics::log_debug("parse_access_expr");
 
 	if (member_token.kind == LBRACKET)
 	{
-		plog::debug("parse_access - found maybe_deref");
+		diagnostics::log_debug("parse_access - found maybe_deref");
 		advance(ctx)!;
-		MaybeDerefExpr* deref_node = ctx.ast.alloc_node(MaybeDerefExpr, member_token.pos, ctx.current().pos);
+		MaybeDerefExpr* deref_node = ctx.ast.alloc_node(MaybeDerefExpr, member_token.pos, ctx.current.pos);
 		deref_node.left = left;
 		return parse_range_expr(scope, (Node*)deref_node, deref_node.offset.start)!;
 	}
@@ -1424,7 +1424,7 @@ fn Node*? parse_range_expr(ContextScope scope, Node* left, int start_pos)
 	if (ctx.is(COLON) || ctx.is(DOTDOT))
 	{
 		is_slice = true;
-		op_kind = ctx.current().kind;
+		op_kind = ctx.current.kind;
 		advance(ctx)!;
 	}
 	else
@@ -1441,7 +1441,7 @@ fn Node*? parse_range_expr(ContextScope scope, Node* left, int start_pos)
 		if (ctx.is(COLON) || ctx.is(DOTDOT))
 		{
 			is_slice = true;
-			op_kind = ctx.current().kind;
+			op_kind = ctx.current.kind;
 			advance(ctx)!;
 		}
 	}
@@ -1460,11 +1460,11 @@ fn Node*? parse_range_expr(ContextScope scope, Node* left, int start_pos)
 	expect(ctx, RBRACKET)!;
 
 	DesignatorExpr* designator_node = ctx.ast.alloc_node(DesignatorExpr, start_pos);
-	designator_node.offset.end = ctx.current().end_pos();
+	designator_node.offset.end = ctx.current.end_pos();
 	designator_node.path = left;
 
 	RangeExpr* range_node = ctx.ast.alloc_node(RangeExpr, start_pos);
-	range_node.offset.end = ctx.current().end_pos();
+	range_node.offset.end = ctx.current.end_pos();
 
 	range_node.start = start;
 	range_node.end = end;
@@ -1520,10 +1520,10 @@ fn Node*? parse_raise_suffix_expr(ContextScope scope, Node* left, Token left_tok
 		return unexpected_at(ctx, left_token, "Expected a fault before '~'")!;
 	}
 	expect(ctx, BIT_NOT)!;
-	int start_pos = ctx.current().pos;
+	int start_pos = ctx.current.pos;
 	OptionalExpr* node = ctx.ast.alloc_node(OptionalExpr, start_pos);
 	node.inner_expr = left;
-	node.offset.end = ctx.current().pos;
+	node.offset.end = ctx.current.pos;
 	return (Node*)node;
 }
 
@@ -1533,9 +1533,9 @@ fn Node*? parse_ct_defined_expr(ContextScope scope) => @pool()
 	expect(ctx, CT_DEFINED)!;
 	expect(ctx, LPAREN)!;
 
-	int start_pos = ctx.current().pos;
+	int start_pos = ctx.current.pos;
 	CtDefinedExpr* node = ctx.ast.alloc_node(CtDefinedExpr, start_pos);
-	defer node.offset.end = ctx.current().pos;
+	defer node.offset.end = ctx.current.pos;
 	List{Node*} exprs;
 	exprs.tinit();
 	while (!ctx.eof() && !consume(ctx, RPAREN)!)
@@ -1548,7 +1548,7 @@ fn Node*? parse_ct_defined_expr(ContextScope scope) => @pool()
 		}
 	}
 
-	node.expr_list = alloc::clone_slice(ctx.arena, exprs.array_view());
+	node.expr_list = alloc::clone_slice(ctx.allocator, exprs.array_view());
 
 	return (Node*)node;
 }
@@ -1558,9 +1558,9 @@ fn Node*? parse_ct_feature(ContextScope scope)
 	ParseContext* ctx = scope.ctx;
 	expect(ctx, CT_FEATURE)!;
 
-	int start_pos = ctx.current().pos;
+	int start_pos = ctx.current.pos;
 	CtFeatureExpr* node = ctx.ast.alloc_node(CtFeatureExpr, start_pos);
-	defer node.offset.end = ctx.current().pos;
+	defer node.offset.end = ctx.current.pos;
 
 	expect(ctx, LPAREN)!;
 	node.inner_expr = parse_expr(scope)!;
@@ -1577,9 +1577,9 @@ fn Node*? parse_lengthof_expr(ContextScope scope)
 	ParseContext* ctx = scope.ctx;
 	expect(ctx, LENGTHOF)!;
 
-	int start_pos = ctx.current().pos;
+	int start_pos = ctx.current.pos;
 	LengthofExpr* node = ctx.ast.alloc_node(LengthofExpr, start_pos);
-	defer node.offset.end = ctx.current().end_pos();
+	defer node.offset.end = ctx.current.end_pos();
 
 	expect(ctx, LPAREN)!;
 	node.inner_expr = parse_expr(scope)!;
@@ -1594,7 +1594,7 @@ fn Node*? parse_lengthof_expr(ContextScope scope)
 fn Node*? parse_ct_stringify_expr(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
-	int start_pos = ctx.current().pos;
+	int start_pos = ctx.current.pos;
 	expect(ctx, CT_STRINGIFY)!;
 	CtStringifyExpr* node = ctx.ast.alloc_node(CtStringifyExpr, start_pos);
 
@@ -1618,14 +1618,14 @@ fn Node*? parse_ct_stringify_expr(ContextScope scope)
 fn Node*? parse_vaarg_expr(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
-	int start_pos = ctx.current().pos;
+	int start_pos = ctx.current.pos;
 	expect(ctx, CT_VAARG)!;
 	VaargExpr* node = ctx.ast.alloc_node(VaargExpr, start_pos);
 	defer node.offset.end = ctx.previous_end_pos();
 
 	if (consume(ctx, DOT)!)
 	{
-		String token_text = ctx.token_text(ctx.current());
+		String token_text = ctx.token_text(ctx.current);
 		if (!ctx.is(IDENT) || token_text != constants::KW_LEN)
 		{
 			unexpected(ctx, "Expected '.%s' after '$vaarg'", constants::KW_LEN)!;
@@ -1649,7 +1649,7 @@ fn Node*? parse_vaarg_expr(ContextScope scope)
 fn Node*? parse_ct_reflect_expr(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
-	int start_pos = ctx.current().pos;
+	int start_pos = ctx.current.pos;
 	expect(ctx, CT_REFLECT)!;
 	CtReflectExpr* node = ctx.ast.alloc_node(CtReflectExpr, start_pos);
 

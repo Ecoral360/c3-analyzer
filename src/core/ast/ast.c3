@@ -1,8 +1,5 @@
 module analyzer::core::ast;
 
-import analyzer::core::plog;
-import analyzer::core::string_pool;
-
 import std::collections::list;
 import std::collections::nullable;
 
@@ -11,7 +8,7 @@ alias NullableNode = Nullable{Node};
 
 typedef NodeID = inline ulong;
 
-NodeID next_node_id = 1;
+NodeID next_node_id = (NodeID)1;
 
 bitstruct NodeFlags : ushort
 {
@@ -27,7 +24,7 @@ struct Node
 	NodeKind kind;
 	Visibility visibility;
 	NodeFlags flags;
-	ByteOffset offset;
+	Range range;
 	NodeID id;
 }
 
@@ -45,9 +42,10 @@ struct Ast
 {
 	Allocator allocator;
 	List{Node*} nodes;
+	List{Node*} statements;
 }
 
-macro Node* Ast.error(&self, int start, int end = -1)
+macro Node* Ast.error(&self, Location start, Location end)
 {
 	Node* node = (Node*)self.alloc_node(Error, start, end);
 	self.nodes.push(node);
@@ -59,7 +57,7 @@ macro Node* Ast.error(&self, int start, int end = -1)
 	return node;
 }
 
-macro Node* Ast.missing(&self, int start, int end = -1)
+macro Node* Ast.missing(&self, Location start, Location end)
 {
 	Missing* node = self.alloc_node(Missing, start, end);
 
@@ -74,13 +72,13 @@ macro Node* Ast.missing(&self, int start, int end = -1)
  Allocates and initializes a strongly typed AST node inside the AST arena.
  @param start : "The starting token index/position"
 *>
-macro Ast.alloc_node(&self, $Type, int start, int end = -1)
+macro Ast.alloc_node(&self, $Type, Location start, Location end = {})
 {
 	$Type* node = alloc::new(self.allocator, $Type);
 	
 	node.kind = NodeKind.$eval(@typename_to_constname($Type::name));
-	node.offset.start = start;
-	node.offset.end = end == -1 ? node.offset.start : end;
+	node.range.start = start;
+	node.range.end = end;
 	node.id = next_node_id++;
 	self.nodes.push(node);
 

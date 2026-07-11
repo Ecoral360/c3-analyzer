@@ -1,6 +1,5 @@
 module analyzer::cursor;
 
-import analyzer::workspace;
 import analyzer::core;
 
 enum ChildVisitResult : int

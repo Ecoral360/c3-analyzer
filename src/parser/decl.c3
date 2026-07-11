@@ -9,17 +9,18 @@ import std::io;
 fn Node*? parse_module_decl(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
-	int start_pos = ctx.current().pos;
+	Location start = ctx.current.pos;
 	expect(ctx, MODULE)!;
-	plog::debug("parse_mod");
-	ModuleDecl* node = ctx.ast.alloc_node(ModuleDecl, start_pos);
+	diagnostics::log_debug("parse_mod");
+	ModuleDecl* node = ctx.ast.alloc_node(ModuleDecl, start);
 	node.path = parse_path_expr(scope)!;
-	node.generics = parse_generic_decl(scope)!;
 
 	if (!node.path || node.path.kind != PATH_EXPR)
 	{
-		return INVALID_PATH~;
+		diagnostics::error(ctx.context, ctx.current.val, "Expected a valid path");
 	}
+
+	node.generics = parse_generic_decl(scope)!;
 	
 	if (ctx.is(AT_IDENT))
 	{
@@ -33,11 +34,6 @@ fn Node*? parse_module_decl(ContextScope scope)
 	PathExpr* path = node.path.as(PathExpr);
     String mod_name = path.path.text;
 
-    if (ctx.on_new_module != null)
-    {
-        ctx.section = ctx.on_new_module(ctx.user_data, mod_name);
-    }
-
 	return (Node*)node;
 }
 
@@ -47,13 +43,13 @@ fn Node*? parse_module_decl(ContextScope scope)
 fn Node*? parse_contract_decl(ContextScope scope) => @pool()
 {
 	ParseContext* ctx = scope.ctx;
-	int start_pos = ctx.current().pos;
+	int start_pos = ctx.current.pos;
 	if (!ctx.is(CONTRACT))
 	{
 		ctx.error("Expected contract here");
 		return ctx.ast.error(start_pos);
 	}
-	Token contract_token = ctx.current();
+	Token contract_token = ctx.current;
 	if (contract_token.len <= 4)
 	{
 		advance(ctx)!;
@@ -95,7 +91,7 @@ fn Node*? parse_contract_decl(ContextScope scope) => @pool()
 		next.pos += offset;
 		contract_tokens.push(next);
 
-		plog::debug("ContractLexer - added: %s", next.kind);
+		diagnostics::log_debug("ContractLexer - added: %s", next.kind);
 	}
 	contract_tokens.push({ .kind = EOF, .pos = (contract_tokens.last()
 		.pos + contract_tokens.last().len) ?? 0, .len = 0 });
@@ -103,8 +99,8 @@ fn Node*? parse_contract_decl(ContextScope scope) => @pool()
 	ctx.tokens = contract_tokens.array_view();
 	ctx.pos = 0;
 
-	ContractDecl* node             = ctx.ast.alloc_node(ContractDecl, ctx.current().pos);
-	plog::debug("comment : %s", cl.description);
+	ContractDecl* node             = ctx.ast.alloc_node(ContractDecl, ctx.current.pos);
+	diagnostics::log_debug("comment : %s", cl.description);
 	node.comment = ctx.ident({
 		.kind = IDENT,
 		.pos = contract_token.pos + 2,
@@ -122,19 +118,19 @@ fn Node*? parse_contract_decl(ContextScope scope) => @pool()
 
 	while (!ctx.eof())
 	{
-		String attr = ctx.token_text(ctx.current());
-		plog::debug("parse_contract - attribute = %s", attr);
+		String attr = ctx.token_text(ctx.current);
+		diagnostics::log_debug("parse_contract - attribute = %s", attr);
 
 		if (consume(ctx, AT_IDENT)!)
 		{
 			if (attr == constants::KW_AT_REQUIRE)
 			{
-				plog::debug("parse_contract_decl - @require");
+				diagnostics::log_debug("parse_contract_decl - @require");
 				requires.push(parse_contract_expr(scope)!);
 			}
 			else if (attr == constants::KW_AT_ENSURE)
 			{
-				plog::debug("parse_contract_decl - @ensure");
+				diagnostics::log_debug("parse_contract_decl - @ensure");
 				ensures.push(parse_contract_expr(scope)!);
 			}
 			else if (attr == constants::KW_AT_PARAM)
@@ -143,23 +139,23 @@ fn Node*? parse_contract_decl(ContextScope scope) => @pool()
 			}
 			else if (attr == constants::KW_AT_DEPRECATED)
 			{
-				plog::debug("parse_contract_decl - @deprecated");
-				AttributeDecl* n = ctx.ast.alloc_node(AttributeDecl, ctx.current().pos);
+				diagnostics::log_debug("parse_contract_decl - @deprecated");
+				AttributeDecl* n = ctx.ast.alloc_node(AttributeDecl, ctx.current.pos);
 				node.deprecated = (Node*)n;
 				n.name = ctx.ident_string(constants::KW_AT_DEPRECATED);
 				n.attribute_kind = DEPRECATED;
-				if (ctx.current().kind == EOS && ctx.peek(1)!.kind == STRING_LITERAL)
+				if (ctx.current.kind == EOS && ctx.peek(1).kind == STRING_LITERAL)
 				{
 					advance(ctx)!;
 				}
-				int start = ctx.current().pos;
+				int start = ctx.current.pos;
 				if (ctx.is(STRING_LITERAL))
 				{
 					List{Node*} exprs;
 					exprs.tinit(1);
 					exprs.push(parse_expr(scope)!);
-					plog::debug("parser @deprecated string");
-					n.exprs = alloc::clone_slice(ctx.arena, exprs.array_view());
+					diagnostics::log_debug("parser @deprecated string");
+					n.exprs = alloc::clone_slice(ctx.allocator, exprs.array_view());
 				}
 			}
 			else if (attr == constants::KW_AT_PURE)
@@ -196,10 +192,10 @@ fn Node*? parse_contract_decl(ContextScope scope) => @pool()
 		}
 	}
 
-	node.ensures = alloc::clone_slice(ctx.arena, ensures.array_view());
-	node.requires = alloc::clone_slice(ctx.arena, requires.array_view());
-	node.params = alloc::clone_slice(ctx.arena, params.array_view());
-	node.returns = alloc::clone_slice(ctx.arena, returns.array_view());
+	node.ensures = alloc::clone_slice(ctx.allocator, ensures.array_view());
+	node.requires = alloc::clone_slice(ctx.allocator, requires.array_view());
+	node.params = alloc::clone_slice(ctx.allocator, params.array_view());
+	node.returns = alloc::clone_slice(ctx.allocator, returns.array_view());
 
 	return (Node*)node;
 }
@@ -210,7 +206,7 @@ fn Node*? parse_contract_decl(ContextScope scope) => @pool()
 fn Node*? parse_import_decl(ContextScope scope) => @pool()
 {
 	ParseContext* ctx = scope.ctx;
-	int start_pos = ctx.current().pos;
+	int start_pos = ctx.current.pos;
 	expect(ctx, IMPORT)!;
 	ImportDecl* node = ctx.ast.alloc_node(ImportDecl, start_pos);
 	List{Node*} temp_paths;
@@ -229,7 +225,7 @@ fn Node*? parse_import_decl(ContextScope scope) => @pool()
 		}
 	}
 
-	node.paths = alloc::clone_slice(ctx.arena, temp_paths.array_view());
+	node.paths = alloc::clone_slice(ctx.allocator, temp_paths.array_view());
 
 	if (ctx.is(AT_IDENT))
 	{
@@ -251,7 +247,7 @@ fn Node*? parse_import_decl(ContextScope scope) => @pool()
 fn Node*? parse_alias_decl(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
-	int start_pos = ctx.current().pos;
+	int start_pos = ctx.current.pos;
 	expect(ctx, ALIAS)!;
 	AliasDecl* node = ctx.ast.alloc_node(AliasDecl, start_pos);
 
@@ -311,7 +307,7 @@ fn Node*? parse_typedef_decl(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
 	ParseFlags flags = scope.flags;
-	int start_pos = ctx.current().pos;
+	int start_pos = ctx.current.pos;
 	expect(ctx, TYPEDEF)!;
 	TypedefDecl* node = ctx.ast.alloc_node(TypedefDecl, start_pos);
 	if (flags.is_inline)
@@ -320,7 +316,7 @@ fn Node*? parse_typedef_decl(ContextScope scope)
 		node.kind = MISSING;
 	}
 
-	Token name = ctx.current();
+	Token name = ctx.current;
 	if (name.kind != TYPE_IDENT)
 	{
 		ctx.error("Expected typedef type name");
@@ -367,7 +363,7 @@ fn Node*? parse_typedef_decl(ContextScope scope)
 	}
 
 	parse_attributes_into(scope, (Node*)node, &attributes)!;
-	node.attributes = alloc::clone_slice(ctx.arena, attributes.array_view());
+	node.attributes = alloc::clone_slice(ctx.allocator, attributes.array_view());
 	node.offset.end = ctx.current_pos();
 	expect(ctx, EOS)!;
 	return node;
@@ -381,11 +377,11 @@ fn Node*? parse_macro_decl(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
 	ParseFlags flags = scope.flags;
-	int start_pos = ctx.current().pos;
+	int start_pos = ctx.current.pos;
 
 	expect(ctx, MACRO)!;
 
-	plog::debug("parse_macro");
+	diagnostics::log_debug("parse_macro");
 
 	MacroDecl* node = ctx.ast.alloc_node(MacroDecl, start_pos);
 
@@ -414,7 +410,7 @@ fn Node*? parse_macro_decl(ContextScope scope)
 		Token t;
 		if (ctx.is(AT_IDENT))
 		{
-			t = ctx.current();
+			t = ctx.current;
 			advance(ctx)!;
 		}
 		else
@@ -489,7 +485,7 @@ fn Node*? parse_macro_decl(ContextScope scope)
 fn Node*? parse_param_decl(ContextScope scope, ParamParseFlags flags = {})
 {
 	ParseContext* ctx = scope.ctx;
-	int start_pos = ctx.current().pos;
+	int start_pos = ctx.current.pos;
 
 	VarDecl* node = ctx.ast.alloc_node(VarDecl, start_pos);
 
@@ -522,7 +518,7 @@ fn Node*? parse_param_decl(ContextScope scope, ParamParseFlags flags = {})
 
 	node.type = parsed_type;
 
-	Token t = ctx.current();
+	Token t = ctx.current;
 	switch (t.kind)
 	{
 		case CT_CONST_IDENT:
@@ -543,7 +539,7 @@ fn Node*? parse_param_decl(ContextScope scope, ParamParseFlags flags = {})
 			break;
 		case IDENT:
 			String token_text = ctx.current_text();
-			node.name = ctx.ident(ctx.current());
+			node.name = ctx.ident(ctx.current);
 			node.var_kind = VAR_PARAM;
 			node.flags.is_ref = is_ref;
 			node.offset.end = ctx.current_pos();
@@ -642,7 +638,7 @@ fn Node*? parse_var_decl(ContextScope scope, Node* type = null)
 {
 	ParseContext* ctx = scope.ctx;
 	ParseFlags flags = scope.flags;
-	int start_pos = (type != null) ? type.offset.start : ctx.current().pos;
+	int start_pos = (type != null) ? type.offset.start : ctx.current.pos;
 
 	Node* contract;
 	if (ctx.is(CONTRACT))
@@ -677,7 +673,7 @@ fn Node*? parse_var_decl(ContextScope scope, Node* type = null)
 			advance(ctx)!; // Consume 'var'
 			flags.is_comptime = true;
 		}
-		else if (is_type_primitive(ctx.current().kind) || ctx.is(IDENT) || ctx.is(TYPE_IDENT))
+		else if (is_type_primitive(ctx.current.kind) || ctx.is(IDENT) || ctx.is(TYPE_IDENT))
 		{
 			type_node = parse_type_expr(scope.with_only_flags(flags), null)!;
 			if (type_node.kind == ERROR) return type_node;
@@ -693,19 +689,19 @@ fn Node*? parse_var_decl(ContextScope scope, Node* type = null)
 
 	while (true)
 	{
-		Token t = ctx.current();
+		Token t = ctx.current;
 
 		//if (flags.is_const && t.kind != CONST_IDENT)
 		//{
-		//	unexpected(ctx, "Constants must use an uppercase CONST_IDENT, found '%s'", ctx.current().kind.description);
+		//	unexpected(ctx, "Constants must use an uppercase CONST_IDENT, found '%s'", ctx.current.kind.description);
 		//}
 		//if (!flags.is_const && t.kind != IDENT && !flags.is_local && !flags.is_comptime)
 		//{
-		//	unexpected(ctx, "Global variables must use lower-case IDENT, found '%s'", ctx.current().kind.description);
+		//	unexpected(ctx, "Global variables must use lower-case IDENT, found '%s'", ctx.current.kind.description);
 		//}
 		//if (t.kind != IDENT && t.kind != CONST_IDENT && !flags.is_comptime)
 		//{
-		//	unexpected(ctx, "Expected a variable name identifier, got '%s'", ctx.current().kind.description);
+		//	unexpected(ctx, "Expected a variable name identifier, got '%s'", ctx.current.kind.description);
 		//}
 		//if (t.kind != CT_IDENT && t.kind != CT_TYPE_IDENT && flags.is_comptime)
 		//{
@@ -714,7 +710,7 @@ fn Node*? parse_var_decl(ContextScope scope, Node* type = null)
 
 
 		Ident* name = ctx.ident(t);
-		plog::debug("var name: %s", ctx.token_text(t));
+		diagnostics::log_debug("var name: %s", ctx.token_text(t));
 		advance(ctx)!;
 
 		int var_start = (head_node == null) ? start_pos : t.pos;
@@ -777,7 +773,7 @@ fn Node*? parse_var_decl(ContextScope scope, Node* type = null)
 			var_node.var_kind = VAR_GLOBAL;
 		}
 
-		var_node.offset.end = ctx.current().pos;
+		var_node.offset.end = ctx.current.pos;
 
 		if (head_node == null)
 		{
@@ -834,7 +830,7 @@ fn NodeArray? parse_attributes(ContextScope scope, Node* parent_node, AttributeP
 			unexpected(ctx, "Tried parsing a @TypeIdent when not allowed")!;
 		}
 
-		Token t = ctx.current();
+		Token t = ctx.current;
 		advance(ctx)!;
 
 		AttributeDecl* attr_node = ctx.ast.alloc_node(AttributeDecl, t.pos);
@@ -853,9 +849,9 @@ fn NodeArray? parse_attributes(ContextScope scope, Node* parent_node, AttributeP
 			while (!ctx.is(RPAREN) && !ctx.eof())
 			{
 				Node* expr;
-				bool next_is_rparen = ctx.can_peek(1) && ctx.peek(1)!.kind == RPAREN;
+				bool next_is_rparen = ctx.can_peek(1) && ctx.peek(1).kind == RPAREN;
 
-				switch (ctx.current().kind)
+				switch (ctx.current.kind)
 				{
 					case PLUS:
 					case MINUS:
@@ -880,14 +876,14 @@ fn NodeArray? parse_attributes(ContextScope scope, Node* parent_node, AttributeP
 					case RSHIFT_ASSIGN:
 					case LSHIFT_ASSIGN:
 						if (!next_is_rparen) nextcase default;
-						expr = make_overload(ctx, ctx.current());
+						expr = make_overload(ctx, ctx.current);
 						OverloadExpr* ov_expr = expr.as(OverloadExpr);
-						plog::debug("parse_attributes - found op overload: %s", ov_expr.kind.description);
+						diagnostics::log_debug("parse_attributes - found op overload: %s", ov_expr.kind.description);
 						break;
 					case AMP:
 						if (next_is_rparen)
 						{
-							expr = make_overload(ctx, ctx.current());
+							expr = make_overload(ctx, ctx.current);
 							break;
 						}
 						expr = (Node*)ctx.ast.alloc_node(OverloadExpr, t.pos, t.end_pos());
@@ -949,7 +945,7 @@ fn NodeArray? parse_attributes(ContextScope scope, Node* parent_node, AttributeP
 fn Node*? parse_expand_decl(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
-	int start_pos = ctx.current().pos;
+	int start_pos = ctx.current.pos;
 	expect(ctx, CT_EXPAND)!;
 	CtExpandDecl* node = ctx.ast.alloc_node(CtExpandDecl, start_pos);
 	expect(ctx, LPAREN)!;
@@ -972,7 +968,7 @@ fn Node*? parse_struct_union_decl(ContextScope scope, bool is_sub = false) => @p
 	ParseContext* ctx = scope.ctx;
 	ParseFlags flags = scope.flags;
 
-	int start_pos  = ctx.current().pos;
+	int start_pos  = ctx.current.pos;
 	bool is_struct = ctx.is(STRUCT);
 	if (is_struct)
 	{
@@ -1001,7 +997,7 @@ fn Node*? parse_struct_union_decl(ContextScope scope, bool is_sub = false) => @p
 
 		if (ctx.is(IDENT))
 		{
-			node.name = ctx.ident(ctx.current());
+			node.name = ctx.ident(ctx.current);
 			advance(ctx)!;
 		}
 	};
@@ -1058,7 +1054,7 @@ fn Node*? parse_struct_union_decl(ContextScope scope, bool is_sub = false) => @p
 	node.offset.end = ctx.current_pos();
 	expect(ctx, RBRACE)!;
 
-	node.fields = alloc::clone_slice(ctx.arena, fields.array_view());
+	node.fields = alloc::clone_slice(ctx.allocator, fields.array_view());
 	return (Node*)node;
 }
 
@@ -1068,7 +1064,7 @@ fn Node*? parse_struct_union_decl(ContextScope scope, bool is_sub = false) => @p
 fn Node*? parse_bitstruct_decl(ContextScope scope, bool is_nested = false) => @pool()
 {
 	ParseContext* ctx = scope.ctx;
-	int start_pos = ctx.current().pos;
+	int start_pos = ctx.current.pos;
 	expect(ctx, BITSTRUCT)!;
 	StructDecl* node = ctx.ast.alloc_node(StructDecl, start_pos);
 
@@ -1102,7 +1098,7 @@ fn Node*? parse_bitstruct_decl(ContextScope scope, bool is_nested = false) => @p
 
 	while (!ctx.is(RBRACE) && !ctx.is(EOF))
 	{
-		int field_start  = ctx.current().pos;
+		int field_start  = ctx.current.pos;
 		VarDecl* field_node = ctx.ast.alloc_node(VarDecl, field_start);
 		field_node.var_kind = VAR_BITFIELD;
 
@@ -1129,13 +1125,13 @@ fn Node*? parse_bitstruct_decl(ContextScope scope, bool is_nested = false) => @p
 			}
 		}
 		expect(ctx, EOS)!;
-		field_node.offset.end = ctx.current().pos;
+		field_node.offset.end = ctx.current.pos;
 		fields.push((Node*)field_node);
 	}
 
 	node.offset.end = ctx.current_pos();
 	expect(ctx, RBRACE)!;
-	node.fields = alloc::clone_slice(ctx.arena, fields.array_view());
+	node.fields = alloc::clone_slice(ctx.allocator, fields.array_view());
 	return (Node*)node;
 }
 
@@ -1145,7 +1141,7 @@ fn Node*? parse_bitstruct_decl(ContextScope scope, bool is_nested = false) => @p
 fn Node*? parse_faultdef_decl(ContextScope scope) => @pool()
 {
 	ParseContext* ctx = scope.ctx;
-	int start_pos = ctx.current().pos;
+	int start_pos = ctx.current.pos;
 	expect(ctx, FAULTDEF)!;
 	FaultdefDecl* node = ctx.ast.alloc_node(FaultdefDecl, start_pos);
 
@@ -1154,7 +1150,7 @@ fn Node*? parse_faultdef_decl(ContextScope scope) => @pool()
 
 	while (!ctx.eof() && !ctx.is(EOS))
 	{
-		FaultDecl* fault_node = ctx.ast.alloc_node(FaultDecl, ctx.current().pos);
+		FaultDecl* fault_node = ctx.ast.alloc_node(FaultDecl, ctx.current.pos);
 		if (ctx.is(AT_IDENT))
 		{
 			fault_node.contract.set(parse_contract_decl(scope)!);
@@ -1180,7 +1176,7 @@ fn Node*? parse_faultdef_decl(ContextScope scope) => @pool()
 	node.offset.end = ctx.current_pos();
 	expect(ctx, EOS)!;
 
-	node.faults = alloc::clone_slice(ctx.arena, faults.array_view());
+	node.faults = alloc::clone_slice(ctx.allocator, faults.array_view());
 
 	return (Node*)node;
 }
@@ -1191,7 +1187,7 @@ fn Node*? parse_faultdef_decl(ContextScope scope) => @pool()
 fn Node*? parse_interface_decl(ContextScope scope) => @pool()
 {
 	ParseContext* ctx = scope.ctx;
-	int start_pos = ctx.current().pos;
+	int start_pos = ctx.current.pos;
 	expect(ctx, INTERFACE)!;
 	InterfaceDecl* node = ctx.ast.alloc_node(InterfaceDecl, start_pos);
 
@@ -1216,7 +1212,7 @@ fn Node*? parse_interface_decl(ContextScope scope) => @pool()
 		} while (consume(ctx, COMMA)!);
 	}
 
-	node.interfaces = alloc::clone_slice(ctx.arena, list.array_view());
+	node.interfaces = alloc::clone_slice(ctx.allocator, list.array_view());
 	list.clear();
 	node.attributes = parse_attributes(scope, node)!;
 
@@ -1237,7 +1233,7 @@ fn Node*? parse_interface_decl(ContextScope scope) => @pool()
 		}
 	}
 
-	node.methods = alloc::clone_slice(ctx.arena, list.array_view());
+	node.methods = alloc::clone_slice(ctx.allocator, list.array_view());
 	node.offset.end = ctx.current_pos();
 	expect(ctx, RBRACE)!;
 
@@ -1250,7 +1246,7 @@ fn Node*? parse_interface_decl(ContextScope scope) => @pool()
 fn Node*? parse_attrdef_decl(ContextScope scope) => @pool()
 {
 	ParseContext* ctx = scope.ctx;
-	int start_pos = ctx.current().pos;
+	int start_pos = ctx.current.pos;
 	expect(ctx, ATTRDEF)!;
 	AttrdefDecl* node = ctx.ast.alloc_node(AttrdefDecl, start_pos);
 
@@ -1298,7 +1294,7 @@ fn Node*? parse_enum_constdef_decl(ContextScope scope) => @pool()
 {
 	ParseContext* ctx = scope.ctx;
 	ParseFlags flags = scope.flags;
-	int start_pos = ctx.current().pos;
+	int start_pos = ctx.current.pos;
 
 	expect(ctx, flags.is_constdef ? CONSTDEF : ENUM)!;
 
@@ -1332,24 +1328,24 @@ fn Node*? parse_enum_constdef_decl(ContextScope scope) => @pool()
 			assoc.init(tmem, 4);
 			while (!ctx.is(RPAREN) && !ctx.eof())
 			{
-				VarDecl* param = ctx.ast.alloc_node(VarDecl, ctx.current().pos);
+				VarDecl* param = ctx.ast.alloc_node(VarDecl, ctx.current.pos);
 
 				param.type = parse_type_expr(scope)!;
-				if (is_non_type_ident(ctx.current().kind))
+				if (is_non_type_ident(ctx.current.kind))
 				{
-					param.name = ctx.ident(ctx.current());
+					param.name = ctx.ident(ctx.current);
 					advance(ctx)!;
 				}
 				if (ctx.is(AT_IDENT))
 				{
 					parse_attributes(scope, param)!;
 				}
-				param.offset.end = ctx.current().pos;
+				param.offset.end = ctx.current.pos;
 				assoc.push((Node*)param);
 				if (!consume(ctx, COMMA)!) break;
 			}
 			expect(ctx, RPAREN)!;
-			node.assoc_params = alloc::clone_slice(ctx.arena, assoc.array_view());
+			node.assoc_params = alloc::clone_slice(ctx.allocator, assoc.array_view());
 		}
 	}
 
@@ -1377,11 +1373,11 @@ fn Node*? parse_enum_constdef_decl(ContextScope scope) => @pool()
 			continue;
 		}
 
-		VarDecl* variant = ctx.ast.alloc_node(VarDecl, ctx.current().pos);
+		VarDecl* variant = ctx.ast.alloc_node(VarDecl, ctx.current.pos);
 		variant.var_kind = VAR_GLOBAL;
 		variant.contract.set(contract);
 		variant.flags.is_const = true;
-		variant.name = ctx.ident(ctx.current());
+		variant.name = ctx.ident(ctx.current);
 		advance(ctx)!;
 
 		// Optional per-variant attributes: @attr ...  (come before = and {})
@@ -1402,7 +1398,7 @@ fn Node*? parse_enum_constdef_decl(ContextScope scope) => @pool()
 			variant.assoc_values = parse_expr(scope)!;
 		}
 
-		variant.offset.end = ctx.current().pos;
+		variant.offset.end = ctx.current.pos;
 		variants.push(variant);
 
 		if (!consume(ctx, COMMA)!) break;
@@ -1412,7 +1408,7 @@ fn Node*? parse_enum_constdef_decl(ContextScope scope) => @pool()
 
 	expect(ctx, RBRACE)!;
 
-	node.variants = alloc::clone_slice(ctx.arena, variants.array_view());
+	node.variants = alloc::clone_slice(ctx.allocator, variants.array_view());
 
 	return (Node*)node;
 }
@@ -1436,13 +1432,13 @@ fn Node*? parse_generic_decl(ContextScope scope) => @pool()
 
 	expect(ctx, LESS)!;
 
-	int start_pos = ctx.current().pos;
+	int start_pos = ctx.current.pos;
 	GenericDecl* node    = ctx.ast.alloc_node(GenericDecl, start_pos);
 	List{Node*} params;
 	params.tinit();
 	while (!ctx.eof())
 	{
-		switch (ctx.current().kind)
+		switch (ctx.current.kind)
 		{
 			case TYPE_IDENT:
 			case CONST_IDENT:
@@ -1458,6 +1454,6 @@ fn Node*? parse_generic_decl(ContextScope scope) => @pool()
 	}
 	node.offset.end = ctx.current_pos();
 	expect(ctx, GREATER)!;
-	node.params = alloc::clone_slice(ctx.arena, params.array_view());
+	node.params = alloc::clone_slice(ctx.allocator, params.array_view());
 	return (Node*)node;
 }

@@ -3,52 +3,7 @@ module analyzer::parser;
 import std::io;
 import std::collections::list;
 import analyzer::core;
-
-// Colors for the terminal
-const String ANSI_RED    = "\x1b[31;1m";
-const String ANSI_YELLOW = "\x1b[33;1m";
-const String ANSI_CYAN   = "\x1b[36;1m";
-const String ANSI_RESET  = "\x1b[0m";
-const String ANSI_BOLD   = "\x1b[1m";
-
-macro void ParseContext.info(&self, String fmt, ...)
-{
-	self.report(self.current(), INFO, ANSI_CYAN, fmt, ...$vaarg);
-}
-
-macro void ParseContext.warn(&self, String fmt, ...)
-{
-	self.report(self.current(), WARN, ANSI_YELLOW, fmt, ...$vaarg);
-}
-
-macro void ParseContext.error(&self, String fmt, ...)
-{
-	self.report(self.current(), ERROR, ANSI_RED, fmt, ...$vaarg);
-}
-
-macro void ParseContext.error_at(&self, Token t, String fmt, ...)
-{
-	self.report(t, ERROR, ANSI_RED, fmt, ...$vaarg);
-}
-
-fn void ParseContext.report(ParseContext* self, Token token, LogPriority level, String color, String fmt, args...)
-{
-	if (!self.section)
-	{
-		log::error("Tried to report an error when parser has no module section set");
-		return;
-	}
-
-	diagnostics::diagnose(
-		self.allocator,
-		self.section,
-		token.pos,
-		token.pos + token.len,
-		level,
-		fmt,
-		...args
-	);
-}
+import analyzer::lexer;
 
 fn bool is_keyword_ident(TokenKind type)
 {
@@ -80,7 +35,7 @@ fn bool is_non_type_ident(TokenKind k)
 
 fn bool is_type(ParseContext* ctx)
 {
-	TokenKind kind = ctx.current().kind;
+	TokenKind kind = ctx.current.kind;
 
 	if (is_type_primitive(kind)) return true;
 	if (kind == TYPE_IDENT) return true;
@@ -175,7 +130,7 @@ fn NodeArray? parse_interface_type_list(ContextScope scope) => @pool()
 
 	if (!consume(ctx, LPAREN)!)
 	{
-		return alloc::clone_slice(ctx.arena, interfaces.array_view());
+		return alloc::clone_slice(ctx.allocator, interfaces.array_view());
 	}
 
 	while (!ctx.eof() && !ctx.is(RPAREN))
@@ -196,7 +151,7 @@ fn NodeArray? parse_interface_type_list(ContextScope scope) => @pool()
 		interfaces.push(err);
 	}!;
 
-	return alloc::clone_slice(ctx.arena, interfaces.array_view());
+	return alloc::clone_slice(ctx.allocator, interfaces.array_view());
 }
 
 fn bool is_error_or_missing_node(Node* node)
@@ -327,7 +282,7 @@ fn bool? is_declaration_followup(ParseContext* ctx)
 
 fn bool can_start_expression(TokenKind kind)
 {
-	plog::debug("can_start_expr: %s", kind.description);
+	diagnostics::log_debug("can_start_expr: %s", kind.description);
 
 	if (is_keyword_ident(kind) || is_base_type(kind))
 	{
@@ -374,7 +329,7 @@ fn bool token_type_ends_case(TokenKind kind)
 
 fn bool check_if_typed_parameter(ParseContext* ctx)
 {
-	TokenKind first  = ctx.current().kind;
+	TokenKind first  = ctx.current.kind;
 
 	if (is_type(ctx))
 	{
@@ -383,7 +338,7 @@ fn bool check_if_typed_parameter(ParseContext* ctx)
 
 	if (first == IDENT)
 	{
-		if (ctx.can_peek(1) && ctx.peek(1)!!.kind == SCOPE)
+		if (ctx.can_peek(1) && ctx.peek(1)!.kind == SCOPE)
 		{
 			return true;
 		}
@@ -394,7 +349,7 @@ fn bool check_if_typed_parameter(ParseContext* ctx)
 
 fn Node* alloc_any_type_expr(ParseContext* ctx)
 {
-	int pos = ctx.current().pos;
+	int pos = ctx.current.pos;
 
 	TypeExpr* type_node = ctx.ast.alloc_node(TypeExpr, pos, pos);
 

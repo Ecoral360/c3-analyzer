@@ -5,6 +5,7 @@ import std::io::path;
 import std::collections::list;
 import std::collections::maybe;
 import analyzer::core;
+import analyzer::lexer;
 
 faultdef
 	UNKNOWN, 
@@ -18,27 +19,6 @@ faultdef
 	UNEXPECTED_TOKEN, 
 	OVERFLOW_PARSING,
 	EOT;
-
-struct ParseContext
-{
-	SourceFile* sf;
-	Allocator allocator;
-	Node* contract;
-	int pos;
-}
-
-<*
- @param [&in] ctx : "The main context"
- @param [&in] sf
-*>
-fn ParseContext* create(AnalyzerContext* context, SourceFile* sf)
-{
-	ParseContext* ctx = alloc::new(context.allocator, ParseContext);
-
-	ctx.allocator = alloc;
-
-	return ctx;
-}
 
 struct ContextScope
 {
@@ -66,7 +46,7 @@ fn void? ParseContext.skip_until(ParseContext* ctx, TokenKind[] targets)
 {
 	while (!ctx.eof())
 	{
-		TokenKind current = ctx.current().kind;
+		TokenKind current = ctx.current.kind;
 
 		if (current == EOF) return;
 
@@ -89,7 +69,7 @@ fn void? synchronize(ParseContext* ctx)
 
 	while (!ctx.eof())
 	{
-		Token t      = ctx.current();
+		Token t      = ctx.current;
 		Location loc = ctx.line_map.resolve((sz)t.pos);
 
 		// Track depth to ensure we aren't inside a body
@@ -130,30 +110,22 @@ fn void? synchronize(ParseContext* ctx)
 	}
 }
 
-fn bool ParseContext.eof(&self) @inline => self.pos >= self.tokens.len || self.current().is_eof();
+fn bool ParseContext.eof(&self) @inline => self.pos >= self.tokens.len || self.current.is_eof();
 
 fn bool ParseContext.is(&self, TokenKind kind)
 {
-	return self.tokens[self.pos].kind == kind;
+	return self.peek(0).kind == kind;
 }
 
-fn Token? ParseContext.peek(&self, int pos) @inline
+fn Token ParseContext.peek(&self, int pos) @inline
 {
-	if (!self.can_peek(pos)) return io::EOF~;
+	if (self.pos + pos >= self.lexer.tokens.len()) {
+		return self.lexer.tokens.last()!!;
+	}
+	if (self.pos + pos < 0) {
+		return self.lexer.tokens.first()!!;
+	}
 	return self.tokens[(sz)self.pos + pos];
-}
-
-<*
- Checks if there are enough tokens left to look ahead by 'offset' steps.
-*>
-fn bool ParseContext.can_peek(&self, int offset = 0) @inline
-{
-	return (sz)self.pos + offset < self.tokens.len;
-}
-
-fn void ParseContext.print_current(&self)
-{
-	plog::debug("%s", self.token_text(self.current()));
 }
 
 <*
@@ -164,10 +136,7 @@ fn Ident* ParseContext.ident(&self, Token t) @inline
 {
 	Ident* ident = alloc::new(self.arena, Ident);
 	*ident = {
-		.range = {
-			t.pos,
-			t.end_pos()
-		},
+		.range = t.range,
 		.text = self.token_text(t).copy(self.arena)
 	};
 
@@ -178,61 +147,29 @@ fn Ident* ParseContext.ident_string(&self, String str) @inline
 {
 	Ident* ident = alloc::new(self.arena, Ident);
 	*ident = { 
-		.range = { -1, -1 },
 		.text = str.copy(self.arena)
 	};
 	return ident;
 }
 
-fn Token ParseContext.current(&self) @inline => self.peek(0)!!;
-
-fn void? reverse(ParseContext* ctx, int position)
-{
-	ctx.pos = position;
-	advance(ctx, 0)!;
-}
-
-fn int ParseContext.current_pos(&self)
-{
-	return self.current().pos;
-}
-
-fn int ParseContext.previous_end_pos(&self)
-{
-	if (self.pos == 0) return self.current().end_pos();
-	return self.peek(-1)!!.end_pos();
-}
-
-fn void? ParseContext.advance(ParseContext* ctx, int len = 1)
-{
-	return advance(ctx, len)!;
-}
-
 <*
  @param [&inout] ctx
 *>
-fn void? advance(ParseContext* ctx, int len = 1)
+fn void advance(ParseContext* ctx, int len = 1)
 {
 	if (ctx.eof())
 	{
-		plog::debug("analyzer::advance() : eof");
-		return EOT~;
+		diagnostics::log_debug("analyzer::advance() : eof");
 	}
 
 	ctx.pos += len;
 
-	if (ctx.eof())
+	if (ctx.pos >= ctx.tokens.len) 
 	{
-		$if env::DEBUG_SYMBOLS:
-			ctx.current_token_string = "EOF";
-		$endif
-		return;
+		ctx.pos = ctx.tokens.len - 1;
 	}
 
-	$if env::DEBUG_SYMBOLS:
-		ctx.current_token = ctx.current();
-		ctx.current_token_string = ctx.token_text(ctx.current());
-	$endif
+	ctx.current = ctx.lexer.tokens[ctx.pos];
 }
 
 <*
@@ -243,13 +180,13 @@ macro @expect_else(ParseContext* ctx, TokenKind kind; @body(err))
 {
 	if (!ctx.is(kind))
 	{
-		ctx.error("Expected '%s' got '%s'", kind.description, ctx.current().kind.description);
+		ctx.error("Expected '%s' got '%s'", kind.description, ctx.current.kind.description);
 		$if $feature(PARSER_LIB):
-			plog::error("Error happened here");
+			diagnostics::log_error("Error happened here");
 		$endif
-		@body(ctx.ast.missing(ctx.current().pos));
+		@body(ctx.ast.missing(ctx.current.pos));
 
-		return ctx.current();
+		return ctx.current;
 	}
 	else
 	{
@@ -272,12 +209,12 @@ macro @expect_some_else(ParseContext* ctx, TokenKind[] kind; @body(err))
 		}
 	}
 
-	ctx.error("Expected any of '%s' got '%s'", kind, ctx.current().kind.description);
+	ctx.error("Expected any of '%s' got '%s'", kind, ctx.current.kind.description);
 	$if $feature(PARSER_LIB):
-		plog::error("Error happened here");
+		diagnostics::log_error("Error happened here");
 	$endif
-	@body(ctx.ast.missing(ctx.current().pos));
-	return ctx.current();
+	@body(ctx.ast.missing(ctx.current.pos));
+	return ctx.current;
 }
 
 <*
@@ -289,7 +226,7 @@ macro @expect_else_skip(ParseContext* ctx, TokenKind kind, TokenKind[] targets; 
 	return @expect_else(ctx, kind ; err)
 	{
 		ctx.skip_until(targets)!;
-		err.offset.end = ctx.current().pos;
+		err.offset.end = ctx.current.pos;
 		@body(err);
 	};
 }
@@ -298,16 +235,16 @@ macro @expect_else_skip(ParseContext* ctx, TokenKind kind, TokenKind[] targets; 
  a macro just so that it logs where it happened
  @param [&inout] ctx
 *>
-macro Token? expect(ParseContext* ctx, TokenKind kind) @maydiscard
+macro Token expect(ParseContext* ctx, TokenKind kind) @maydiscard
 {
 	if (!ctx.is(kind))
 	{
-		ctx.error("Expected '%s' got '%s'", kind.description, ctx.current().kind.description);
+		ctx.error("Expected '%s' got '%s'", kind.description, ctx.current.kind.description);
 		$if $feature(PARSER_CLI):
-			plog::error("Error happened here");
+			diagnostics::log_error("Error happened here");
 		$endif
-		ctx.ast.missing(ctx.current().pos);
-		return ctx.current();
+		ctx.ast.missing(ctx.current.pos);
+		return ctx.current;
 	}
 	else
 	{
@@ -323,96 +260,33 @@ macro Node*? unexpected(ParseContext* ctx, String fmt, ...) @maydiscard
 {
 	ctx.error(fmt, ...$vaarg);
 	$if $feature(PARSER_CLI):
-		plog::error("Error happened here");
+		diagnostics::log_error("Error happened here");
 	$endif
-	return ctx.ast.missing(ctx.current().pos);
+	return ctx.ast.missing(ctx.current.pos);
 }
 
 macro Node*? unexpected_at(ParseContext* ctx, Token t, String fmt, ...) @maydiscard
 {
 	ctx.error_at(t, fmt, ...$vaarg);
 	$if $feature(PARSER_CLI):
-		plog::error("Error happened here");
+		diagnostics::log_error("Error happened here");
 	$endif
-	return ctx.ast.missing(ctx.current().pos);
+	return ctx.ast.missing(ctx.current.pos);
 }
 
 <*
  @param [&inout] ctx
  @param kind : "type to consume"
 *>
-fn bool? consume(ParseContext* ctx, TokenKind kind)
+fn bool consume(ParseContext* ctx, TokenKind kind)
 {
 	if (ctx.is(kind))
 	{
-		advance(ctx)!;
+		advance(ctx);
 		return true;
 	}
 
 	return false;
-}
-
-fn String ParseContext.token_text(ParseContext* self, Token t) @inline
-{
-	return self.src[t.pos:t.len];
-}
-
-fn String ParseContext.current_text(ParseContext* self) @inline
-{
-	return self.token_text(self.current());
-}
-
-fn String peek_module_name(ParseContext* ctx) => @pool()
-{
-	if (ctx.tokens.len == 0) return "";
-
-	sz i = 0;
-
-	while (i < ctx.tokens.len && ctx.tokens[i].kind == CONTRACT)
-	{
-		i++;
-	}
-
-	if (i >= ctx.tokens.len || ctx.tokens[i].kind != MODULE)
-	{
-		return "";
-	}
-
-	// Move past 'MODULE' keyword
-	i++;
-
-	String full_name = "";
-	while (i < ctx.tokens.len)
-	{
-		Token t = ctx.tokens[i];
-
-		if (t.kind == IDENT)
-		{
-			String part = ctx.token_text(t);
-			full_name = full_name.tconcat(part);
-		}
-		else if (t.kind == SCOPE)
-		{
-			full_name = full_name.tconcat("::");
-		}
-		else if (t.kind == EOS)
-		{
-			break;
-		}
-		else if (t.kind != LBRACE && t.kind != RBRACE) 
-		{
-			break;
-		}
-
-		i++;
-	}
-
-	if (full_name.len > 0)
-	{
-		return full_name.copy(ctx.allocator);
-	}
-
-	return "";
 }
 
 fn String? path_to_module_name(String path)
@@ -422,79 +296,44 @@ fn String? path_to_module_name(String path)
 }
 
 <*
- DO NOT CALL THIS, only interact via Workspace
- Parse source code at uri
-
  Appends the nodes to the provided Modules Ast
  @param [&inout] ctx
- @require ctx.arena != null
  @require ctx.allocator != null
+ @require ctx.lexer != null
+ @require ctx.lexer.tokens.len() > 0
+ @return "true if succeeded"
 *>
-fn void? parse(ParseContext* ctx) => @pool()
+fn bool parse(ParseContext* ctx) => @pool()
 {
-	Lexer lexer = { .buffer = ctx.src, .index = 0, };
-	List{Token} tokens;
-	tokens.init(tmem, 1000);
-	while (try token = lexer.next())
+	if (ctx.lexer.tokens.last()!!.kind != EOF)
 	{
-		if (token.kind == LINE_COMMENT || token.kind == BLOCK_COMMENT) continue;
-
-		tokens.push(token);
-		plog::debug("Added token: <%s> - %s", token.kind, ctx.token_text(token));
+		diagnostics::log_error(
+			"The last token in the lexer has to be a EOF token. Got: %s",
+			ctx.lexer.tokens.last()!!.kind.description);
+		return;
 	}
-
-	tokens.push({ .kind = EOF, .pos = (tokens.last().pos + tokens.last().len) ?? 0, .len = 0 });
-	ctx.tokens = tokens.array_view();
-
-	plog::info("parsing uri: %s", ctx.uri);
-
-	String explicit_name = peek_module_name(ctx);
-	if (explicit_name != "")
-	{
-		if (ctx.on_new_module != null)
-		{
-			ctx.section = ctx.on_new_module(ctx.user_data, explicit_name);
-		}
-		explicit_name.free(ctx.allocator);
-	}
-	else
-	{
-		String fallback_name = path_to_module_name(ctx.uri)!;
-		if (ctx.on_new_module != null)
-		{
-			ctx.section = ctx.on_new_module(ctx.user_data, fallback_name);
-		}
-	}
-
+	
 	while (!ctx.eof())
 	{
 		if (catch err = parse_top_level(ctx))
 		{
-			if (err == EOT)
-			{
-				plog::error("End of Token!");
-				break;
-			}
-
-			plog::error("Got error: %s", err);
+			diagnostics::log_error("Got error: %s", err);
 
 			int before = ctx.pos;
 			synchronize(ctx)!;
-			// If synchronize made no progress (stuck on an unhandled keyword),
-			// force-advance one token to guarantee the loop terminates.
 			if (ctx.pos == before && !ctx.eof())
 			{
-				advance(ctx)!!;
+				advance(ctx);
 			}
 		}
 	}
 
-	ctx.section.nodes = ctx.ast.top_level_nodes.array_view();
+	return !ctx.has_error;
 }
 
-fn void add_node(ParseContext* ctx, Node* node)
+fn void add_node(ParseContext* ctx, Node* node) @local
 {
-	ctx.ast.top_level_nodes.push(node);
+	ctx.ast.statements.push(node);
 	if (ctx.contract && node.kind != CONTRACT_DECL)
 	{
 		attach_contract(ctx, node, ctx.contract);
@@ -504,18 +343,17 @@ fn void add_node(ParseContext* ctx, Node* node)
 
 fn void? parse_top_level(ParseContext* ctx)
 {
-	plog::debug("parse_top_level: %s", ctx.token_text(ctx.current()));
+	diagnostics::log_debug("parse_top_level: %s", ctx.token_text(ctx.current));
 
 	Node* node;
 	ContextScope scope = {
 		.ctx = ctx
 	};
 
-
 	// the individual parse functions will check that the modifiers are used appropiately
 	while (true)
 	{
-		Token t = ctx.current();
+		Token t = ctx.current;
 
 		if (t.kind == EXTERN)
 		{
@@ -547,13 +385,13 @@ fn void? parse_top_level(ParseContext* ctx)
 		return;
 	}
 
-	switch (ctx.current().kind)
+	switch (ctx.current.kind)
 	{
 		case CONTRACT:
 			if (ctx.contract)
 			{
 				ctx.error("There are more than one doc comment in a row, that is not allowed.");
-				ctx.ast.error(ctx.current().pos);
+				ctx.ast.error(ctx.current.pos);
 			}
 			node = parse_contract_decl(scope)!;
 			ctx.contract = node;
@@ -590,14 +428,14 @@ fn void? parse_top_level(ParseContext* ctx)
 		case CT_EXPAND:
 			node = parse_expand_decl(scope)!;
 		case CT_ASSERT:
-			int start_pos = ctx.current().pos;
+			int start_pos = ctx.peek(0).pos;
 			Node* stmt = parse_ct_assert_stmt(scope)!;
 			node = (Node*)ctx.ast.alloc_node(CtAssertDecl, start_pos);
-			node.offset.end = ctx.current().pos;
+			node.offset.end = ctx.peek(0).pos;
 			CtAssertDecl* ctassert = node.as(CtAssertDecl);
 			ctassert.stmt = stmt;
 		default:
-			ctx.error("Couldn't find any matching top level declaration: \"%s\" %s", ctx.token_text(ctx.current()), string::from_struct(tmem, ctx.current()));
+			ctx.error("Couldn't find any matching top level declaration: \"%s\" %s", ctx.token_text(ctx.current), string::from_struct(tmem, ctx.current));
 			return UNEXPECTED_TOKEN~;
 	}
 

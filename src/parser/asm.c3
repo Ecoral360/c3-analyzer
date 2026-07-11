@@ -8,7 +8,7 @@ fn Node*? parse_asm_block_stmt(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
 	ParseFlags flags = scope.flags;
-	int start_pos = ctx.current().pos;
+	int start_pos = ctx.current.pos;
 	expect(ctx, ASM)!;
 	plog::debug("parse_macro");
 	AsmBlockStmt* node = ctx.ast.alloc_node(AsmBlockStmt, start_pos);

@@ -1,9 +1,6 @@
 module analyzer::core::ast::serialize @if($feature(ANALYZER_CLI));
 
-import analyzer::core::line_map;
-import analyzer::core::string_pool;
 import std::collections::nullable;
-
 import std::collections::maybe;
 import std::io;
 
@@ -25,7 +22,7 @@ fn void push_newline(JsonOutput* output, int indent, String or = "")
 	}
 }
 
-macro void serialize(JsonOutput* output, item, LineMap* map, int indent, int depth) @local
+macro void serialize(JsonOutput* output, item, int indent, int depth) @local
 {
 	$switch:
 		$case $defined(Nullable{Node} x = item):
@@ -113,7 +110,7 @@ macro void serialize(JsonOutput* output, item, LineMap* map, int indent, int dep
 	$endswitch
 }
 
-macro void JsonOutput.ser_entry(&self, String key, item, LineMap* map, int indent, int depth)
+macro void JsonOutput.ser_entry(&self, String key, item, int indent, int depth)
 {
 	push_indent(self, indent, depth);
 	self.appendf("\"%s\": ", key.treplace("\"", "\\\""));
@@ -143,7 +140,7 @@ fn void JsonOutput.end_obj(&self, int indent, int depth)
 	}
 }
 
-fn void node_serialize(Node* self, JsonOutput* output, LineMap* map, int indent, int depth) @local
+fn void node_serialize(Node* self, JsonOutput* output, int indent, int depth) @local
 {
 	if (self == null)
 	{
@@ -171,7 +168,7 @@ fn void node_serialize(Node* self, JsonOutput* output, LineMap* map, int indent,
 <* 
 	@param indent : "if its value is -1, the output won't be prettified (all on one line). Else, it will be the indent size"
 *>
-fn String Node.serialize(&self, LineMap* map, Allocator allocator = tmem, int indent = -1)
+fn String Node.serialize(&self, Allocator allocator = tmem, int indent = -1)
 {
 	JsonOutput output;
 	output = output.init(allocator);

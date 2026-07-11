@@ -1,6 +1,7 @@
 module analyzer::core;
 
 import std::collections::list;
+import analyzer::lexer;
 
 typedef FileID = ushort;
 
@@ -8,20 +9,14 @@ faultdef UNKNOWN_OP_OVERLOAD;
 
 struct Location
 {
-	sz line;
-	sz column;
+	int line;
+	int column;
 }
 
 struct Range
 {
-	sz start;
-	sz end;
-}
-
-struct ByteOffset
-{
-	int start;
-	int end;
+	Location start;
+	Location end;
 }
 
 enum AttributeKind : char
