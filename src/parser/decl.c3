@@ -5,31 +5,40 @@ import std::io;
 
 <*
  module_decl ::= module path_expr ';' attributes?
+ @require scope.ctx.current.kind == MODULE
 *>
-fn Node*? parse_module_decl(ContextScope scope)
+fn Node* parse_module_decl(ContextScope scope)
 {
+	diagnostics::log_debug("parse_mod");
+
 	ParseContext* ctx = scope.ctx;
 	Location start = ctx.current.pos;
-	expect(ctx, MODULE)!;
-	diagnostics::log_debug("parse_mod");
-	ModuleDecl* node = ctx.ast.alloc_node(ModuleDecl, start);
-	node.path = parse_path_expr(scope)!;
 
-	if (!node.path || node.path.kind != PATH_EXPR)
+	advance(ctx);
+
+	ModuleDecl* node = ctx.ast.alloc_node(ModuleDecl, start);
+	defer node.range.end = ctx.peek(-1).range.end;
+	node.path = parse_path_expr(scope);
+
+	if (!node.path)
 	{
-		diagnostics::error(ctx.context, ctx.current.val, "Expected a valid path");
+		diagnostics::error(ctx.context, ctx.current.range, "Expected a valid path");
+		node.flags.has_error = true;
+		synchronize(ctx, DECLARATION);
+		return (Node*)node;
 	}
 
-	node.generics = parse_generic_decl(scope)!;
+	if (ctx.is(LESS))
+	{
+		node.generics = parse_generic_decl(scope);
+	}
 	
 	if (ctx.is(AT_IDENT))
 	{
-		node.attributes = parse_attributes(scope, node)!;
+		node.attributes = parse_attributes(scope, node);
 	}
 
-	node.offset.end = ctx.current_pos();
-
-	expect(ctx, EOS)!;
+	(void)expect(ctx, node, EOS);
 
 	PathExpr* path = node.path.as(PathExpr);
     String mod_name = path.path.text;
@@ -250,7 +259,7 @@ fn Node*? parse_alias_decl(ContextScope scope)
 	int start_pos = ctx.current.pos;
 	expect(ctx, ALIAS)!;
 	AliasDecl* node = ctx.ast.alloc_node(AliasDecl, start_pos);
-
+	
 	do CHECK_NAME:
 	{
 		Token t = @expect_some_else(ctx, { TYPE_IDENT, IDENT, CONST_IDENT, AT_IDENT } ; err)
@@ -1417,7 +1426,7 @@ fn Node*? parse_enum_constdef_decl(ContextScope scope) => @pool()
  generic_decl ::= '<' (type_expr | ident_expr)* '>'
  @return "null if no generics are present"
 *>
-fn Node*? parse_generic_decl(ContextScope scope) => @pool()
+fn Node* parse_generic_decl(ContextScope scope) => @pool()
 {
 	ParseContext* ctx = scope.ctx;
 	if (!ctx.is(LESS))
@@ -1433,7 +1442,7 @@ fn Node*? parse_generic_decl(ContextScope scope) => @pool()
 	expect(ctx, LESS)!;
 
 	int start_pos = ctx.current.pos;
-	GenericDecl* node    = ctx.ast.alloc_node(GenericDecl, start_pos);
+	GenericDecl* node = ctx.ast.alloc_node(GenericDecl, start_pos);
 	List{Node*} params;
 	params.tinit();
 	while (!ctx.eof())
