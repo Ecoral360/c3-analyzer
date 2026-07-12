@@ -13,10 +13,20 @@ struct Location
 	int column;
 }
 
+fn bool Location.eq(self, Location other) @operator(==)
+{
+	return self.line == other.line && self.column == other.column;
+}
+
 struct Range
 {
 	Location start;
 	Location end;
+}
+
+fn bool Range.eq(self, Location other) @operator(==)
+{
+	return self.start == other.start && self.end == other.end;
 }
 
 enum AttributeKind : char
