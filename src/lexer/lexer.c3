@@ -133,7 +133,7 @@ fn Token lex_block_comment(Lexer* self, int start_pos)
 	if (depth > 0)
 	{
 		return {
-			.kind = INVALID,
+			.kind = ERROR,
 			.value = self.get_string(stat, self.index - start_index),
 			.range = {
 				.start = start,
@@ -193,7 +193,7 @@ fn Token? lex_char(Lexer* self, int start)
 	}
 
 	return {
-		.kind = INVALID,
+		.kind = ERROR,
 		.value = self.get_string(stat, self.index - start_index),
 		.range = {
 			.start = start,
@@ -276,7 +276,7 @@ fn Token lex_raw_string(Lexer* self)
 	}
 
 	return {
-		.kind = INVALID,
+		.kind = ERROR,
 		.value = self.get_string(start_index, self.index - start_index),
 		.range = {
 			.start = start,
@@ -561,7 +561,7 @@ fn Token? lex_hex_array(Lexer* self, int start_pos)
 
 		diagnostics::error("[Lexer]: Unexpected character '%c' in hex string %s", c, self.index);
 		return {
-			.kind = INVALID,
+			.kind = ERROR,
 			.value = self.get_string(start_index, self.index - start_index),
 			.range = {
 				.start = start,
@@ -574,7 +574,7 @@ fn Token? lex_hex_array(Lexer* self, int start_pos)
 	{
 		diagnostics::error(self.ctx, {  }, "[Lexer]: The hexadecimal string is not an even length");
 		return {
-			.kind = INVALID,
+			.kind = ERROR,
 			.value = self.get_string(start_index, self.index - start_index),
 			.range = {
 				.start = start,
@@ -875,7 +875,7 @@ fn Token next(Lexer* lexer)
 					}
 					advance(lexer);
 				}
-				return emit(INVALID, "");
+				return emit(ERROR, "");
 			}
 			nextcase;
 		case 'x':
@@ -905,7 +905,7 @@ fn Token next(Lexer* lexer)
 
 fn TokenKind categorize_identifier(Lexer* self, String text)
 {
-	if (text.len == 0) return INVALID;
+	if (text.len == 0) return ERROR;
 
 	char prefix     = text[0];
 	String base;
