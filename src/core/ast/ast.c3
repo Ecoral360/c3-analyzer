@@ -12,11 +12,11 @@ NodeID next_node_id = (NodeID)1;
 
 bitstruct NodeFlags : ushort
 {
-	bool is_const;
 	bool is_inline;
 	bool is_static;
 	bool is_extern;
 	bool has_attributes;
+	bool has_error;
 }
 
 struct Node
@@ -35,7 +35,7 @@ macro Node.as(&self, $Type) => ($Type*)self;
 
 fn bool Node.is_valid(&self) @inline
 {
-	return self.kind != ERROR && self.kind != MISSING; 
+	return self.kind != ERROR && !self.has_error; 
 }
 
 struct Ast
@@ -48,24 +48,9 @@ struct Ast
 macro Node* Ast.error(&self, Location start, Location end)
 {
 	Node* node = (Node*)self.alloc_node(Error, start, end);
+	node.flags.has_error = true;
 	self.nodes.push(node);
-
-	$if !$feature(ANALYZER_LIB):
-		plog::error("Error happened here");
-	$endif
-
 	return node;
-}
-
-macro Node* Ast.missing(&self, Location start, Location end)
-{
-	Missing* node = self.alloc_node(Missing, start, end);
-
-	$if !$feature(ANALYZER_LIB):
-		plog::error("Error happened here");
-	$endif
-
-	return (Node*)node;
 }
 
 <*

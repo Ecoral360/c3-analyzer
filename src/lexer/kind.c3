@@ -2,8 +2,8 @@ module analyzer::lexer;
 
 enum TokenKind : char
 {
-	<* Invalid *>
-	INVALID,
+	<* Error *>
+	ERROR,
 
 	// Operators
 	<* & *>
@@ -425,3 +425,4 @@ fn bool TokenKind.is_int_literal(
 fn bool TokenKind.is_float_literal(
 	&self
 ) @inline => *self == TokenKind.FLOAT_DECIMAL_LITERAL || *self == TokenKind.FLOAT_HEX_LITERAL;
+
