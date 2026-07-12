@@ -45,9 +45,9 @@ struct Ast
 	List{Node*} statements;
 }
 
-macro Node* Ast.error(&self, Location start, Location end)
+macro Node* Ast.error(&self, Range range)
 {
-	Node* node = (Node*)self.alloc_node(Error, start, end);
+	Node* node = (Node*)self.alloc_node(Error, range);
 	node.flags.has_error = true;
 	self.nodes.push(node);
 	return node;
@@ -55,15 +55,14 @@ macro Node* Ast.error(&self, Location start, Location end)
 
 <*
  Allocates and initializes a strongly typed AST node inside the AST arena.
- @param start : "The starting token index/position"
+ @param range : "Range of the node"
 *>
-macro Ast.alloc_node(&self, $Type, Location start, Location end = {})
+macro Ast.alloc_node(&self, $Type, Range range)
 {
 	$Type* node = alloc::new(self.allocator, $Type);
 	
 	node.kind = NodeKind.$eval(@typename_to_constname($Type::name));
-	node.range.start = start;
-	node.range.end = end;
+	node.range = range;
 	node.id = next_node_id++;
 	self.nodes.push(node);
 
