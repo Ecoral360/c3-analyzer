@@ -31,8 +31,8 @@ fn ContextScope ContextScope.with_only_flags(&self, ParseFlags flags)
 
 fn bool is_token_start_of_decl(TokenKind kind)
 {
-    switch (kind)
-    {
+	switch (kind)
+	{
 		case CONTRACT:
 		case INTERFACE:
 		case MODULE:
@@ -51,10 +51,10 @@ fn bool is_token_start_of_decl(TokenKind kind)
 		case CONST:
 		case CT_EXPAND:
 		case CT_ASSERT:
-            return true;
-        default:
-            return false;
-    }
+			return true;
+		default:
+			return false;
+	}
 }
 
 fn bool is_token_start_of_stmt(TokenKind kind)
@@ -140,10 +140,33 @@ fn bool is_token_start_of_stmt(TokenKind kind)
 	}
 }
 
+fn void skip_until(ParseContext* ctx, TokenKind[] targets)
+{
+	int brace_depth = 0; 
+	while (!ctx.eof())
+	{
+		if (ctx.is(LBRACE)) brace_depth++;
+		if (ctx.is(RBRACE)) brace_depth--;
+
+		// Target check (only stop if not inside a nested structure)
+		if (brace_depth <= 0)
+		{
+			foreach (TokenKind target : targets)
+			{
+				if (ctx.is(target)) return;
+			}
+		}
+
+		if (brace_depth < 0) return;
+		
+		advance(ctx);
+	}
+}
+
 enum SyncTarget 
 {
-    DECLARATION,
-    STATEMENT
+	DECLARATION,
+	STATEMENT
 }
 
 fn void synchronize(ParseContext* ctx, SyncTarget target)
@@ -152,7 +175,6 @@ fn void synchronize(ParseContext* ctx, SyncTarget target)
 	{
 		if (ctx.is(EOS))
 		{
-			advance(ctx);
 			return;
 		}
 
@@ -194,10 +216,10 @@ fn Token ParseContext.peek(&self, int pos) @inline
 *>
 fn Ident* ParseContext.ident(&self, Token t) @inline
 {
-	Ident* ident = alloc::new(self.arena, Ident);
+	Ident* ident = alloc::new(self.allocator, Ident);
 	*ident = {
 		.range = t.range,
-		.text = self.token_text(t).copy(self.arena)
+		.text = t.value.copy(self.allocator)
 	};
 
 	return ident;
@@ -205,9 +227,9 @@ fn Ident* ParseContext.ident(&self, Token t) @inline
 
 fn Ident* ParseContext.ident_string(&self, String str) @inline
 {
-	Ident* ident = alloc::new(self.arena, Ident);
+	Ident* ident = alloc::new(self.allocator, Ident);
 	*ident = { 
-		.text = str.copy(self.arena)
+		.text = str.copy(self.allocator)
 	};
 	return ident;
 }
@@ -230,29 +252,6 @@ fn void advance(ParseContext* ctx, int len = 1)
 	}
 
 	ctx.current = ctx.lexer.tokens[ctx.pos];
-}
-
-<*
- a macro just so that it logs where it happened
- @param [&inout] ctx
-*>
-macro @expect_else(ParseContext* ctx, TokenKind kind; @body(err))
-{
-	if (!ctx.is(kind))
-	{
-		diagnostics::error(ctx.context, ctx.current.range, "Expected '%s' got '%s'", kind.description, ctx.current.kind.description);
-		@body(ctx.ast.error(ctx.current.range));
-		return ctx.current;
-	}
-	else
-	{
-		advance(ctx);
-		if (ctx.current.kind == EOF)
-		{
-			return ctx.current;
-		}
-		return ctx.peek(-1);
-	}
 }
 
 <*
@@ -423,8 +422,7 @@ fn Node* parse_top_level_statement(ParseContext* ctx)
 			CtAssertDecl* ctassert = node.as(CtAssertDecl);
 			ctassert.stmt = stmt;
 		default:
-			diagnostics::error(ctx.context, t.range, "Couldn't find any matching top level declaration: \"%s\" %s", ctx.token_text(ctx.current), string::from_struct(tmem, ctx.current));
-			advance(ctx);
+			synchronize(ctx, DECLARATION);
 			break;
 	}
 
@@ -455,4 +453,9 @@ fn void attach_contract(ParseContext* ctx, Node* node, Node* contract)
 		default:
 			break;
 	}
+}
+
+fn void error_node(ParseContext* ctx, Node* node)
+{
+	node.flags.has_error = true;
 }

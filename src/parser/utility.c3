@@ -116,44 +116,6 @@ fn void? parse_attributes_into(ContextScope scope, Node* parent_node, List{Node*
 	}
 }
 
-<*
- Parse an optional parenthesized list of interface type expressions.
-
- interface_type_list ::= '(' type_expr (',' type_expr)* ')' | empty
- @require(scope.ctx != null) : "Parser context positioned at '(' when present."
-*>
-fn NodeArray? parse_interface_type_list(ContextScope scope) => @pool()
-{
-	ParseContext* ctx = scope.ctx;
-	List{Node*} interfaces;
-	interfaces.init(tmem, 4);
-
-	if (!consume(ctx, LPAREN)!)
-	{
-		return alloc::clone_slice(ctx.allocator, interfaces.array_view());
-	}
-
-	while (!ctx.eof() && !ctx.is(RPAREN))
-	{
-		Node* interface_type = parse_type_expr(scope, null)!;
-		interfaces.push(interface_type);
-
-		if (!consume(ctx, COMMA)!) break;
-		if (ctx.is(RPAREN))
-		{
-			interfaces.push(unexpected(ctx, "Expected interface name after ',' in interface type list")!);
-			break;
-		}
-	}
-
-	@expect_else(ctx, RPAREN ; err)
-	{
-		interfaces.push(err);
-	}!;
-
-	return alloc::clone_slice(ctx.allocator, interfaces.array_view());
-}
-
 fn bool is_error_or_missing_node(Node* node)
 {
 	return node.kind == ERROR || node.kind == MISSING;
@@ -338,7 +300,7 @@ fn bool check_if_typed_parameter(ParseContext* ctx)
 
 	if (first == IDENT)
 	{
-		if (ctx.can_peek(1) && ctx.peek(1)!.kind == SCOPE)
+		if (ctx.peek(1).kind == SCOPE)
 		{
 			return true;
 		}
@@ -349,36 +311,11 @@ fn bool check_if_typed_parameter(ParseContext* ctx)
 
 fn Node* alloc_any_type_expr(ParseContext* ctx)
 {
-	int pos = ctx.current.pos;
-
-	TypeExpr* type_node = ctx.ast.alloc_node(TypeExpr, pos, pos);
+	TypeExpr* type_node = ctx.ast.alloc_node(TypeExpr, ctx.current.range);
 
 	type_node.type_kind = TYPE_IDENTIFIER;
 	type_node.unresolved.name = ctx.ident_string("any");
-	type_node.unresolved.name.range = { pos, pos + 3 };
+	type_node.unresolved.name.range = ctx.current.range;
 
 	return type_node;
-}
-
-<*
- @return? OVERFLOW_PARSING : "if at top-level token"
-*>
-fn void? check_top_level_boundary(TokenKind kind)
-{
-	switch (kind)
-	{
-		case FN:
-		case MACRO:
-		case MODULE:
-		case IMPORT:
-		case ATTRDEF:
-		case TYPEDEF:
-		case ALIAS:
-		case CONSTDEF:
-		case ENUM:
-		case EXTERN:
-			return OVERFLOW_PARSING~;
-		default: 
-			break;
-	}
 }

@@ -4,7 +4,7 @@ import analyzer::core;
 
 import std::collections::list;
 
-fn Node*? parse_asm_block_stmt(ContextScope scope)
+fn Node* parse_asm_block_stmt(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
 	ParseFlags flags = scope.flags;

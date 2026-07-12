@@ -20,7 +20,7 @@ import analyzer::core;
  omitted, and C3 exposes it through alias declarations.
  @require(scope.ctx != null) : "Parser context positioned at 'fn'."
 *>
-fn Node*? parse_fn_type_expr(ContextScope scope) => @pool()
+fn Node* parse_fn_type_expr(ContextScope scope) => @pool()
 {
 	ParseContext* ctx = scope.ctx;
 	int start = ctx.current.pos;
@@ -45,7 +45,7 @@ fn Node*? parse_fn_type_expr(ContextScope scope) => @pool()
  for aliases without making `fn` a general type-expression start.
  @require(scope.ctx != null) : "Parser context positioned at the alias target."
 *>
-fn Node*? parse_alias_type_target(ContextScope scope) => @pool()
+fn Node* parse_alias_type_target(ContextScope scope) => @pool()
 {
 	ParseContext* ctx = scope.ctx;
 	if (ctx.is(FN))
@@ -63,7 +63,7 @@ fn Node*? parse_alias_type_target(ContextScope scope) => @pool()
  slice, vector, and generic type forms.
  @require(scope.ctx != null) : "Parser context positioned at the first type token."
 *>
-fn Node*? parse_type_expr(ContextScope scope, Node* path_expr = null)
+fn Node* parse_type_expr(ContextScope scope, Node* path_expr = null)
 {
 	ParseContext* ctx = scope.ctx;
 	ParseFlags flags = scope.flags;
@@ -230,7 +230,7 @@ fn Node*? parse_type_expr(ContextScope scope, Node* path_expr = null)
 	return (Node*)current_type;
 }
 
-fn Node*? parse_ident_expr(ContextScope scope)
+fn Node* parse_ident_expr(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
 	int start = ctx.current.pos;
@@ -292,7 +292,7 @@ fn void? parse_join_strings(ContextScope scope, String* list)
 	*list = current_str.copy(ctx.allocator);
 }	
 
-fn Node*? parse_literal_expr(ContextScope scope) => @pool()
+fn Node* parse_literal_expr(ContextScope scope) => @pool()
 {
 	ParseContext* ctx = scope.ctx;
 	Token token = ctx.current;
@@ -544,68 +544,52 @@ fn Node*? parse_literal_expr(ContextScope scope) => @pool()
 
 <*
  Parse a full path e.g. foo::bar::baz;
- @require(scope.ctx != null) : "Parser context to consume tokens from."
 *>
-fn Node*? parse_path_expr(ContextScope scope, PathExprOptions options = { }) => @pool()
+fn Node* parse_path_expr(ContextScope scope, PathExprOptions options = { }) => @pool()
 {
 	ParseContext* ctx = scope.ctx;
-	int start_pos = ctx.current.pos;
+	Range start = ctx.current.pos;
 	diagnostics::log_debug("parse_path_expr");
-
-	if (is_type(ctx))
-	{
-		if (options.as_prefix)
-		{
-			return null;
-		}
-	}
 
 	if (!ctx.is(IDENT))
 	{
-		if (ctx.peek(1).kind != SCOPE)
-		{
-			if (options.as_prefix)
-			{
-				return null;
-			}
-		}
-
-		ctx.error("Expected a path identifier here");
-		return ctx.ast.error(start_pos);
+		if (options.as_prefix) return null;
+		
+		diagnostics::error(ctx.context, ctx.current.range, "Expected a path identifier");
+		return ctx.ast.error(start);
 	}
 
 	PathExpr* node = ctx.ast.alloc_node(PathExpr, start_pos, ctx.current.end_pos());
-
+	defer node.range.end = ctx.peek(-1).range.end;
 	DString sb; sb.tinit();
 
 	while (true)
 	{
-		if (options.as_prefix && ctx.peek(1).kind != SCOPE)
-		{
-			break;
-		}
-
-		Token t = ctx.current;
-		sb.append(ctx.token_text(t));
-		node.offset.end = ctx.current_pos();
+		sb.append(ctx.current.value);
 		advance(ctx)!;
 
 		if (consume(ctx, SCOPE)!)
 		{
-			if (is_some_ident(ctx.current.kind))
+			if (is_some_ident(ctx.peek(1).kind))
 			{
+				advance(ctx); // consume "::"
 				sb.append("::");
 				continue;
 			}
 			else
 			{
-				if (!options.as_prefix)
+				if (options.as_prefix)
 				{
-					unexpected(ctx, "Expected an identifier after '::'")!;
-					node.offset.end = ctx.current_pos();
-					advance(ctx)!;
+					advance(ctx);
+					sb.append("::");
+					break;
 				}
-				break;
+				else
+				{
+					diagnostics::error(ctx.context, ctx.current.range, "Expected an identifier after '::'");
+					node.flags.has_error = true;
+					break;
+				}
 			}
 		}
 
@@ -613,14 +597,10 @@ fn Node*? parse_path_expr(ContextScope scope, PathExprOptions options = { }) => 
 	}
 
 	node.path = ctx.ident_string(sb.str_view());
-	node.path.range = {
-		.start = start_pos,
-		.end = ctx.previous_end_pos()
-	};
 	return (Node*)node;
 }
 
-fn Node*? parse_binary_expr(ContextScope scope, Node* left, Precedence prec)
+fn Node* parse_binary_expr(ContextScope scope, Node* left, Precedence prec)
 {
 	ParseContext* ctx = scope.ctx;
 	int start      = ctx.current.pos;
@@ -638,7 +618,7 @@ fn Node*? parse_binary_expr(ContextScope scope, Node* left, Precedence prec)
 <*
  unary_expr ::= unary_op expr
 *>
-fn Node*? parse_unary_expr(ContextScope scope)
+fn Node* parse_unary_expr(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
 	diagnostics::log_debug("parse_unary_expr");
@@ -672,7 +652,7 @@ fn Node*? parse_unary_expr(ContextScope scope)
 	return (Node*)node;
 }
 
-fn Node*? parse_post_unary_expr(ContextScope scope, Node* left, Precedence bp)
+fn Node* parse_post_unary_expr(ContextScope scope, Node* left, Precedence bp)
 {
 	ParseContext* ctx = scope.ctx;
 	int start_pos = ctx.current.pos;
@@ -694,7 +674,7 @@ fn Node*? parse_post_unary_expr(ContextScope scope, Node* left, Precedence bp)
  expr_list ::= decl_or_expr*
 
 *>
-fn Node*? parse_expr_list(ContextScope scope) => @pool()
+fn Node* parse_expr_list(ContextScope scope) => @pool()
 {
 	ParseContext* ctx = scope.ctx;
 	int start_pos  = ctx.current.pos;
@@ -716,7 +696,7 @@ fn Node*? parse_expr_list(ContextScope scope) => @pool()
 <*
  contract_expr ::= expr_list (':'? STRING)?
 *>
-fn Node*? parse_contract_expr(ContextScope scope)
+fn Node* parse_contract_expr(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
 	int start_pos = ctx.current.pos;
@@ -741,7 +721,7 @@ fn Node*? parse_contract_expr(ContextScope scope)
 	return (Node*)node;
 }
 
-fn Node*? parse_call_expr(ContextScope scope, Node* callee)
+fn Node* parse_call_expr(ContextScope scope, Node* callee)
 {
 	ParseContext* ctx = scope.ctx;
 	int start_pos = ctx.current.pos;
@@ -810,7 +790,7 @@ fn Node*? parse_call_expr(ContextScope scope, Node* callee)
 	catch_chain ::= parse_try_chain_expr (',' parse_try_chain_expr)*
 
 *>
-fn Node*? parse_catch_expr(ContextScope scope) => @pool()
+fn Node* parse_catch_expr(ContextScope scope) => @pool()
 {
 	ParseContext* ctx = scope.ctx;
 	@expect_else(ctx, CATCH ; err)
@@ -893,7 +873,7 @@ fn Node*? parse_catch_expr(ContextScope scope) => @pool()
 <*
  cond_list ::= ((expr | decl-expr) COMMA)* (expr | decl-expr | try_unwrap_chain | catch_unwrap )
 *>
-fn Node*? parse_cond_expr(ContextScope scope) => @pool()
+fn Node* parse_cond_expr(ContextScope scope) => @pool()
 {
 	ParseContext* ctx = scope.ctx;
 	int start_pos = ctx.current_pos();
@@ -935,7 +915,7 @@ fn Node*? parse_cond_expr(ContextScope scope) => @pool()
 	return (Node*)node;
 }
 
-fn Node*? parse_try_expr(ContextScope scope)
+fn Node* parse_try_expr(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
 	@expect_else(ctx, TRY ; err)
@@ -974,7 +954,7 @@ fn Node*? parse_try_expr(ContextScope scope)
  try_unwrap_chain ::= try ('&&' (try_unwrap | try_chain_expr))*
 
 *>
-fn Node*? parse_try_unwrap_chain_expr(ContextScope scope)
+fn Node* parse_try_unwrap_chain_expr(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
 	Node* first_try      = parse_try_expr(scope)!;
@@ -1022,7 +1002,7 @@ fn Node*? parse_try_unwrap_chain_expr(ContextScope scope)
  optional_expr ::= <left> '?' '!'?
  ternary_expr ::= <left> '?' expr ':' ternary_prec_expr
 *>
-fn Node*? parse_ternary_expr(ContextScope scope, Node* left)
+fn Node* parse_ternary_expr(ContextScope scope, Node* left)
 {
 	ParseContext* ctx = scope.ctx;
 	TernaryExpr* node = ctx.ast.alloc_node(TernaryExpr, ctx.current.pos);
@@ -1048,7 +1028,7 @@ fn Node*? parse_ternary_expr(ContextScope scope, Node* left)
  builtin_expr ::= '$$' IDENT
  compiler_const_expr ::= '$$' CONST_IDENT
 *>
-fn Node*? parse_builtin_expr(ContextScope scope)
+fn Node* parse_builtin_expr(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
 	expect(ctx, BUILTIN)!;
@@ -1083,7 +1063,7 @@ fn Node*? parse_builtin_expr(ContextScope scope)
 <*
  splat_expr ::= '...' expr
 *>
-fn Node*? parse_splat_expr(ContextScope scope)
+fn Node* parse_splat_expr(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
 	SplatExpr* node = ctx.ast.alloc_node(SplatExpr, ctx.current.pos);
@@ -1096,7 +1076,7 @@ fn Node*? parse_splat_expr(ContextScope scope)
 	return (Node*)node;
 }
 
-fn Node*? parse_vasplat_expr(ContextScope scope)
+fn Node* parse_vasplat_expr(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
 	int start_pos = ctx.current.pos;
@@ -1116,7 +1096,7 @@ fn Node*? parse_vasplat_expr(ContextScope scope)
 	return (Node*)node;
 }
 
-fn Node*? parse_ct_eval_expr(ContextScope scope)
+fn Node* parse_ct_eval_expr(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
 	int start_pos = ctx.current.pos;
@@ -1136,7 +1116,7 @@ fn Node*? parse_ct_eval_expr(ContextScope scope)
  lambda_body ::= "{" statement* "}"
 				| "=>" expression
 *>
-fn Node*? parse_lambda_expr(ContextScope scope)
+fn Node* parse_lambda_expr(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
 	int start_pos = ctx.current.pos;
@@ -1178,7 +1158,7 @@ fn Node*? parse_lambda_expr(ContextScope scope)
 	return (Node*)node;
 }
 
-fn Node*? parse_generic_expr(ContextScope scope) => @pool()
+fn Node* parse_generic_expr(ContextScope scope) => @pool()
 {
 	ParseContext* ctx = scope.ctx;
 	int start_pos = ctx.current.pos;
@@ -1201,7 +1181,7 @@ fn Node*? parse_generic_expr(ContextScope scope) => @pool()
 	return (Node*)node;
 }
 
-fn Node*? parse_group_expr(ContextScope scope)
+fn Node* parse_group_expr(ContextScope scope)
 {
 	diagnostics::log_debug("parse_group_expr");
 	ParseContext* ctx = scope.ctx;
@@ -1233,7 +1213,7 @@ fn Node*? parse_group_expr(ContextScope scope)
  designator_expr ::= ('[' expr ']' | '.' IDENT)*
 
 *>
-fn Node*? parse_designator_expr(ContextScope scope)
+fn Node* parse_designator_expr(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
 	Node* path;
@@ -1276,7 +1256,7 @@ fn Node*? parse_designator_expr(ContextScope scope)
 <*
  initializer_list_expr ::= '{' ('...' expr | expr (',' expr)*)? '}'
 *>
-fn Node*? parse_initializer_list_expr(ContextScope scope) => @pool()
+fn Node* parse_initializer_list_expr(ContextScope scope) => @pool()
 {
 	ParseContext* ctx = scope.ctx;
 	expect(ctx, LBRACE)!;
@@ -1357,7 +1337,7 @@ fn Node*? parse_initializer_list_expr(ContextScope scope) => @pool()
 	return (Node*)node;
 }
 
-fn Node*? parse_access_expr(ContextScope scope, Node* left)
+fn Node* parse_access_expr(ContextScope scope, Node* left)
 {
 	ParseContext* ctx = scope.ctx;
 	int start_pos          = left.offset.start;
@@ -1410,7 +1390,7 @@ fn Node*? parse_access_expr(ContextScope scope, Node* left)
  dot_range ::= ('^'? INTEGER)? .. ('^'? INTEGER)?
  colon_range ::= ('^'? INTEGER)? : ('^'? INTEGER)?
 *>
-fn Node*? parse_range_expr(ContextScope scope, Node* left, int start_pos)
+fn Node* parse_range_expr(ContextScope scope, Node* left, int start_pos)
 {
 	ParseContext* ctx = scope.ctx;
 	Node* start;
@@ -1511,7 +1491,7 @@ fn Node*? parse_range_expr(ContextScope scope, Node* left, int start_pos)
 <*
  @param [&in] left
 *>
-fn Node*? parse_raise_suffix_expr(ContextScope scope, Node* left, Token left_token)
+fn Node* parse_raise_suffix_expr(ContextScope scope, Node* left, Token left_token)
 {
 	ParseContext* ctx = scope.ctx;
 	if (left.kind == TYPE_EXPR)
@@ -1527,7 +1507,7 @@ fn Node*? parse_raise_suffix_expr(ContextScope scope, Node* left, Token left_tok
 	return (Node*)node;
 }
 
-fn Node*? parse_ct_defined_expr(ContextScope scope) => @pool()
+fn Node* parse_ct_defined_expr(ContextScope scope) => @pool()
 {
 	ParseContext* ctx = scope.ctx;
 	expect(ctx, CT_DEFINED)!;
@@ -1553,7 +1533,7 @@ fn Node*? parse_ct_defined_expr(ContextScope scope) => @pool()
 	return (Node*)node;
 }
 
-fn Node*? parse_ct_feature(ContextScope scope)
+fn Node* parse_ct_feature(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
 	expect(ctx, CT_FEATURE)!;
@@ -1572,7 +1552,7 @@ fn Node*? parse_ct_feature(ContextScope scope)
 <*
  lengthof ::= LENGTHOF '(' expr ')'
 *>
-fn Node*? parse_lengthof_expr(ContextScope scope)
+fn Node* parse_lengthof_expr(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
 	expect(ctx, LENGTHOF)!;
@@ -1591,7 +1571,7 @@ fn Node*? parse_lengthof_expr(ContextScope scope)
 <*
  ct_stringify ::= $stringify '(' expr ')'
 *>
-fn Node*? parse_ct_stringify_expr(ContextScope scope)
+fn Node* parse_ct_stringify_expr(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
 	int start_pos = ctx.current.pos;
@@ -1615,7 +1595,7 @@ fn Node*? parse_ct_stringify_expr(ContextScope scope)
 <*
  vaarg ::= '$vaarg' ('.' len) | ('[' '^'? expr ']')
 *>
-fn Node*? parse_vaarg_expr(ContextScope scope)
+fn Node* parse_vaarg_expr(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
 	int start_pos = ctx.current.pos;
@@ -1646,7 +1626,7 @@ fn Node*? parse_vaarg_expr(ContextScope scope)
 <*
  ct_refect ::= CT_REFLECT '(' expr ')'
 *>
-fn Node*? parse_ct_reflect_expr(ContextScope scope)
+fn Node* parse_ct_reflect_expr(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
 	int start_pos = ctx.current.pos;
