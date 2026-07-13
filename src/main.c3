@@ -28,7 +28,6 @@ fn int main(String[] args) => @pool()
 	Cli cli = seali::parse(Cli, args)!!;
 
 	if (cli.verbose) log::set_priority_all(LogPriority.VERBOSE);
-
 	if (cli.quiet) log::set_logger(&&(NullLogger) { });
 
 	diagnostics::log_debug("Init...");
@@ -36,13 +35,20 @@ fn int main(String[] args) => @pool()
 
 	AnalyzerContext* context = core::context_create(tmem);
 
-	//if (try std = cli.std.get())
-	//{
-	//	test_std_lib(&ws, std.path)!!;
-	//}
 	if (try file_path = cli.file.get())
 	{
 		core::process_file(context, file_path);
+	}
+
+	if (cli.json)
+	{
+		context.modules.@each(; String name, Module* mod)
+		{
+			mod.nodes.@each(; NodeID id, Node* node)
+			{
+				io::printn(node.serialize(indent: 4));
+			};
+		};
 	}
 	
 	return 0;

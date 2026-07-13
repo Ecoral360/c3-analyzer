@@ -76,8 +76,6 @@ struct TypeExpr
 			NodeArray attributes;
 		}
 	}
-   
-	Type* type;
 }
 
 struct CallExpr

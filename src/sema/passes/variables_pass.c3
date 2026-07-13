@@ -1,6 +1,5 @@
 module analyzer::sema @if($feature(SEMA));
 
-import analyzer::core::plog;
 import analyzer::core;
 import analyzer::cursor;
 
@@ -9,7 +8,6 @@ import std::collections::list;
 struct SemaLocalContext @local
 {
 	SemaScope* current_scope;
-	ModuleSection* section;
 	SemaContext* ctx;
 	Allocator arena;
 }

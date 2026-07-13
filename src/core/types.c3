@@ -22,13 +22,17 @@ struct Module
 	HashMap{NodeID, Node*} nodes;
 }
 
+struct Lookup
+{
+	HashMap{String, Type*} types;
+}
+
 struct AnalyzerContext
 {
 	HashMap{String, SourceFile*} files;
 	HashMap{String, Module*} modules;
-	TypeRegistry registry @UseSema;
-	MethodRegistry methods @UseSema;
-	SymbolTable symbols @UseSema;
+	Lookup* lookup;
+	Registry* registry;
 	Allocator allocator;
 	SourceFile* current_source_file;
 }
@@ -46,6 +50,39 @@ struct ParseContext
 	int error_count;
 }
 
+struct FunctionInfo
+{
+	FunctionInfo* next;
+	String mod;
+	Node* node;
+}
+
+struct TypeInfo
+{
+	String mod;
+	Node* node;
+}
+
+struct VariableInfo
+{
+	String mod;
+	Node* node;
+}
+
+struct Registry
+{
+	HashMap{String, TypeInfo*} types;
+	HashMap{String, FunctionInfo*} functions;
+}
+
+struct Scope
+{
+	Scope* parent;
+	HashMap{String, FunctionInfo*} functions;
+	HashMap{String, VariableInfo*} variables;
+	HashMap{String, TypeInfo*} types;
+}
+
 struct Type 
 {
 	TypeKind kind;
@@ -55,7 +92,6 @@ struct Type
 	union data
 	{
 		Type* pointer_base;
-
 		Node* decl;
 
 		struct array
