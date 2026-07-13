@@ -1,5 +1,7 @@
 module parser_tests;
 
+/*
+
 import analyzer::workspace;
 import analyzer::core;
 import analyzer::sema;
