@@ -33,8 +33,7 @@ fn NodeArray parse_parameter_list(ContextScope scope) => @pool()
 	ParseFlags flags = scope.flags;
 	Range start = ctx.current.range;
 
-	List{Node*} temp_params;
-	temp_params.init(tmem, 4);
+	List{Node*} temp_params; temp_params.init(tmem, 4);
 
 	if (!flags.is_call)
 	{

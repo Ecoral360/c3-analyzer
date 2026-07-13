@@ -310,6 +310,7 @@ fn bool parse(ParseContext* ctx, SourceFile* source_file) => @pool()
 {
 	ctx.lexer = source_file.lexer;
 	ctx.ast = &source_file.ast;
+	ctx.context.current_source_file = source_file;
 	
 	if (ctx.lexer.tokens.last()!!.kind != EOF)
 	{
@@ -319,9 +320,17 @@ fn bool parse(ParseContext* ctx, SourceFile* source_file) => @pool()
 		return false;
 	}
 
+	ctx.current = ctx.lexer.tokens[0];
+
 	while (!ctx.eof())
 	{
+		int pos = ctx.pos;
 		Node* node = parse_top_level_statement(ctx);
+		if (ctx.pos == pos)
+		{
+			diagnostics::error(ctx.context, ctx.current.range, "Parser failed to advance in parse_top_level_statement. Returning!");
+			break;
+		}
 		ctx.ast.statements.push(node);
 		if (ctx.contract && node.kind != CONTRACT_DECL)
 		{

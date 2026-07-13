@@ -29,11 +29,6 @@ fn Node* parse_fn_decl(ContextScope scope)
 	}
 
 	node.params = parse_parameter_list(scope.with_flags({ .is_function = true }));
-	if (!node.params)
-	{
-		diagnostics::error(ctx.context, ctx.current.range, "Expected parameter list");
-		node.flags.has_error = true;
-	}
 
 	if (ctx.is(LESS))
 	{
