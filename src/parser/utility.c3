@@ -107,23 +107,23 @@ fn void append_node_array(List{Node*}* list, NodeArray nodes)
  @param [&inout] parent_node : "Node receiving visibility and has-attributes side effects."
  @param [&inout] list : "Destination list for parsed ATTRIBUTE_DECL nodes."
 *>
-fn void? parse_attributes_into(ContextScope scope, Node* parent_node, List{Node*}* list)
+fn void parse_attributes_into(ContextScope scope, Node* parent_node, List{Node*}* list)
 {
 	ParseContext* ctx = scope.ctx;
 	if (ctx.is(AT_IDENT))
 	{
-		append_node_array(list, parse_attributes(scope, parent_node)!);
+		append_node_array(list, parse_attributes(scope, parent_node));
 	}
 }
 
 fn bool is_error_or_missing_node(Node* node)
 {
-	return node.kind == ERROR || node.kind == MISSING;
+	return node.kind == ERROR;
 }
 
 fn void? skip_balanced_group(ParseContext* ctx, TokenKind open, TokenKind close)
 {
-	expect(ctx, open)!;
+	advance(ctx);
 
 	int depth = 1;
 	while (!ctx.eof() && depth > 0)
@@ -137,7 +137,7 @@ fn void? skip_balanced_group(ParseContext* ctx, TokenKind open, TokenKind close)
 			depth--;
 		}
 
-		advance(ctx)!;
+		advance(ctx);
 	}
 }
 
@@ -178,11 +178,11 @@ fn bool is_type_primitive(TokenKind kind)
 	}
 }
 
-fn bool? is_declaration_followup(ParseContext* ctx)
+fn bool is_declaration_followup(ParseContext* ctx)
 {
 	int i;
 
-	while (ctx.peek(i)!.kind == IDENT && ctx.peek(i + 1)!.kind == SCOPE)
+	while (ctx.peek(i).kind == IDENT && ctx.peek(i + 1).kind == SCOPE)
 	{
 		i += 2;
 	}
@@ -195,16 +195,16 @@ fn bool? is_declaration_followup(ParseContext* ctx)
 		int depth = 1;
 		do
 		{
-			if (ctx.peek(i)!.kind == LPAREN) depth++;
-			if (ctx.peek(i)!.kind == RPAREN) depth--;
+			if (ctx.peek(i).kind == LPAREN) depth++;
+			if (ctx.peek(i).kind == RPAREN) depth--;
 
 			i++;
-		} while (depth != 0 && ctx.peek(i)!.kind != EOF);
+		} while (depth != 0 && ctx.peek(i).kind != EOF);
 	}
 
 	while (true)
 	{
-		TokenKind k = ctx.peek(i)!.kind;
+		TokenKind k = ctx.peek(i).kind;
 
 		// Skip over common type modifiers
 		if (k == ASTERISK || k == QUESTION)
@@ -215,20 +215,20 @@ fn bool? is_declaration_followup(ParseContext* ctx)
 		{
 			// Skip the entire [ ... ] block
 			i++;
-			while (ctx.peek(i)!.kind != RBRACKET && ctx.peek(i)!.kind != EOF) i++;
+			while (ctx.peek(i).kind != RBRACKET && ctx.peek(i).kind != EOF) i++;
 			i++;
 		}
 		else if (k == LVEC)
 		{
 			// Skip the entire <* ... > block
 			i++;
-			while (ctx.peek(i)!.kind != RVEC && ctx.peek(i)!.kind != EOF) i++;
+			while (ctx.peek(i).kind != RVEC && ctx.peek(i).kind != EOF) i++;
 			i++;
 		}
 		else if (k == LBRACE)
 		{
 			i++;
-			while (ctx.peek(i)!.kind != RBRACE && ctx.peek(i)!.kind != EOF) i++;
+			while (ctx.peek(i).kind != RBRACE && ctx.peek(i).kind != EOF) i++;
 			i++;
 		}
 		else
@@ -238,7 +238,7 @@ fn bool? is_declaration_followup(ParseContext* ctx)
 	}
 
 	// After skipping modifiers, do we see a variable name?
-	TokenKind final_k = ctx.peek(i)!.kind;
+	TokenKind final_k = ctx.peek(i).kind;
 	return final_k == IDENT || final_k == CONST_IDENT || final_k == CT_IDENT;
 }
 

@@ -131,7 +131,7 @@ struct VarDecl
 {
 	inline Node node;
 	VarDeclKind var_kind;
-	VarDeclFlags flags;
+	VarDeclFlags var_flags;
 	Ident* name;
 	NullableNode contract;
 	Node* type;

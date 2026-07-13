@@ -35,7 +35,7 @@ macro Node.as(&self, $Type) => ($Type*)self;
 
 fn bool Node.is_valid(&self) @inline
 {
-	return self.kind != ERROR && !self.has_error; 
+	return self.kind != ERROR && !self.flags.has_error; 
 }
 
 struct Ast

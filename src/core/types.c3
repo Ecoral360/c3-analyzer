@@ -3,11 +3,13 @@ module analyzer::core;
 import std::collections;
 
 import analyzer::sema;
+import analyzer::lexer;
 
 attrdef @UseSema   = @if($feature(SEMA));
 
 struct SourceFile
 {
+	Lexer* lexer;
 	String path;
 	String content;
 	Allocator allocator;
@@ -41,7 +43,7 @@ struct ParseContext
 	Node* contract;
 	Token current;
 	int pos;
-	bool has_error;
+	int error_count;
 }
 
 struct Type 

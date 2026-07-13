@@ -190,9 +190,11 @@ enum TokenKind : char
 	<* >] *>
 	RVEC,
 
-	// Comments and Contracts
-	<*  *>
-	CONTRACT,
+	// '<*'
+	DOCS_START,
+
+	// '*>'
+	DOCS_END,
 
 	<* // *>
 	LINE_COMMENT,

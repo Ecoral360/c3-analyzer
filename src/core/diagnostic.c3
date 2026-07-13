@@ -1,6 +1,7 @@
 module analyzer::core::diagnostics;
 
 import std::io;
+import std::math;
 
 alias DiagnosticsCallback = fn void(SourceFile* file, Range range, DiagnosticLevel level, String message);
 
@@ -32,7 +33,8 @@ fn void diagnose(
 	}
 
 	$if $feature(ANALYZER_PRINT):
-		String line_str = sf.content.tsplit("\n")[start.line != 0 ? start.line - 1 : 0];
+		String[] lines = sf.content.tsplit("\n");
+		String line_str = lines[range.start.line != 0 ? range.start.line - 1 : 0];
 
 		Ansi color;
 		switch (level)
@@ -43,16 +45,20 @@ fn void diagnose(
 			case ERROR: color = Ansi.RED;         break;
 		}
 
- 		io::eprintf("%s:%s:%s: %s%s%s:%s ", sf.path, loc.line + 1, loc.column + 1, color, Ansi.BOLD, level.description, Ansi.RESET);
+ 		io::eprintf("%s:%s:%s: %s%s%s:%s ", sf.path, range.start.line + 1, range.start.column + 1, color, Ansi.BOLD, level.description, Ansi.RESET);
 		io::eprintf(fmt, ...args);
 		io::eprintn("");
 
-		io::eprintf(" %4s | %s\n", loc.line + 1, line_text);
+		io::eprintf(" %4s | %s\n", range.start.line + 1, line_str);
 
+		sz padding = 4;
 		io::eprintf(" %4s | ", "");
 		for (sz i = math::max(0, range.start.line - 3); i < range.start.line; i++)
 		{
-			io::eprintfn("%-*d: %s…", padding, i + 1, sf.content.tsplit("\n")[i]);
+			if (i < lines.len) 
+			{
+				io::eprintf("%d: %s\n", i + 1, lines[i]);
+			}
 		}
 		io::eprintf("%s^%s\n", Ansi.RED, Ansi.RESET);
 	$endif

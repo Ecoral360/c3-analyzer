@@ -147,34 +147,34 @@ macro Node* find_innermost_from_nodes(SourceFile* sf, int offset, ...) @local
 	return null;
 }
 
-fn List{Node*} get_node_path(Node* node, int offset, SourceFile* sf)
+fn List{Node*} get_node_path(Node* node, Range range, SourceFile* sf)
 {
 	List{Node*} node_path; node_path.tinit();
-	get_node_path_impl(node, offset, sf, &node_path);
+	get_node_path_impl(node, range, sf, &node_path);
 	return node_path;
 }
 
-macro void get_node_path_from_nodes(SourceFile* sf, int offset, List{Node*}* node_path, node_val) @local 
+macro void get_node_path_from_nodes(SourceFile* sf, Range range, List{Node*}* node_path, node_val) @local 
 {
 	$foreach $member : $Typeof(node_val)::members:
 		$switch $member.type:
 			$case NodeArray:
 				foreach (node : node_val.$member)
 				{
-					if (get_node_path_impl(node, offset, sf, node_path)) break;
+					if (get_node_path_impl(node, range, sf, node_path)) break;
 				}
 
 			$case Node*:
-				get_node_path_impl(node_val.$member, offset, sf, node_path);
+				get_node_path_impl(node_val.$member, range, sf, node_path);
 		$endswitch
 	$endforeach
 }
 
-fn bool get_node_path_impl(Node* node, int offset, SourceFile* sf, List{Node*}* node_path) @local
+fn bool get_node_path_impl(Node* node, Range range, SourceFile* sf, List{Node*}* node_path) @local
 {
 	if (node == null) return false;
 
-	if (offset < node.offset.start || offset > node.offset.end) return false;
+	if (!range.contains_range(node.range)) return false;
 
 	node_path.push(node);
 
@@ -238,7 +238,7 @@ struct FindAtContext
 {
 	Range target;
 	Cursor best_match;
-	sz best_span;
+	int best_span;
 }
 
 fn ChildVisitResult find_at_callback(Cursor cursor, Cursor parent, void* user_data)
@@ -248,9 +248,10 @@ fn ChildVisitResult find_at_callback(Cursor cursor, Cursor parent, void* user_da
 	FindAtContext* ctx = (FindAtContext*)user_data;
 	Node* node = cursor.node;
 
-	if (ctx.target_offset >= (int)node.offset.start && ctx.target_offset <= (int)node.offset.end)
+	if (node.range.contains_range(ctx.target))
 	{
-		sz current_span = (sz)node.offset.end - node.offset.start;
+		int current_span = (node.range.end.line - node.range.start.line) * 1000 + 
+							(node.range.end.column - node.range.start.column);
 
 		if (ctx.best_match.node == null || current_span <= ctx.best_span)
 		{
@@ -264,7 +265,7 @@ fn ChildVisitResult find_at_callback(Cursor cursor, Cursor parent, void* user_da
 	return CONTINUE;
 }
 
-fn Cursor find_at(Node[] slice, Range range)
+fn Cursor find_at(Node*[] slice, Range range)
 {
 	FindAtContext ctx = {
 		.target = range,
@@ -285,6 +286,7 @@ fn Cursor find_at(Node[] slice, Range range)
 	return ctx.best_match;
 }
 
+/*
 <*
  Get the raw source code fragment corresponding exactly to this node.
  @param [&in] sf : "Which file to acquire the source from"
@@ -293,10 +295,9 @@ fn String? Cursor.source_text(&self, SourceFile* sf)
 {
 	if (!self.is_valid()) return NOT_FOUND~;
 
-	String full_source = sf.source; 
+	String full_source = sf.source;
 
-	sz start = (sz)self.node.offset.start;
-	sz end   = (sz)self.node.offset.end;
+
 
 	if (start > full_source.len || end > full_source.len || start > end)
 	{
@@ -366,6 +367,7 @@ fn String? Cursor.signature_text(&self, SourceFile* sf)
 	return text.trim();
 }
 
+*/
 
 fn Node*? Cursor.contract(&self)
 {

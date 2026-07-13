@@ -2,6 +2,7 @@ module parser @if($feature(ANALYZER_CLI));
 import utils::ast;
 import std::io;
 import analyzer::parser;
+import analyzer::core;
 import std::collections::maybe;
 import std::collections::list;
 import seali;
@@ -30,49 +31,19 @@ fn int main(String[] args) => @pool()
 
 	if (cli.quiet) log::set_logger(&&(NullLogger) { });
 
-	plog::debug("Init...");
+	diagnostics::log_debug("Init...");
+	diagnostics::log_debug("args: %s", args);
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
+	AnalyzerContext* context = core::context_create(tmem);
 
-	plog::debug("args: %s", args);
-
-	if (try std = cli.std.get())
+	//if (try std = cli.std.get())
+	//{
+	//	test_std_lib(&ws, std.path)!!;
+	//}
+	if (try file_path = cli.file.get())
 	{
-		test_std_lib(&ws, std.path)!!;
+		core::process_file(context, file_path);
 	}
-	else if (try file_path = cli.file.get())
-	{
-		workspace::process(&ws, tmem, { .path = file_path })!!;
-	}
-
-	plog::info("num modules: %s", ws.modules.len());
-
-	if (cli.no_invalid)
-	{
-		ws.modules.@each(; name, mod)
-		{
-			foreach (section : mod.sections)
-			{
-			}
-		};
-	}
-
-	if (cli.json)
-	{
-		ws.source_files.@each(; name, sf)
-		{
-			foreach (node : sf.ast.top_level_nodes) @pool()
-			{
-				io::printn(node.serialize(&sf.line_map, indent: 2));
-			};
-		};
-	}
-
-	if (!cli.no_dump)
-	{
-	}
-
+	
 	return 0;
 }

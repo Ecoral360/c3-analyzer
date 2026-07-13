@@ -33,7 +33,7 @@ fn bool is_token_start_of_decl(TokenKind kind)
 {
 	switch (kind)
 	{
-		case CONTRACT:
+		case DOCS_START:
 		case INTERFACE:
 		case MODULE:
 		case IMPORT:
@@ -192,7 +192,7 @@ fn void synchronize(ParseContext* ctx, SyncTarget target)
 	}
 }
 
-fn bool ParseContext.eof(&self) @inline => self.pos >= self.tokens.len || self.current.is_eof();
+fn bool ParseContext.eof(&self) @inline => self.pos >= self.lexer.tokens.len() || self.current.is_eof();
 
 fn bool ParseContext.is(&self, TokenKind kind)
 {
@@ -201,13 +201,15 @@ fn bool ParseContext.is(&self, TokenKind kind)
 
 fn Token ParseContext.peek(&self, int pos) @inline
 {
-	if (self.pos + pos >= self.lexer.tokens.len()) {
+	if (self.pos + pos >= (int)self.lexer.tokens.len()) 
+	{
 		return self.lexer.tokens.last()!!;
 	}
-	if (self.pos + pos < 0) {
+	if (self.pos + pos < 0) 
+	{
 		return self.lexer.tokens.first()!!;
 	}
-	return self.tokens[(sz)self.pos + pos];
+	return self.lexer.tokens[(sz)self.pos + pos];
 }
 
 <*
@@ -246,9 +248,9 @@ fn void advance(ParseContext* ctx, int len = 1)
 
 	ctx.pos += len;
 
-	if (ctx.pos >= ctx.tokens.len) 
+	if (ctx.pos >= ctx.lexer.tokens.len()) 
 	{
-		ctx.pos = ctx.tokens.len - 1;
+		ctx.pos = (int)ctx.lexer.tokens.len() - 1;
 	}
 
 	ctx.current = ctx.lexer.tokens[ctx.pos];
@@ -259,7 +261,7 @@ fn void advance(ParseContext* ctx, int len = 1)
  @param [&inout] node : "Node to flag with error"
  @param [&inout] ctx : "The kind to expect"
 *>
-fn Token expect(ParseContext* ctx, Node* node, TokenKind kind) @nodiscard
+fn Token expect(ParseContext* ctx, Node* node, TokenKind kind)
 {
 	if (ctx.is(kind))
 	{
@@ -270,7 +272,11 @@ fn Token expect(ParseContext* ctx, Node* node, TokenKind kind) @nodiscard
 	diagnostics::error(ctx.context, ctx.current.range, 
 		"Expected '%s' got '%s'", kind.description, ctx.current.kind.description);
 	node.flags.has_error = true;
-	return ctx.current;
+	return { 
+		.kind = ERROR,
+		.range = ctx.current.range,
+		.value = "<error>"
+	};
 }
 
 <*
@@ -289,21 +295,28 @@ fn bool consume(ParseContext* ctx, TokenKind kind)
 }
 
 <*
- Appends the nodes to the provided Modules Ast
+ Parse specified source file
+ expects tokens to be ready, a call to lexer.tokenize()
+ will return false if the last token is not a EOF token
+
  @param [&inout] ctx
+ @param [&in] source_file
  @require ctx.allocator != null
- @require ctx.lexer != null
- @require ctx.lexer.tokens.len() > 0
+ @require source_file.lexer != null
+ @require source_file.lexer.tokens.len() > 0
  @return "true if succeeded"
 *>
-fn bool parse(ParseContext* ctx) => @pool()
+fn bool parse(ParseContext* ctx, SourceFile* source_file) => @pool()
 {
+	ctx.lexer = source_file.lexer;
+	ctx.ast = &source_file.ast;
+	
 	if (ctx.lexer.tokens.last()!!.kind != EOF)
 	{
 		diagnostics::log_error(
 			"The last token in the lexer has to be a EOF token. Got: %s",
 			ctx.lexer.tokens.last()!!.kind.description);
-		return;
+		return false;
 	}
 
 	while (!ctx.eof())
@@ -317,12 +330,12 @@ fn bool parse(ParseContext* ctx) => @pool()
 		}
 	}
 
-	return !ctx.has_error;
+	return ctx.error_count == 0;
 }
 
 fn Node* parse_top_level_statement(ParseContext* ctx)
 {
-	diagnostics::log_debug("parse_top_level_statement: %s", ctx.token_text(ctx.current));
+	diagnostics::log_debug("parse_top_level_statement: %s", ctx.current.value);
 
 	Node* node;
 	ContextScope scope = {
@@ -374,11 +387,11 @@ fn Node* parse_top_level_statement(ParseContext* ctx)
 
 	switch (ctx.current.kind)
 	{
-		case CONTRACT:
+		case DOCS_START:
 			if (ctx.contract)
 			{
-				ctx.error("There are more than one doc comment in a row, that is not allowed.");
-				ctx.ast.error(ctx.current.pos);
+				diagnostics::error(ctx.context, ctx.current.range, "There are more than one doc comment in a row, that is not allowed.");
+				ctx.ast.error(ctx.current.range);
 			}
 			node = parse_contract_decl(scope);
 			ctx.contract = node;
@@ -415,10 +428,10 @@ fn Node* parse_top_level_statement(ParseContext* ctx)
 		case CT_EXPAND:
 			node = parse_expand_decl(scope);
 		case CT_ASSERT:
-			int start_pos = ctx.peek(0).pos;
+			Range start = ctx.peek(0).range;
 			Node* stmt = parse_ct_assert_stmt(scope);
-			node = (Node*)ctx.ast.alloc_node(CtAssertDecl, start_pos);
-			node.offset.end = ctx.peek(0).pos;
+			node = (Node*)ctx.ast.alloc_node(CtAssertDecl, start);
+			node.range.end = ctx.peek(-1).range.end;
 			CtAssertDecl* ctassert = node.as(CtAssertDecl);
 			ctassert.stmt = stmt;
 		default:

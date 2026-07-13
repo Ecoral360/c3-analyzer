@@ -1,5 +1,6 @@
 module analyzer::parser;
 import analyzer::core;
+import analyzer::lexer;
 import std::collections::list;
 import std::io;
 
@@ -12,7 +13,7 @@ fn Node* parse_module_decl(ContextScope scope)
 	diagnostics::log_debug("parse_mod");
 
 	ParseContext* ctx = scope.ctx;
-	Location start = ctx.current.pos;
+	Range start = ctx.current.range;
 
 	advance(ctx);
 
@@ -47,122 +48,64 @@ fn Node* parse_module_decl(ContextScope scope)
 }
 
 <*
- 
+ @require scope.ctx.current.kind == DOCS_START
 *>
 fn Node* parse_contract_decl(ContextScope scope) => @pool()
 {
-	ParseContext* ctx = scope.ctx;
-	int start_pos = ctx.current.pos;
-	if (!ctx.is(CONTRACT))
-	{
-		ctx.error("Expected contract here");
-		return ctx.ast.error(start_pos);
-	}
-	Token contract_token = ctx.current;
-	if (contract_token.len <= 4)
-	{
-		advance(ctx)!;
-		return ctx.ast.missing(contract_token.pos);
-	}
-	int global_offset = contract_token.pos;
-	String slice      = ctx.token_text(contract_token);
-	advance(ctx)!; // skip over contract
+	ParseContext* ctx = scope.ctx;	
+	ContractDecl* node = ctx.ast.alloc_node(ContractDecl, ctx.current.range);
+	defer node.range.end = ctx.peek(-1).range.end;
 
-	// store the "normal" tokens and index temporarly since
-	// we need to swap them
-	Token[] main_tokens = ctx.tokens;
-	int main_index      = ctx.pos;
-	defer
+	List{Node*} ensures;  ensures.tinit();
+	List{Node*} requires; requires.tinit();
+	List{Node*} params;   params.tinit();
+	List{Node*} returns;  returns.tinit();
+
+	advance(ctx); // skip <*
+
+	if (ctx.is(IDENT))
 	{
-		ctx.tokens = main_tokens;
-		ctx.pos = main_index;
+		node.comment = ctx.ident(ctx.current);
+		advance(ctx);
 	}
 
-	List{Token} contract_tokens;
-	contract_tokens.tinit();
-	ContractLexer cl;
-	cl.init(slice);
-
-	// calculate the offset for 'ContractLexer' contract[2:^4];
-	int open_marker_len = 2;
-	int total_inner_len = slice.len - 4;
-	int first_at_index  = total_inner_len - cl.lexer.buffer.len;
-	int offset          = contract_token.pos + open_marker_len + first_at_index;
-
-	while (try next = cl.next())
+	while (!ctx.eof() && !ctx.is(DOCS_END))
 	{
-		// make return a identifier so the it can be parsed as expr
-		if (next.kind == RETURN)
-		{
-			next.kind = IDENT;
-		}
-
-		next.pos += offset;
-		contract_tokens.push(next);
-
-		diagnostics::log_debug("ContractLexer - added: %s", next.kind);
-	}
-	contract_tokens.push({ .kind = EOF, .pos = (contract_tokens.last()
-		.pos + contract_tokens.last().len) ?? 0, .len = 0 });
-
-	ctx.tokens = contract_tokens.array_view();
-	ctx.pos = 0;
-
-	ContractDecl* node             = ctx.ast.alloc_node(ContractDecl, ctx.current.pos);
-	diagnostics::log_debug("comment : %s", cl.description);
-	node.comment = ctx.ident({
-		.kind = IDENT,
-		.pos = contract_token.pos + 2,
-		.len = cl.desc_len
-	});
-
-	List{Node*} ensures;
-	ensures.tinit();
-	List{Node*} requires;
-	requires.tinit();
-	List{Node*} params;
-	params.tinit();
-	List{Node*} returns;
-	returns.tinit();
-
-	while (!ctx.eof())
-	{
-		String attr = ctx.token_text(ctx.current);
+		String attr = ctx.current.value;
 		diagnostics::log_debug("parse_contract - attribute = %s", attr);
 
-		if (consume(ctx, AT_IDENT)!)
+		if (consume(ctx, AT_IDENT))
 		{
 			if (attr == constants::KW_AT_REQUIRE)
 			{
 				diagnostics::log_debug("parse_contract_decl - @require");
-				requires.push(parse_contract_expr(scope)!);
+				requires.push(parse_contract_expr(scope));
 			}
 			else if (attr == constants::KW_AT_ENSURE)
 			{
 				diagnostics::log_debug("parse_contract_decl - @ensure");
-				ensures.push(parse_contract_expr(scope)!);
+				ensures.push(parse_contract_expr(scope));
 			}
 			else if (attr == constants::KW_AT_PARAM)
 			{
-				params.push(parse_contract_param(scope))!;
+				params.push(parse_contract_param(scope));
 			}
 			else if (attr == constants::KW_AT_DEPRECATED)
 			{
 				diagnostics::log_debug("parse_contract_decl - @deprecated");
-				AttributeDecl* n = ctx.ast.alloc_node(AttributeDecl, ctx.current.pos);
+				AttributeDecl* n = ctx.ast.alloc_node(AttributeDecl, ctx.current.range);
 				node.deprecated = (Node*)n;
 				n.name = ctx.ident_string(constants::KW_AT_DEPRECATED);
 				n.attribute_kind = DEPRECATED;
 				if (ctx.current.kind == EOS && ctx.peek(1).kind == STRING_LITERAL)
 				{
-					advance(ctx)!;
+					advance(ctx);
 				}
-				int start = ctx.current.pos;
 				if (ctx.is(STRING_LITERAL))
 				{
 					List{Node*} exprs;
 					exprs.tinit(1);
-					exprs.push(parse_expr(scope)!);
+					exprs.push(parse_expr(scope));
 					diagnostics::log_debug("parser @deprecated string");
 					n.exprs = alloc::clone_slice(ctx.allocator, exprs.array_view());
 				}
@@ -175,11 +118,11 @@ fn Node* parse_contract_decl(ContextScope scope) => @pool()
 			{
 				if (ctx.is(QUESTION))
 				{
-					advance(ctx)!;
+					advance(ctx);
 					while (!ctx.eof())
 					{
-						returns.push(parse_expr(scope)!);
-						if (!consume(ctx, COMMA)!)
+						returns.push(parse_expr(scope));
+						if (!consume(ctx, COMMA))
 						{
 							break;
 						}
@@ -187,19 +130,21 @@ fn Node* parse_contract_decl(ContextScope scope) => @pool()
 				}
 				else
 				{
-					node.return_desc = parse_expr(scope)!;
+					node.return_desc = parse_expr(scope);
 				}
 			}
 			else
 			{
-				if (catch advance(ctx)) break;
+				advance(ctx);
 			}
 		}
 		else
 		{
-			if (catch advance(ctx)) break;
+			advance(ctx);
 		}
 	}
+
+	advance(ctx);
 
 	node.ensures = alloc::clone_slice(ctx.allocator, ensures.array_view());
 	node.requires = alloc::clone_slice(ctx.allocator, requires.array_view());
@@ -249,7 +194,7 @@ fn Node* parse_import_decl(ContextScope scope) => @pool()
 		node.attributes = parse_attributes(scope, node);
 	}
 	
-	(void)expect(ctx, node, EOS)!;
+	(void)expect(ctx, node, EOS);
 
 	return (Node*)node;
 }
@@ -364,7 +309,7 @@ fn Node* parse_typedef_decl(ContextScope scope)
 
 	List{Node*} attributes;
 	attributes.init(tmem, 4);
-	parse_attributes_into(scope, (Node*)node, &attributes)!;
+	parse_attributes_into(scope, (Node*)node, &attributes);
 
 	if (!consume(ctx, EQ))
 	{
@@ -395,7 +340,7 @@ fn Node* parse_typedef_decl(ContextScope scope)
 	}
 
 	node.attributes = alloc::clone_slice(ctx.allocator, attributes.array_view());
-	(void)expect(ctx, node, EOS)!;
+	(void)expect(ctx, node, EOS);
 	return node;
 }
 
@@ -421,7 +366,7 @@ fn Node* parse_macro_decl(ContextScope scope)
 	{
 		Node* first_type = parse_type_expr(scope);
 
-		if (consume(ctx, DOT)!)
+		if (consume(ctx, DOT))
 		{
 			node.associated_type.set(first_type);
 		}
@@ -456,12 +401,12 @@ fn Node* parse_macro_decl(ContextScope scope)
 
 	if (ctx.is(LESS))
 	{
-		node.generics = parse_generic_decl(scope)!;
+		node.generics = parse_generic_decl(scope);
 	}
 
 	if (ctx.is(AT_IDENT))
 	{
-		node.attributes = parse_attributes(scope, node)!;
+		node.attributes = parse_attributes(scope, node);
 	}
 
 	if (ctx.is(LBRACE))
@@ -517,11 +462,11 @@ fn Node* parse_param_decl(ContextScope scope, ParamParseFlags flags = {})
 	if (consume(ctx, ELLIPSIS))
 	{
 		node.var_kind = VAR_PARAM;
-		node.flags.is_variadic = true;
+		node.var_flags.is_variadic = true;
 		return node;
 	}
 
-	bool is_ref                  = consume(ctx, AMP)!;
+	bool is_ref                  = consume(ctx, AMP);
 	Node* parsed_type            = null;
 	bool has_ellipsis_after_type = false;
 
@@ -537,10 +482,10 @@ fn Node* parse_param_decl(ContextScope scope, ParamParseFlags flags = {})
 			diagnostics::error(ctx.context, ctx.current.range, "Parameters may not be optional");
 			node.flags.has_error = true;
 		}
-		if (consume(ctx, ELLIPSIS)!)
+		if (consume(ctx, ELLIPSIS))
 		{
 			has_ellipsis_after_type = true;
-			node.flags.is_variadic = true;
+			node.var_flags.is_variadic = true;
 		}
 	}
 
@@ -552,7 +497,7 @@ fn Node* parse_param_decl(ContextScope scope, ParamParseFlags flags = {})
 		case CT_CONST_IDENT:
 			diagnostics::error(ctx.context, ctx.current.range, "Parameter names may not be all uppercase.");
 			node.flags.has_error = true;
-			ctx.skip_until({ COMMA, RPAREN });
+			skip_until(ctx, { COMMA, RPAREN });
 			break;
 		case CT_IDENT:
 			node.name = ctx.ident(t);
@@ -565,16 +510,16 @@ fn Node* parse_param_decl(ContextScope scope, ParamParseFlags flags = {})
 			}
 			break;
 		case IDENT:
-			String token_text = ctx.current_text();
+			String token_text = ctx.current.value;
 			node.name = ctx.ident(t);
 			node.var_kind = VAR_PARAM;
-			node.flags.is_ref = is_ref;
+			node.var_flags.is_ref = is_ref;
 			advance(ctx);
 
 			if (token_text == "self") 
 			{
-				node.flags.is_self = true;
-				node.flags.is_self_by_ref = is_ref;
+				node.var_flags.is_self = true;
+				node.var_flags.is_self_by_ref = is_ref;
 			}
 
 			if (consume(ctx, ELLIPSIS))
@@ -584,7 +529,7 @@ fn Node* parse_param_decl(ContextScope scope, ParamParseFlags flags = {})
 					diagnostics::error(ctx.context, ctx.current.range, "Invalid variadic usage.");
 					node.flags.has_error = true;
 				}
-				node.flags.is_variadic = true;
+				node.var_flags.is_variadic = true;
 				node.type = alloc_any_type_expr(ctx);
 			}
 			break;
@@ -603,7 +548,7 @@ fn Node* parse_param_decl(ContextScope scope, ParamParseFlags flags = {})
 			{
 				diagnostics::error(ctx.context, ctx.current.range, "Expected parameter name or type.");
 				node.flags.has_error = true;
-				ctx.skip_until({ COMMA, RPAREN });
+				skip_until(ctx, { COMMA, RPAREN });
 			}
 	}
 
@@ -616,7 +561,7 @@ fn Node* parse_param_decl(ContextScope scope, ParamParseFlags flags = {})
 	{
 		if (consume(ctx, ELLIPSIS))
 		{
-			node.flags.is_macro_optional_ellipsis = true;
+			node.var_flags.is_macro_optional_ellipsis = true;
 		}
 		else
 		{
@@ -638,7 +583,7 @@ fn Node* parse_var_decl(ContextScope scope, Node* type = null)
 	Range start = (type != null) ? type.range : ctx.current.range;
 
 	Node* contract;
-	if (ctx.is(CONTRACT))
+	if (ctx.is(DOCS_START))
 	{
 		contract = parse_contract_decl(scope);
 
@@ -651,9 +596,13 @@ fn Node* parse_var_decl(ContextScope scope, Node* type = null)
 	if (flags.is_local)
 	{
 		if (flags.is_extern)
+		{
 			diagnostics::error(ctx.context, ctx.current.range, "Local variable cannot be 'extern'");
+		}
 		if (flags.is_inline)
+		{
 			diagnostics::error(ctx.context, ctx.current.range, "Local variable cannot be 'inline'");
+		}
 	}
 	
 	Node* type_node = type;
@@ -689,16 +638,16 @@ fn Node* parse_var_decl(ContextScope scope, Node* type = null)
 		if (t.kind != IDENT && t.kind != CONST_IDENT && t.kind != CT_IDENT)
 		{
 			diagnostics::error(ctx.context, ctx.current.range, "Expected variable name");
-			ctx.skip_until({ COMMA, EOS });
+			skip_until(ctx, { COMMA, EOS });
 			if (!consume(ctx, COMMA)) break;
 			continue;
 		}
 
 		Ident* name = ctx.ident(t);
-		diagnostics::log_debug("var name: %s", ctx.token_text(t));
+		diagnostics::log_debug("var name: %s", t.value);
 		advance(ctx);
 
-		int var_start = (head_node == null) ? start_pos : t.pos;
+		Range var_start = (head_node == null) ? start : t.range;
 		VarDecl* var_node    = ctx.ast.alloc_node(VarDecl, var_start);
 
 		if (ctx.is(AT_IDENT) || ctx.is(AT_TYPE_IDENT))
@@ -732,12 +681,12 @@ fn Node* parse_var_decl(ContextScope scope, Node* type = null)
 		var_node.init_expr = init_expr;
 		var_node.next = null;
 
-		var_node.flags.is_extern = flags.is_extern;
-		var_node.flags.is_const = flags.is_const;
-		var_node.flags.is_inline = flags.is_inline;
-		var_node.flags.is_local = flags.is_local;
-		var_node.flags.is_thread_local = flags.is_thread_local;
-		var_node.flags.is_static = flags.is_static;
+		var_node.var_flags.is_extern = flags.is_extern;
+		var_node.var_flags.is_const = flags.is_const;
+		var_node.var_flags.is_inline = flags.is_inline;
+		var_node.var_flags.is_local = flags.is_local;
+		var_node.var_flags.is_thread_local = flags.is_thread_local;
+		var_node.var_flags.is_static = flags.is_static;
 
 		if (flags.is_local)
 		{
@@ -751,8 +700,6 @@ fn Node* parse_var_decl(ContextScope scope, Node* type = null)
 		{
 			var_node.var_kind = VAR_GLOBAL;
 		}
-
-		var_node.offset.end = ctx.current.pos;
 
 		if (head_node == null)
 		{
@@ -774,7 +721,7 @@ fn Node* parse_var_decl(ContextScope scope, Node* type = null)
 
 	if (!flags.skip_eos)
 	{
-		if (!consume(ctx, EOS)!)
+		if (!consume(ctx, EOS))
 		{
 			diagnostics::error(ctx.context, ctx.current.range, "Expected ';'");
 		}
@@ -869,9 +816,9 @@ fn NodeArray parse_attributes(ContextScope scope, Node* parent_node, AttributePa
 						expr = (Node*)ctx.ast.alloc_node(OverloadExpr, t.range);
 						OverloadExpr* ov_expr = expr.as(OverloadExpr);
 						advance(ctx);
-						(void)expect(ctx, node, LBRACKET);
-						expr.range.end = ctx.current.range;
-						(void)expect(ctx, node, RBRACKET);
+						(void)expect(ctx, expr, LBRACKET);
+						expr.range.end = ctx.current.range.end;
+						(void)expect(ctx, expr, RBRACKET);
 						ov_expr.overload_kind = OV_ELEMENT_REF;
 						break;
 					case LBRACKET:
@@ -893,7 +840,7 @@ fn NodeArray parse_attributes(ContextScope scope, Node* parent_node, AttributePa
 						diagnostics::error(ctx.context, ctx.current.range, "Increment and decrement operators '++' and '--' cannot be directly overloaded, use '+=' and '-=' instead");
 						attr_node.flags.has_error = true;
 					case DOT:
-						diagnostics::error(ctx.context, ctx.current.range, "Cannot overload '.'")!;
+						diagnostics::error(ctx.context, ctx.current.range, "Cannot overload '.'");
 						attr_node.flags.has_error = true;
 					default:
 						expr = parse_constant_expr(scope);
@@ -903,21 +850,21 @@ fn NodeArray parse_attributes(ContextScope scope, Node* parent_node, AttributePa
 				exprs.push(expr);
 				if (!consume(ctx, COMMA)) break;
 			}
-			expect(ctx, RPAREN)!;
-			attr_node.exprs = alloc::clone_slice(&ctx.allocator, exprs.array_view());
+			expect(ctx, attr_node, RPAREN);
+			attr_node.exprs = alloc::clone_slice(ctx.allocator, exprs.array_view());
 		}
 
 		nodes.push(attr_node);
 
 		if (flags.use_comma)
 		{
-			consume(ctx, COMMA)!;
+			consume(ctx, COMMA);
 		}
 	}
 
 	if (parent_node) parent_node.flags.has_attributes = nodes.len() > 0;
 
-	return alloc::clone_slice(&ctx.allocator, nodes.array_view());
+	return alloc::clone_slice(ctx.allocator, nodes.array_view());
 }
 
 <*
@@ -931,35 +878,33 @@ fn Node* parse_expand_decl(ContextScope scope)
 	advance(ctx);
 	CtExpandDecl* node = ctx.ast.alloc_node(CtExpandDecl, start);
 	defer node.range.end = ctx.peek(-1).range.end;
-	if (!expect(ctx, (Node*)node, LPAREN))
+	if (!consume(ctx, LPAREN))
 	{
 		node.flags.has_error = true;
-		// If missed the '(', we don't know where the expr starts,
-		// so sync to the likely end of the declaration.
-		ctx.skip_until({ RPAREN, EOS });
+		diagnostics::error(ctx.context, ctx.current.range, 
+			"Expected '%s' got '%s'", 
+			ctx.current.kind.description, 
+			ctx.current.kind.description);
+
+		skip_until(ctx, { RPAREN, EOS });
 	}
 
 	node.expr = parse_constant_expr(scope);
 	if (!node.expr)
 	{
 		node.flags.has_error = true;
-		ctx.skip_until({ RPAREN, EOS });
+		skip_until(ctx, { RPAREN, EOS });
 	}
 
-	if (!expect(ctx, (Node*)node, RPAREN))
-	{
-		node.flags.has_error = true;
-	}
+	expect(ctx, (Node*)node, RPAREN);
 
 	if (ctx.is(AT_IDENT))
 	{
 		node.attributes = parse_attributes(scope, (Node*)node);
 	}
 
-	if (!expect(ctx, (Node*)node, EOS))
-	{
-		node.flags.has_error = true;
-	}
+	expect(ctx, (Node*)node, EOS);
+
 	return node;
 }
 
@@ -1052,7 +997,7 @@ fn Node* parse_struct_union_decl(ContextScope scope, bool is_sub = false) => @po
 		{
 			ParseFlags struct_flags;
 			struct_flags.is_struct = true;
-			struct_flags.is_inline = consume(ctx, INLINE)!;
+			struct_flags.is_inline = consume(ctx, INLINE);
 			Node* field = parse_var_decl(scope.with_only_flags(struct_flags), null);
 			fields.push(field);
 		}
@@ -1094,13 +1039,13 @@ fn Node* parse_bitstruct_decl(ContextScope scope, bool is_nested = false) => @po
 
 	if (ctx.is(LPAREN))
 	{
-		node.interfaces = parse_interface_type_list(scope.with_only_flags({ .no_generics = true }))!;
+		node.interfaces = parse_interface_type_list(scope.with_only_flags({ .no_generics = true }));
 	}
 
-	if (consume(ctx, COLON)!)
+	if (consume(ctx, COLON))
 	{
-		node.type = parse_type_expr(scope.with_only_flags({ .no_generics = true }), null)!;
-		node.attributes = parse_attributes(scope, node)!;
+		node.type = parse_type_expr(scope.with_only_flags({ .no_generics = true }), null);
+		node.attributes = parse_attributes(scope, node);
 	}
 
 	if (!consume(ctx, LBRACE)) 
@@ -1115,10 +1060,10 @@ fn Node* parse_bitstruct_decl(ContextScope scope, bool is_nested = false) => @po
 
 	while (!ctx.is(RBRACE) && !ctx.is(EOF))
 	{
-		if (!ctx.is(CONTRACT) && !is_type_primitive(ctx.current.kind) && !ctx.is(IDENT) && !ctx.is(TYPE_IDENT))
+		if (!ctx.is(DOCS_START) && !is_type_primitive(ctx.current.kind) && !ctx.is(IDENT) && !ctx.is(TYPE_IDENT))
 		{
 			diagnostics::error(ctx.context, ctx.current.range, "Unexpected token in bitstruct");
-			ctx.skip_until({ EOS, RBRACE });
+			skip_until(ctx, { EOS, RBRACE });
 			if (consume(ctx, EOS)) continue;
 			break;
 		}
@@ -1127,7 +1072,7 @@ fn Node* parse_bitstruct_decl(ContextScope scope, bool is_nested = false) => @po
 		defer field_node.range.end = ctx.peek(-1).range.end;
 		field_node.var_kind = VAR_BITFIELD;
 
-		if (ctx.is(CONTRACT)) field_node.contract.set(parse_contract_decl(scope)!);
+		if (ctx.is(DOCS_START)) field_node.contract.set(parse_contract_decl(scope));
 
 		field_node.type = parse_type_expr(scope);
 		field_node.attributes = parse_attributes(scope, field_node);
@@ -1143,7 +1088,7 @@ fn Node* parse_bitstruct_decl(ContextScope scope, bool is_nested = false) => @po
 			field_node.flags.has_error = true;
 		}
 
-		if (consume(ctx, COLON)!)
+		if (consume(ctx, COLON))
 		{
 			field_node.init_expr = parse_constant_expr(scope);
 			if (consume(ctx, DOTDOT))
@@ -1155,7 +1100,7 @@ fn Node* parse_bitstruct_decl(ContextScope scope, bool is_nested = false) => @po
 		if (!consume(ctx, EOS)) 
 		{
 			diagnostics::error(ctx.context, ctx.current.range, "Expected ';'");
-			ctx.skip_until({ EOS, RBRACE });
+			skip_until(ctx, { EOS, RBRACE });
 			consume(ctx, EOS);
 		}
 
@@ -1194,7 +1139,7 @@ fn Node* parse_faultdef_decl(ContextScope scope) => @pool()
 		{
 			diagnostics::error(ctx.context, ctx.current.range, "Expected constant identifier for fault");
 			node.flags.has_error = true;
-			ctx.skip_until({ COMMA, EOS });
+			skip_until(ctx, { COMMA, EOS });
 			
 			if (consume(ctx, COMMA)) continue;
 			break;
@@ -1216,10 +1161,8 @@ fn Node* parse_faultdef_decl(ContextScope scope) => @pool()
 
 		faults.push((Node*)fault_node);
 
-		if (!consume(ctx, COMMA)!) break;
+		if (!consume(ctx, COMMA)) break;
 	}
-
-	node.offset.end = ctx.current_pos();
 
 	if (!consume(ctx, EOS))
 	{
@@ -1262,13 +1205,13 @@ fn Node* parse_interface_decl(ContextScope scope) => @pool()
 	{
 		while (true)
 		{
-			parent_list.push(parse_type_expr(scope.with_only_flags({ .no_generics = true }), null));
+			list.push(parse_type_expr(scope.with_only_flags({ .no_generics = true }), null));
 			if (!consume(ctx, COMMA)) break;
 		}
 	}
 
 	node.interfaces = alloc::clone_slice(ctx.allocator, list.array_view());
-	node.attributes = parse_attributes(scope, node)!;
+	node.attributes = parse_attributes(scope, node);
 
 	if (!consume(ctx, LBRACE))
 	{
@@ -1282,17 +1225,17 @@ fn Node* parse_interface_decl(ContextScope scope) => @pool()
 
 	while (!ctx.eof() && !ctx.is(RBRACE))
 	{
-		if (!ctx.is(CONTRACT) && !ctx.is(FN) && !ctx.is(ATTR))
+		if (!ctx.is(DOCS_START) && !ctx.is(FN))
 		{
 			diagnostics::error(ctx.context, ctx.current.range, "Unexpected token in interface body");
-			ctx.skip_until({ FN, RBRACE });
+			skip_until(ctx, { FN, RBRACE });
 			if (ctx.is(RBRACE)) break;
 		}
 
 		Node* contract;
-		if (ctx.is(CONTRACT))
+		if (ctx.is(DOCS_START))
 		{
-			contract = parse_contract_decl(scope)!;
+			contract = parse_contract_decl(scope);
 		}
 		Node* func_node = parse_fn_decl(scope.with_only_flags({ .is_interface = true }));
 		if (func_node && func_node.kind != ERROR)
@@ -1321,9 +1264,9 @@ fn Node* parse_interface_decl(ContextScope scope) => @pool()
 fn Node* parse_attrdef_decl(ContextScope scope) => @pool()
 {
 	ParseContext* ctx = scope.ctx;
-	int start_pos = ctx.current.pos;
+	Range start = ctx.current.range;
 	advance(ctx);
-	AttrdefDecl* node = ctx.ast.alloc_node(AttrdefDecl, start_pos);
+	AttrdefDecl* node = ctx.ast.alloc_node(AttrdefDecl, start);
 	defer node.range.end = ctx.peek(-1).range.end;
 
 	if (ctx.is(AT_TYPE_IDENT)) 
@@ -1335,12 +1278,12 @@ fn Node* parse_attrdef_decl(ContextScope scope) => @pool()
 	{
 		diagnostics::error(ctx.context, ctx.current.range, "Attrdef must have a '@Type' identifier");		
 		node.flags.has_error = true;
-		ctx.skip_until({ LPAREN, EQ, EOS });
+		skip_until(ctx, { LPAREN, EQ, EOS });
 	}
 
 	if (ctx.is(LPAREN))
 	{
-		node.params = parse_parameter_list(scope);//, { .is_attrdef = true })!;
+		node.params = parse_parameter_list(scope);//, { .is_attrdef = true });
 	}
 
 	if (ctx.is(AT_IDENT))
@@ -1357,7 +1300,7 @@ fn Node* parse_attrdef_decl(ContextScope scope) => @pool()
 	{
 		diagnostics::error(ctx.context, ctx.current.range, "Expected ';' to terminate attrdef declaration");
 		node.flags.has_error = true;
-		ctx.skip_until({ EOS });
+		skip_until(ctx, { EOS });
 		consume(ctx, EOS);
 	}
 
@@ -1390,12 +1333,12 @@ fn Node* parse_enum_constdef_decl(ContextScope scope) => @pool()
 	{
 		diagnostics::error(ctx.context, ctx.current.range, "constdef & enum must have a 'Type' identifier");		
 		node.flags.has_error = true;
-		ctx.skip_until({ LPAREN, EQ, LBRACE, EOS });
+		skip_until(ctx, { LPAREN, EQ, LBRACE, EOS });
 	}
 
 	if (ctx.is(LPAREN))
 	{
-		node.interfaces = parse_interface_type_list(scope)!;
+		node.interfaces = parse_interface_type_list(scope);
 	}
 
 	// Optional backing type and/or associated value parameters: ":" "inline"? type? enum_param_list?
@@ -1430,7 +1373,7 @@ fn Node* parse_enum_constdef_decl(ContextScope scope) => @pool()
 				param.range.end = ctx.current.range.end;
 
 				assoc.push((Node*)param);
-				if (!consume(ctx, COMMA)!) break;
+				if (!consume(ctx, COMMA)) break;
 			}
 
 			if (!consume(ctx, RPAREN)) 
@@ -1458,24 +1401,24 @@ fn Node* parse_enum_constdef_decl(ContextScope scope) => @pool()
 	variants.init(tmem, 4);
 	while ENUM_VARIANT: (!ctx.is(RBRACE) && !ctx.eof())
 	{
-		if (!ctx.is(CONTRACT) && !ctx.is(CONST_IDENT))
+		if (!ctx.is(DOCS_START) && !ctx.is(CONST_IDENT))
 		{
 			diagnostics::error(ctx.context, ctx.current.range, "Expected enum variant or contract");
-			ctx.skip_until({ COMMA, RBRACE });
+			skip_until(ctx, { COMMA, RBRACE });
 			consume(ctx, COMMA); // Try to jump to next
 			continue;
 		}
 
 		Node* contract;
-		if (ctx.is(CONTRACT))
+		if (ctx.is(DOCS_START))
 		{
-			contract = parse_contract_decl(scope)!;
+			contract = parse_contract_decl(scope);
 		}
 
 		VarDecl* variant = ctx.ast.alloc_node(VarDecl, ctx.current.range);
 		variant.var_kind = VAR_GLOBAL;
 		variant.contract.set(contract);
-		variant.flags.is_const = true;
+		variant.var_flags.is_const = true;
 		variant.name = ctx.ident(ctx.current);
 		advance(ctx);
 
@@ -1488,22 +1431,19 @@ fn Node* parse_enum_constdef_decl(ContextScope scope) => @pool()
 		// Optional ordinal: "=" expr
 		if (consume(ctx, EQ))
 		{
-			variant.init_expr = parse_expr(scope)!;
+			variant.init_expr = parse_expr(scope);
 		}
 
 		// Optional associated values: "{" expr ("," expr)* "}"
 		if (ctx.is(LBRACE))
 		{
-			variant.assoc_values = parse_expr(scope)!;
+			variant.assoc_values = parse_expr(scope);
 		}
 
-		variant.offset.end = ctx.current.pos;
 		variants.push(variant);
 
 		if (!consume(ctx, COMMA)) break;
 	}
-
-	node.offset.end = ctx.current_pos();
 
 	if (!consume(ctx, RBRACE))
 	{
@@ -1528,11 +1468,11 @@ fn Node* parse_generic_decl(ContextScope scope) => @pool()
 	advance(ctx);
 	if (ctx.is(GREATER))
 	{
-		diagnostics::error(ctx.context, ctx.current.range, "At least one parameter is required")!;
-		return ctx.ast.error(ctx.current);
+		diagnostics::error(ctx.context, ctx.current.range, "At least one parameter is required");
+		return ctx.ast.error(ctx.current.range);
 	}
 
-	GenericDecl* node = ctx.ast.alloc_node(GenericDecl, range);
+	GenericDecl* node = ctx.ast.alloc_node(GenericDecl, start);
 	defer node.range.end = ctx.peek(-1).range.end;
 
 	List{Node*} params;
@@ -1544,14 +1484,14 @@ fn Node* parse_generic_decl(ContextScope scope) => @pool()
 			diagnostics::error(ctx.context, ctx.current.range, "Expected type or constant identifier in generic list");
 			node.flags.has_error = true;
 			
-			ctx.skip_until({ COMMA, GREATER });
+			skip_until(ctx, { COMMA, GREATER });
 			
 			if (consume(ctx, COMMA)) continue;
 			break;
 		}
 
 		// so it only parses the prefix
-		params.push(parse_expr(scope, HIGHEST)!);
+		params.push(parse_expr(scope, HIGHEST));
 
 		if (!consume(ctx, COMMA))
 		{

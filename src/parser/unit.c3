@@ -3,6 +3,7 @@
 *>
 module analyzer::parser;
 import analyzer::core;
+import analyzer::lexer;
 
 import std::io;
 import std::collections::list;
@@ -13,7 +14,7 @@ import std::collections::list;
 fn Ident* parse_identifier(ContextScope scope, Token t) 
 {   
 	ParseContext* ctx = scope.ctx;
-	String name = ctx.token_text(t);
+	String name = t.value;
 	if (!constants::is_valid_name(name)) 
 	{
 		diagnostics::error(ctx.context, t.range, "Reserved identifier");
@@ -32,6 +33,9 @@ fn NodeArray parse_parameter_list(ContextScope scope) => @pool()
 	ParseFlags flags = scope.flags;
 	Range start = ctx.current.range;
 
+	List{Node*} temp_params;
+	temp_params.init(tmem, 4);
+
 	if (!flags.is_call)
 	{
 		if (!consume(ctx, LPAREN))
@@ -40,9 +44,6 @@ fn NodeArray parse_parameter_list(ContextScope scope) => @pool()
 			return alloc::clone_slice(ctx.allocator, temp_params.array_view());
 		}
 	}
-
-	List{Node*} temp_params;
-	temp_params.init(tmem, 4);
 
 	while (!ctx.eof() && !ctx.is(RPAREN))
 	{
@@ -56,7 +57,7 @@ fn NodeArray parse_parameter_list(ContextScope scope) => @pool()
 		if (ctx.current.range == param_start)
 		{
 			diagnostics::error(ctx.context, ctx.current.range, "Invalid parameter declaration");
-			ctx.skip_until({ COMMA, RPAREN, EOS });
+			skip_until(ctx, { COMMA, RPAREN, EOS });
 			break;
 		}
 
@@ -71,7 +72,7 @@ fn NodeArray parse_parameter_list(ContextScope scope) => @pool()
 		else if (!ctx.is(RPAREN))
 		{
 			diagnostics::error(ctx.context, ctx.current.range, "Expected ',' or ')' in parameter list");
-			ctx.skip_until({ RPAREN, EOS });
+			skip_until(ctx, { RPAREN, EOS });
 			break;
 		}
 	}
@@ -97,9 +98,9 @@ fn void parse_macro_params(ContextScope scope, Node* macro_node)
 	if (consume(ctx, EOS))
 	{
 		Token at_tok = ctx.current;
-		expect(ctx, AT_IDENT)!;
+		expect(ctx, mac, AT_IDENT);
 
-		BodyParamDecl* body_param_node = ctx.ast.alloc_node(BodyParamDecl, at_tok.pos);
+		BodyParamDecl* body_param_node = ctx.ast.alloc_node(BodyParamDecl, at_tok.range);
 		
 		if (ctx.is(LPAREN))
 		{
@@ -107,7 +108,7 @@ fn void parse_macro_params(ContextScope scope, Node* macro_node)
 		}
 	}
 
-	expect(ctx, RPAREN);
+	expect(ctx, mac, RPAREN);
 }
 
 <*
@@ -130,7 +131,7 @@ fn NodeArray parse_generics_list(ContextScope scope)
 
 	if (!consume(ctx, RBRACE))
 	{
-		ctx.error("Expected closing '}' after generic parameter list");
+		diagnostics::error(ctx.context, ctx.current.range, "Expected closing '}' after generic parameter list");
 	}
 
 	return alloc::clone_slice(ctx.allocator, params.array_view());
@@ -139,16 +140,14 @@ fn NodeArray parse_generics_list(ContextScope scope)
 fn Node* parse_contract_param(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
-	int start = ctx.current.pos;
-
-	ContractParam* node = ctx.ast.alloc_node(ContractParam, start);
+	ContractParam* node = ctx.ast.alloc_node(ContractParam, ctx.current.range);
 	defer node.range.end = ctx.peek(-1).range.end;
 
 	if (consume(ctx, LBRACKET))
 	{
 		node.by_ref = consume(ctx, AMP);
 
-		String modifier_name = ctx.token_text(ctx.current);
+		String modifier_name = ctx.current.value;
 		switch (modifier_name)
 		{
 			case "in":
@@ -171,7 +170,7 @@ fn Node* parse_contract_param(ContextScope scope)
 		{
 			diagnostics::error(ctx.context, ctx.current.range, "Expected ']' after contract modifier");
 			node.flags.has_error = true;
-			ctx.skip_until({ IDENT, CT_IDENT, TYPE_IDENT, CT_TYPE_IDENT, HASH_IDENT, ELLIPSIS });
+			skip_until(ctx, { IDENT, CT_IDENT, TYPE_IDENT, CT_TYPE_IDENT, HASH_IDENT, ELLIPSIS });
 		}
 	}
 
@@ -233,11 +232,11 @@ fn NodeArray parse_arg_list(ContextScope scope) => @pool()
 	while (!ctx.eof() && !ctx.is(RPAREN))
 	{
 		int pos_before = ctx.pos;
-		Node* expr    = null;
-		int start_pos = ctx.current.pos;
+		Node* expr = null;
+		Range start_pos = ctx.current.range;
 		if (ctx.is(RPAREN)) break;
 
-		diagnostics::log_debug("parse arg - %s", ctx.current_text());
+		diagnostics::log_debug("parse arg - %s", ctx.current.value);
 
 		if (ctx.is(ELLIPSIS) && ctx.peek(1).kind == CT_VAARG)
 		{
@@ -255,7 +254,7 @@ fn NodeArray parse_arg_list(ContextScope scope) => @pool()
 				named.name = ident.ident;
 
 				named.value = parse_expr(scope);
-				expr.offset.end = ctx.current.pos;
+				named.range.end = ctx.peek(-1).range.end;
 			}
 			else if (expr.kind == CT_EVAL_EXPR && consume(ctx, COLON))
 			{
@@ -265,11 +264,11 @@ fn NodeArray parse_arg_list(ContextScope scope) => @pool()
 
 				eval_named.name = inner;
 				eval_named.value = parse_expr(scope);
-				expr.offset.end = ctx.current.pos;
+				eval_named.range.end = ctx.peek(-1).range.end;
 			}
 		}
 
-		diagnostics::log_debug("parse arg AFTER - %s", ctx.current_text());
+		diagnostics::log_debug("parse arg AFTER - %s", ctx.current.value);
 
 		args.push(expr);
 
@@ -342,14 +341,14 @@ fn NodeArray parse_interface_type_list(ContextScope scope) => @pool()
 	List{Node*} interfaces;
 	interfaces.init(tmem, 4);
 
-	if (!consume(ctx, LPAREN)!)
+	if (!consume(ctx, LPAREN))
 	{
 		return alloc::clone_slice(ctx.allocator, interfaces.array_view());
 	}
 
 	while (!ctx.eof() && !ctx.is(RPAREN))
 	{
-		Node* interface_type = parse_type_expr(scope, null)!;
+		Node* interface_type = parse_type_expr(scope, null);
 
 		if (interface_type) 
 		{
@@ -358,7 +357,7 @@ fn NodeArray parse_interface_type_list(ContextScope scope) => @pool()
 		else 
 		{
 			diagnostics::error(ctx.context, ctx.current.range, "Expected valid interface type");
-			ctx.skip_until({ COMMA, RPAREN });
+			skip_until(ctx, { COMMA, RPAREN });
 		}
 
 		if (consume(ctx, COMMA)) 
@@ -372,7 +371,7 @@ fn NodeArray parse_interface_type_list(ContextScope scope) => @pool()
 		else if (!ctx.is(RPAREN)) 
 		{
 			diagnostics::error(ctx.context, ctx.current.range, "Expected ',' or ')'");
-			ctx.skip_until({ RPAREN });
+			skip_until(ctx, { RPAREN });
 			break;
 		}
 	}

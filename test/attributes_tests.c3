@@ -2,7 +2,6 @@ module attributes_tests @test;
 
 import parser_tests;
 
-import analyzer::workspace;
 import analyzer::parser;
 import analyzer::core;
 import analyzer::sema;

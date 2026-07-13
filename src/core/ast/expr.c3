@@ -282,7 +282,7 @@ struct DesignatorExpr
 	DesignatorKind designator_kind;
 	Node* path;
 
-	union
+	union data
 	{
 		Node* field;
 		Node* range;

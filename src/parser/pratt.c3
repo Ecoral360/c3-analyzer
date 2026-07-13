@@ -254,8 +254,8 @@ fn Node* parse_prefix_expr(ContextScope scope)
 			return parse_group_expr(scope);
 		default:
 			diagnostics::error(ctx.context, ctx.current.range, "Expected expression");
-			return ctx.ast.error(ctx.current.range);
 			advance(ctx); 
+			return ctx.ast.error(ctx.current.range);
 	}
 }
 
@@ -336,13 +336,12 @@ fn Node* parse_infix(ContextScope scope, Node* left, Precedence rbp)
 			}
 			return parse_generic_expr(scope);
 		case LBRACKET:
-			int start_pos = t.pos;
 			advance(ctx); // Consume the '[' token
-			return parse_range_expr(scope, left, start_pos);
+			return parse_range_expr(scope, left, ctx.peek(-1).range);
 		default:
 			diagnostics::error(ctx.context, ctx.current.range, "Expected expression");
-			return ctx.ast.error(ctx.current.range);
 			advance(ctx); 
+			return ctx.ast.error(ctx.current.range);
 	}
 }
 
@@ -354,10 +353,10 @@ fn Node* parse_decl_or_expr(ContextScope scope)
 	ParseContext* ctx = scope.ctx;
 	if (ctx.is(VAR))
 	{
-		return parse_var_decl(scope.with_flags({ .is_expr = true, .is_local = true, .skip_eos = true, .is_var = true }), null)!;
+		return parse_var_decl(scope.with_flags({ .is_expr = true, .is_local = true, .skip_eos = true, .is_var = true }), null);
 	}
 
-	Node* expr = parse_expr(scope)!;
+	Node* expr = parse_expr(scope);
 
 	diagnostics::log_debug("parse_decl_or_expr - (%s)", expr.kind.description);
 
@@ -378,7 +377,7 @@ fn Node* parse_decl_or_expr(ContextScope scope)
 			break;
 	}
 
-	return parse_var_decl(scope.with_flags({ .is_expr = true, .is_local = true, .skip_eos = true }), expr)!;
+	return parse_var_decl(scope.with_flags({ .is_expr = true, .is_local = true, .skip_eos = true }), expr);
 }
 
 <*
@@ -394,7 +393,7 @@ fn Node* parse_expr_resuming_with_left(ContextScope scope, Node* left, Precedenc
 		get_binding_power(ctx.current.kind, &lbp, &rbp);
 		if (lbp < min_bp) break;
 
-		left = parse_infix(scope, left, (Precedence)rbp)!;
+		left = parse_infix(scope, left, (Precedence)rbp);
 	}
 	return left;
 }
@@ -406,13 +405,13 @@ fn Node* parse_expr_resuming_with_left(ContextScope scope, Node* left, Precedenc
 fn Node* parse_prefix_expr_only(ContextScope scope)
 {
 	// Pass HIGHEST so the Pratt loop breaks immediately on any trailing infix token
-	return parse_expr(scope, Precedence.HIGHEST)!;
+	return parse_expr(scope, Precedence.HIGHEST);
 }
 
 fn Node* parse_constant_expr(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
-	return parse_expr(scope, ASSIGNMENT + 1)!;
+	return parse_expr(scope, ASSIGNMENT + 1);
 }
 
 <*
@@ -421,5 +420,5 @@ fn Node* parse_constant_expr(ContextScope scope)
 fn Node* parse_try_chain_expr(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
-	return parse_expr(scope, AND + 1)!;
+	return parse_expr(scope, AND + 1);
 }

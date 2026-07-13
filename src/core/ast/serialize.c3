@@ -27,13 +27,13 @@ macro void serialize(JsonOutput* output, item, int indent, int depth) @local
 	$switch:
 		$case $defined(Nullable{Node} x = item):
 		$case $Typeof(item) == Node*:
-			node_serialize((Node*) item, output, map, indent, depth);
+			node_serialize((Node*) item, output,  indent, depth);
 
 		$case $Typeof(item)::kind == BITSTRUCT:
 			output.start_obj(indent);
 			$foreach $m : $Typeof(item)::members:
 				$if $Typeof(item.$m) == bool:
-					if (item.$m) output.ser_entry($m.name, item.$m, map,  indent, depth + 1);
+					if (item.$m) output.ser_entry($m.name, item.$m,   indent, depth + 1);
 				$else
 					output.ser_entry($m.name, item.$m, indent, depth + 1);
 				$endif
@@ -46,11 +46,11 @@ macro void serialize(JsonOutput* output, item, int indent, int depth) @local
 			$endif
 			output.start_obj(indent);
 
-			output.ser_entry("kind", item.kind, map,  indent, depth + 1);
-			output.ser_entry("optional", item.optional, map, indent, depth + 1);
+			output.ser_entry("kind", item.kind,   indent, depth + 1);
+			output.ser_entry("optional", item.optional,  indent, depth + 1);
 			var $sw = "switch (item.kind.ordinal) {";
 			$foreach $i, $m : TypeExpr::members[^1].members:
-				$sw +++= @sprintf(`case %s: output.ser_entry("%s", item.$eval("%s"), map,  indent, depth + 1);`, $i, $m.name, $m.name);
+				$sw +++= @sprintf(`case %s: output.ser_entry("%s", item.$eval("%s"),   indent, depth + 1);`, $i, $m.name, $m.name);
 			$endforeach
 			$sw +++= "default: }";
 			$expand($sw);
@@ -60,39 +60,35 @@ macro void serialize(JsonOutput* output, item, int indent, int depth) @local
 		$case $Typeof(item)::kind == STRUCT:
 			output.start_obj(indent);
 			$foreach $m : $Typeof(item)::members:
-				output.ser_entry($m.name, item.$m, map,  indent, depth + 1);
+				output.ser_entry($m.name, item.$m, indent, depth + 1);
 			$endforeach
 			output.end_obj(indent, depth);
 
-		$case $Typeof(item) == StringID:
-			output.appendf(`"%s" /* id: %d */`, spool.get(item)!!, item);
-			// output.appendf(`{ "stringid": %s, "value": "%s" }`, item, spool.get(item)!!);
-		
 		$case $Typeof(item) == Location:
-			output.appendf("{ line = %s, columnd = %s }", item.line, item.column);
+			output.appendf("{ line = %s, column = %s }", item.line, item.column);
 
 		$case $defined(item[0]) &&& $defined(lengthof(item)):
 			sz l_len = lengthof(item);
-      if (l_len == 0)
+      	if (l_len == 0)
 			{
 				output.append("[]");
 				return;
 			}
-      output.append("[");
-      push_newline(output, indent);
+		output.append("[");
+		push_newline(output, indent);
 
-      foreach (i, el : item) {
+      	foreach (i, el : item) {
 				push_indent(output, indent, depth + 1);
 				$if $Typeof(el) == Node*:
-					node_serialize(el, output, map,  indent, depth);
+					node_serialize(el, output,   indent, depth);
 				$else
-					serialize(output, el, map,  indent, depth + 1);
+					serialize(output, el,   indent, depth + 1);
 				$endif
         if (i < l_len - 1) output.append_char(',');
         push_newline(output, indent, or: " ");
-      }
-			push_indent(output, indent, depth);
-      output.append("]");
+      	}
+		push_indent(output, indent, depth);
+      	output.append("]");
 
 		$case $defined(item.get()) &&& $defined(item.get()!) &&& $defined(Maybe{$Typeof(item.get()!!)} x = item):
 			if (try v = item.get())
@@ -114,7 +110,7 @@ macro void JsonOutput.ser_entry(&self, String key, item, int indent, int depth)
 {
 	push_indent(self, indent, depth);
 	self.appendf("\"%s\": ", key.treplace("\"", "\\\""));
-	serialize(self, item, map,  indent, depth);
+	serialize(self, item,   indent, depth);
 	self.append(",");
 	push_newline(self, indent, or: " ");
 }
@@ -149,15 +145,15 @@ fn void node_serialize(Node* self, JsonOutput* output, int indent, int depth) @l
 	}
 
 	output.start_obj(indent);
-	output.ser_entry("kind", self.kind, map,  indent, depth + 1);
-	output.ser_entry("visibility", self.visibility, map,  indent, depth + 1);
-	output.ser_entry("flags", self.flags, map,  indent, depth + 1);
-	output.ser_entry("start", map.resolve(self.offset.start), map,  indent, depth + 1);
-	output.ser_entry("end", map.resolve(self.offset.end), map,  indent, depth + 1);
+	output.ser_entry("kind", self.kind, indent, depth + 1);
+	output.ser_entry("visibility", self.visibility, indent, depth + 1);
+	output.ser_entry("flags", self.flags, indent, depth + 1);
+	output.ser_entry("range.start", self.range.start, indent, depth + 1);
+	output.ser_entry("range.end", self.range.end, indent, depth + 1);
 
 	var $sw = "switch (self.kind) {";
 	//$foreach $m : Node::members[^1].members:
-	//	$sw +++= @sprintf(`case %s: output.ser_entry("%s", self.$eval("%s"), map, indent, depth + 1);`, @str_upper($m.name), $m.name, $m.name);
+	//	$sw +++= @sprintf(`case %s: output.ser_entry("%s", self.$eval("%s"),  indent, depth + 1);`, @str_upper($m.name), $m.name, $m.name);
 	//$endforeach
 	$sw +++= "default: }";
 	$expand($sw);
@@ -173,6 +169,6 @@ fn String Node.serialize(&self, Allocator allocator = tmem, int indent = -1)
 	JsonOutput output;
 	output = output.init(allocator);
 
-	node_serialize(self, &output, map, indent, 0);
+	node_serialize(self, &output,  indent, 0);
 	return output.str_view();
 }

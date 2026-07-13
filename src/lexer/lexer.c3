@@ -1,9 +1,8 @@
 module analyzer::lexer;
 
-module analyzer::core::lexer;
+import analyzer::core;
 
 import std::io;
-import analyzer::lexer;
 
 import std::collections::list;
 
@@ -11,13 +10,13 @@ import std::collections::list;
  @param [&in] ctx : "main context"
  @require ctx.current_source_file != null
 *>
-fn Lexer* create(AnalyzerContext* ctx)
+fn Lexer* create(AnalyzerContext* ctx, String buffer)
 {
 	Lexer* lexer = alloc::new(ctx.allocator, Lexer);
 
 	lexer.ctx = ctx;
 	lexer.tokens.init(ctx.allocator);
-	lexer.buffer = ctx.current_source_file.content;
+	lexer.buffer = buffer;
 
 	return lexer;
 }
@@ -43,6 +42,7 @@ struct Lexer
 	Location location;
 	char current;
 	int index;
+	bool contract_mode;
 }
 
 fn bool Token.is_eof(&self) @inline => self.kind == EOF;
@@ -51,6 +51,7 @@ fn bool is_digit(char c) @inline => c.is_digit();
 fn bool is_alpha(char c) @inline => c.is_alpha();
 fn bool is_ident(char c) @inline => is_alpha(c) || is_digit(c) || c == '_';
 fn bool is_hex(char c) @inline => ascii::is_xdigit(c);
+fn bool Lexer.eof(&self) => self.current == 0;
 
 fn bool is_all_upper(String text)
 {
@@ -85,9 +86,8 @@ fn void skip_whitespace(Lexer* self)
 	}
 }
 
-fn Token lex_line_comment(Lexer* self, int start_pos)
+fn Token lex_line_comment(Lexer* self)
 {
-	Location start = self.location;
 	int start_index = self.index;
 	advance(self, 2);
 	while (self.current != 0)
@@ -96,32 +96,24 @@ fn Token lex_line_comment(Lexer* self, int start_pos)
 		advance(self);
 	}
 
-	return {
-		.kind = LINE_COMMENT,
-		.value = self.get_string(stat, self.index - start_index),
-		.range = {
-			.start = start,
-			.end = self.location
-		}
-	};
+	return self.emit_range(LINE_COMMENT, start_index);
 }
 
-fn Token lex_block_comment(Lexer* self, int start_pos)
+fn Token lex_block_comment(Lexer* self)
 {
-	Location start = self.location;
 	int start_index = self.index;
-	self.advance(2); // Skip the initial '/*'
+	advance(self, 2); // Skip the initial '/*'
 	int depth = 1;
-	while (!self.current != 0 && depth != 0)
+	while (self.current != 0 && depth != 0)
 	{
 		if (self.current == '/' && self.peek(1) == '*')
 		{
-			self.advance(2);
+			advance(self, 2);
 			depth++;
 		}
 		else if (self.current == '*' && self.peek(1) == '/')
 		{
-			self.advance(2);
+			advance(self, 2);
 			depth--;
 		}
 		else
@@ -132,29 +124,14 @@ fn Token lex_block_comment(Lexer* self, int start_pos)
 
 	if (depth > 0)
 	{
-		return {
-			.kind = ERROR,
-			.value = self.get_string(stat, self.index - start_index),
-			.range = {
-				.start = start,
-				.end = self.location
-			}
-		};
+		return self.emit_range(ERROR, start_index);
 	}
 
-	return { 
-		.kind = BLOCK_COMMENT,
-		.value = self.get_string(stat, self.index - start_index),
-		.range = {
-			.start = start,
-			.end = self.location
-		}
-	};
+	return self.emit_range(BLOCK_COMMENT, start_index);
 }
 
-fn Token? lex_char(Lexer* self, int start)
+fn Token lex_char(Lexer* self)
 {
-	Location start = self.location;
 	int start_index = self.index;
 	advance(self);
 
@@ -165,14 +142,7 @@ fn Token? lex_char(Lexer* self, int start)
 		if (c == '\'')
 		{
 			advance(self);
-			return { 
-				.kind = CHAR_LITERAL,
-				.value = self.get_string(stat, self.index - start_index),
-				.range = {
-					.start = start,
-					.end = self.location
-				}
-			};
+			return self.emit_range(CHAR_LITERAL, start_index);
 		}
 
 		if (c == '\\')
@@ -180,11 +150,11 @@ fn Token? lex_char(Lexer* self, int start)
 			char next = self.peek();
 			if (next == 'x')
 			{
-			   	self.advance(4);
+			   	advance(self, 4);
 			} 
 			else 
 			{
-				self.advance(2);
+				advance(self, 2);
 			}
 			continue;
 		}
@@ -192,19 +162,11 @@ fn Token? lex_char(Lexer* self, int start)
 		advance(self);
 	}
 
-	return {
-		.kind = ERROR,
-		.value = self.get_string(stat, self.index - start_index),
-		.range = {
-			.start = start,
-			.end = self.location
-		}
-	};
+	return self.emit_range(ERROR, start_index);
 }
 
-fn Token? lex_string(Lexer* self)
+fn Token lex_string(Lexer* self)
 {
-	Location start = self.location;
 	int start_index = self.index;
 	advance(self);
 
@@ -215,14 +177,7 @@ fn Token? lex_string(Lexer* self)
 		if (c == '"')
 		{
 			advance(self);
-			return { 
-				.kind = STRING_LITERAL,
-				.value = self.get_string(stat, self.index - start_index),
-				.range = {
-					.start = start,
-					.end = self.location
-				}
-			};
+			return self.emit_range(STRING_LITERAL, start_index);
 		}
 
 		if (c == '\\')
@@ -234,14 +189,7 @@ fn Token? lex_string(Lexer* self)
 		advance(self);
 	}
 
-	return {
-		.kind = STRING_LITERAL,
-		.value = self.get_string(stat, self.index - start_index),
-		.range = {
-			.start = start,
-			.end = self.location
-		}
-	};
+	return self.emit_range(STRING_LITERAL, start_index);
 }
 
 fn Token lex_raw_string(Lexer* self)
@@ -275,14 +223,7 @@ fn Token lex_raw_string(Lexer* self)
 		advance(self);
 	}
 
-	return {
-		.kind = ERROR,
-		.value = self.get_string(start_index, self.index - start_index),
-		.range = {
-			.start = start,
-			.end = self.range
-		}
-	};
+	return self.emit_range(ERROR, start_index);
 }
 
 fn TokenKind lookup_keyword(String text)
@@ -385,31 +326,17 @@ fn Token lex_identifier(Lexer* self)
 		diagnostics::error(self.ctx, 
 		{ start, self.location }, 
 		"Length of identifier was less or eq to 0");
-		return {
-			.kind = kind,
-			.value = "<error>",
-			.range = {
-				.start = start,
-				.end = self.location
-			}
-		};
+		return self.emit_range(ERROR, start_index);
 	}
 
-	String text = self.buffer[start_pos:length];
+	String text = self.get_string(start_index, length);
 
-	TokenKind kind = self.categorize_identifier(text);
+	TokenKind kind = categorize_identifier(self, text);
 
-	return {
-		.kind = kind,
-		.value = self.get_string(stat, self.index - start_index),
-		.range = {
-			.start = start,
-			.end = self.location
-		}
-	};
+	return self.emit_range(kind, start_index);
 }
 
-fn Token? lex_number(Lexer* self, int start_pos)
+fn Token lex_number(Lexer* self)
 {
 	Location start = self.location;
 	int start_index = self.index;
@@ -419,7 +346,7 @@ fn Token? lex_number(Lexer* self, int start_pos)
 	if (self.current == '0' && (ascii::to_lower(self.peek()) == 'x'))
 	{
 		kind = INT_HEX_LITERAL;
-		self.advance(2)!;
+		advance(self, 2);
 		// Allow hex digits OR underscores
 		while (self.current != 0 && (ascii::is_xdigit(self.current) || self.current == '_'))
 		{
@@ -436,7 +363,7 @@ fn Token? lex_number(Lexer* self, int start_pos)
 			}
 		}
 
-		if (!self.eof() && (self.current == 'p' || self.current == 'P'))
+		if (self.current != 0 && (self.current == 'p' || self.current == 'P'))
 		{
 			char next = self.peek();
 			if (ascii::is_xdigit(next) || next == '-' || next == '+')
@@ -463,7 +390,7 @@ fn Token? lex_number(Lexer* self, int start_pos)
 	else if (self.current == '0' && (ascii::to_lower(self.peek()) == 'o'))
 	{
 		kind = INT_OCTAL_LITERAL;
-		advance(self, 2)!;
+		advance(self, 2);
 		while (self.current != 0 && (ascii::is_odigit(self.peek()) || self.peek() == '_'))
 		{
 			advance(self);
@@ -517,17 +444,10 @@ fn Token? lex_number(Lexer* self, int start_pos)
 		}
 	}
 
-	return {
-		.kind = kind,
-		.value = self.get_string(stat, self.index - start_index),
-		.range = {
-			.start = start,
-			.end = self.location
-		}
-	};
+	return self.emit_range(kind, start_index);
 }
 
-fn Token? lex_hex_array(Lexer* self, int start_pos)
+fn Token lex_hex_array(Lexer* self)
 {
 	Location start = self.location;
 	int start_index = self.index;
@@ -546,7 +466,7 @@ fn Token? lex_hex_array(Lexer* self, int start_pos)
 			break;
 		}
 
-		if (c.is_whitespace())
+		if (c.is_space())
 		{
 			advance(self);
 			continue;
@@ -559,7 +479,7 @@ fn Token? lex_hex_array(Lexer* self, int start_pos)
 			continue;
 		}
 
-		diagnostics::error("[Lexer]: Unexpected character '%c' in hex string %s", c, self.index);
+		diagnostics::error(self.ctx, { start ,self.location_at(self.index) }, "[Lexer]: Unexpected character '%c'", c);
 		return {
 			.kind = ERROR,
 			.value = self.get_string(start_index, self.index - start_index),
@@ -583,77 +503,96 @@ fn Token? lex_hex_array(Lexer* self, int start_pos)
 		};
 	}
 
-	return {
-		.kind = BYTES_LITERAL,
-		.value = self.get_string(start_index, self.index - start_index),
-		.range = {
-			.start = start,
-			.end = self.location
-		}
-	};
+	return self.emit_range(BYTES_LITERAL, start_index);
 }
 
-fn Token skip_contract(Lexer* self)
+fn void lex_contract(Lexer* self)
 {
 	Location start = self.location;
 	int start_index = self.index;
-	while (!self.eof())
+
+	while (self.current != 0)
 	{
-		char c = self.peek();
-		if (c == '*' && self.peek(1) == '>')
+		Token t = next(self);
+		self.tokens.push(t);
+		if (t.kind == DOCS_END) return;
+		if (t.kind == RETURN)
 		{
-			self.advance(2);
-			return {
-				.kind = BYTES_LITERAL,
-				.value = self.get_string(start_index, self.index - start_index),
-				.range = {
-					.start = start,
-					.end = self.location
-				}
-			};
+			t.kind = IDENT;
 		}
 		advance(self);
 	}
 
 	diagnostics::error(self.ctx, { start, self.location }, "Contract not closed");
-	return {
-		.kind = BYTES_LITERAL,
-		.value = self.get_string(start_index, self.index - start_index),
-		.range = {
-			.start = start,
-			.end = self.location
-		}
-	};
+	self.tokens.push(self.emit_range(ERROR, start_index));
 }
 
 fn void advance(Lexer* self, int len = 1)
 {
-	self.index += len;
-	if (self.index < self.buffer.len) 
+	for (int i = 0; i < len; i++)
 	{
-		self.current = self.buffer[self.index];
-	} 
-	else 
-	{
-		self.current = 0;
+		if (self.index < self.buffer.len)
+		{
+			char c = self.buffer[self.index];
+			if (c == '\n') 
+			{
+				self.location.line++;
+				self.location.column = 0;
+			} 
+			else 
+			{
+				self.location.column++;
+			}
+			self.index++;
+		}
 	}
+	self.current = (self.index < self.buffer.len) ? self.buffer[self.index] : 0;
 }
 
 fn Token Lexer.emit(&self, TokenKind kind, String value)
 {
-	Range start = self.range;
-	Range end = {
-		.lind = start.line,
-		.column = start.column + value.len
-	};
+	Location start = self.location;
+
+	advance(self, value.len);
 
 	return {
 		.kind = kind,
 		.range = {
 			.start = start,
-			.end = end
+			.end = self.location
 		},
 		.value = value
+	};
+}
+
+fn Location Lexer.location_at(Lexer* self, int target_index)
+{
+	int line;
+	int column;
+
+	// Scan the buffer from the beginning up to the target index
+	for (int i = 0; i < target_index; i++)
+	{
+		if (self.buffer[i] == '\n')
+		{
+			line++;
+			column = 1; // Reset column on new line
+		}
+		else
+		{
+			column++;
+		}
+	}
+
+	return { .line = line, .column = column };
+}
+
+fn Token Lexer.emit_range(Lexer* self, TokenKind kind, int start_index)
+{
+	return {
+		.kind = kind,
+		.value = self.get_string(start_index, self.index - start_index),
+		.range = { .start = self.location_at(start_index), .end = self.location }
 	};
 }
 
@@ -664,6 +603,12 @@ fn void tokenize(Lexer* lexer)
 		Token t = next(lexer);
 		lexer.tokens.push(t);
 		if (t.kind == EOF) break;
+		if (t.kind == DOCS_START)
+		{
+			lexer.contract_mode = true;
+			lex_contract(lexer);
+			lexer.contract_mode = false;
+		}
 	}
 }
 
@@ -704,9 +649,9 @@ fn Token next(Lexer* lexer)
 		case ':':
 			if (lexer.peek() == ':')
 			{
-				return lexer.emit(SCOPE, start, 2);
+				return lexer.emit(SCOPE, "::");
 			}
-			return lexer.emit(COLON, start, 1);
+			return lexer.emit(COLON, ":");
 		case '[':
 			if (lexer.peek() == '<')
 			{
@@ -723,7 +668,7 @@ fn Token next(Lexer* lexer)
 					{
 						return lexer.emit(RSHIFT_ASSIGN, ">>=");
 					}
-					return lexer.emit(RSHIFT, start, 2);
+					return lexer.emit(RSHIFT, ">>");
 				case '=': return lexer.emit(GREATER_EQ, ">=");
 				case ']': return lexer.emit(RVEC, "]");
 			}
@@ -738,7 +683,10 @@ fn Token next(Lexer* lexer)
 					}
 					return lexer.emit(LSHIFT, "<<");
 				case '=': return lexer.emit(LESS_EQ, "<=");
-				case '*': return skip_contract(lexer);
+				case '*':
+					{
+						return lexer.emit(DOCS_START, "<*");
+					}
 			}
 			return lexer.emit(LESS, "<");
 		case '&':
@@ -760,6 +708,7 @@ fn Token next(Lexer* lexer)
 			switch (lexer.peek())
 			{
 				case '=': return lexer.emit(MULT_ASSIGN, "*=");
+				case '>': return lexer.emit(DOCS_END, "*>");
 			}
 			return lexer.emit(ASTERISK, "*");
 		case '?':
@@ -784,7 +733,7 @@ fn Token next(Lexer* lexer)
 
 				return lexer.emit(DOTDOT, "..");
 			}
-			return lexer.emit(DOT, start, 1);
+			return lexer.emit(DOT, ".");
 		case '%':
 			if (lexer.peek() == '=')
 			{
@@ -858,7 +807,7 @@ fn Token next(Lexer* lexer)
 				Location start = lexer.location;
 				int start_index = lexer.index;
 				char quote_char = lexer.peek(3);
-				advance(lexer, 4)!;
+				advance(lexer, 4);
 				while (lexer.current != 0)
 				{
 					if (lexer.current == quote_char)
@@ -875,21 +824,21 @@ fn Token next(Lexer* lexer)
 					}
 					advance(lexer);
 				}
-				return emit(ERROR, "");
+				return lexer.emit(ERROR, "");
 			}
 			nextcase;
 		case 'x':
 			if (lexer.peek(1) == '"' || lexer.peek(1) == '\'' || lexer.peek(1) == '`')
 			{
-				return lex_hex_array(lexer)!;
+				return lex_hex_array(lexer);
 			}
 			nextcase;
 		case '@':
 		case '#':
 			return lex_identifier(lexer);
 		default:
-			if (is_digit(c)) return lex_number(lexer);
-			if (is_ident(c)) return lex_identifier(lexer);
+			if (is_digit(lexer.current)) return lex_number(lexer);
+			if (is_ident(lexer.current)) return lex_identifier(lexer);
 			break;
 	}
 
@@ -1011,66 +960,58 @@ fn TokenKind categorize_identifier(Lexer* self, String text)
 	return IDENT;
 }
 
-struct ContractLexer
+struct KindString @private
 {
-	Lexer lexer;
-	String description;
-	int desc_len;
+	TokenKind kind;
+	String value;
 }
-
-<*
- @require contract.len >= 4 : "Contract must contain at least 4 chars"
-*>
-fn void ContractLexer.init(&self, String contract)
-{
-	// Strip the decorators <* and *>
-	String inner = contract[2:^4];
-	plog::debug("ContractLexer - string = %s", inner);
-
-	sz i              = 0;
-	bool line_start    = true;
-	sz first_at_index = inner.len;
-
-	// Scan for the first '@' that starts a line
-	while (i < inner.len)
-	{
-		char c = inner[i];
-
-		if (c == '@' && line_start)
-		{
-			first_at_index = i;
-			break;
-		}
-
-		if (c == '\n')
-		{
-			line_start = true;
-		}
-		else if (!char.is_blank(c))
-		{
-			line_start = false;
-		}
-
-		i++;
-	}
-
-	self.description = inner[0:first_at_index].trim();
-	self.desc_len = (int)first_at_index;
-
-	self.lexer = { .buffer = inner[first_at_index..], .index = 0 };
-	plog::debug("ContractLexer - buffer = %s", self.lexer.buffer);
-}
-
-fn Token? ContractLexer.next(&self) => self.lexer.next();
 
 fn void test_lexer() @test
-{
-	String src  = "module foo; \nfn void bar() {}";
-	Lexer lexer = (Lexer) { .buffer = src, .index = 0, };
+{	
+	KindString[*] expected = {
+		{ MODULE, "module" },
+		{ IDENT, "foo" },
+		{ EOS, ";" },
+		{ DOCS_START, "<*" },
+		{ IDENT, "hello there" },
+		{ AT_IDENT, "@require" },
+		{ IDENT, "x" },
+		{ GREATER, ">" },
+		{ IDENT, "y" },
+		{ COLON, ":" },
+		{ STRING_LITERAL, "\"foo\"" },
+		{ AT_IDENT, "@return" },
+		{ IDENT, "foo" },
+		{ FN, "fn" },
+		{ VOID, "void" },
+		{ IDENT, "bar" },
+		{ LPAREN, "(" },
+		{ RPAREN, ")" },
+		{ LBRACE, "{" },
+		{ RBRACE, "}" }
+	};
 
-	while (!lexer.eof())
+	String src  = `
+		module foo;
+
+		<*
+		  hello there
+		  @require x > y : "foo"
+		  @return "foo"
+		*>
+		fn void bar() 
+		{
+
+		}
+	`;
+	Lexer* lexer = create(core::context_create(tmem));
+	lexer.buffer = src;
+
+	tokenize(lexer);
+
+	foreach (i, v : lexer.tokens)
 	{
-		Token token = lexer.next()!;
-		io::printfn("token: %s", lexer.buffer[token.pos:token.len]);
+		test::eq(expected[i].kind, v.kind);
+		test::eq(expected[i].value, v.value);
 	}
 }

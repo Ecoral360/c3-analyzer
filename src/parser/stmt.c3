@@ -1,6 +1,7 @@
 module analyzer::parser;
 
 import analyzer::core;
+import analyzer::lexer;
 import std::collections::list;
 
 fn Node* parse_stmt(ContextScope scope)
@@ -8,11 +9,11 @@ fn Node* parse_stmt(ContextScope scope)
 	ParseContext* ctx = scope.ctx;
 	Token t = ctx.current;
 
-	diagnostics::log_debug("parse_stmt: current = %s (%s)", ctx.token_text(t), t.kind.description);
+	diagnostics::log_debug("parse_stmt: current = %s (%s)", t.value, t.kind.description);
 
 	if (is_type(ctx))
 	{
-		return parse_decl_stmt(scope)!;
+		return parse_decl_stmt(scope);
 	}
 
 	switch (t.kind)
@@ -58,13 +59,13 @@ fn Node* parse_stmt(ContextScope scope)
 		case VAR:
 			return parse_var_decl(scope.with_flags({ .is_var = true, .is_local = true }), null);
 		case CONST:
-			advance(ctx)!;
+			advance(ctx);
 			return parse_var_decl(scope.with_flags({ .is_const = true, .is_local = true }), null);
 		case STATIC:
-			advance(ctx)!;
+			advance(ctx);
 			return parse_var_decl(scope.with_flags({ .is_static = true, .is_local = true }), null);
 		case TLOCAL:
-			advance(ctx)!;
+			advance(ctx);
 			return parse_var_decl(scope.with_flags({ .is_tlocal = true, .is_local = true }), null);
 		case ASSERT:
 			return parse_assert_stmt(scope);
@@ -121,7 +122,7 @@ fn Node* parse_stmt(ContextScope scope)
 			return parse_decl_or_expr_stmt(scope);
 		case EOS:
 			advance(ctx);
-			return (Node*)ctx.ast.alloc_node(NopStmt, t.pos);
+			return (Node*)ctx.ast.alloc_node(NopStmt, t.range);
 		default:
 			break;
 	}
@@ -151,13 +152,13 @@ fn Node* parse_decl_or_expr_stmt(ContextScope scope)
 	node.expr_stmt = expr;
 	node.range.end = ctx.current.range.end;
 
-	expect(ctx, EOS);
+	expect(ctx, node, EOS);
 
 	if (!consume(ctx, EOS))
 	{
 		diagnostics::error(ctx.context, ctx.current.range, "Expected ';' to terminate expr_stmt");
 		node.flags.has_error = true;
-		ctx.skip_until({ EOS, RBRACE });
+		skip_until(ctx, { EOS, RBRACE });
 		consume(ctx, EOS);
 	}
 
@@ -185,8 +186,8 @@ fn Node* parse_decl_stmt(ContextScope scope)
 	if (!consume(ctx, EOS))
 	{
 		diagnostics::error(ctx.context, ctx.current.range, "Expected ';' to terminate decl_stmt");
-		node.flags.has_error = true;
-		ctx.skip_until({ EOS, RBRACE });
+		expr.flags.has_error = true;
+		skip_until(ctx, { EOS, RBRACE });
 		consume(ctx, EOS);
 	}
 
@@ -221,7 +222,7 @@ fn Node* parse_compound_stmt(ContextScope scope) => @pool()
 		else
 		{
 			if (stmt.flags.has_error) node.flags.has_error = true;
-			stmts.push(stmt);
+			temp_stmts.push(stmt);
 		}
 	}
 
@@ -239,7 +240,7 @@ fn Node* parse_compound_stmt(ContextScope scope) => @pool()
 <*
  switch_body ::= '{' (case_stmt | nextcase_stmt | default_stmt)* '}'
 *>
-fn bool? parse_switch_body(ContextScope scope, List{Node*}* cases)
+fn bool parse_switch_body(ContextScope scope, List{Node*}* cases)
 {
 	ParseContext* ctx = scope.ctx;
 
@@ -311,15 +312,15 @@ fn Node* parse_case_stmts(ContextScope scope, int row) => @pool()
 
 	while (!ctx.eof() && !token_type_ends_case(ctx.current.kind))
 	{
-		Range start_range = ctx.current.range;
-		Node* child_stmt = parse_stmt(scope.with_only_flags({}))!;
+		int start_index = ctx.pos;
+		Node* child_stmt = parse_stmt(scope.with_only_flags({}));
 
 		// Progress check: Ensure the parser actually consumed tokens
-		if (ctx.current.pos == start_pos)
+		if (ctx.pos == start_index)
 		{
 			diagnostics::error(ctx.context, ctx.current.range, "Unexpected token in case body; skipping to next case boundary");
 			compound_node.flags.has_error = true;
-			ctx.skip_until_any_of({ CASE, DEFAULT, NEXTCASE, RBRACE });
+			skip_until(ctx, { CASE, DEFAULT, NEXTCASE, RBRACE });
 			break; 
 		}
 
@@ -331,7 +332,7 @@ fn Node* parse_case_stmts(ContextScope scope, int row) => @pool()
 	}
 
 	compound_node.statements = alloc::clone_slice(ctx.allocator, stmts.array_view());
-	compound_node.offset.end = ctx.current.pos;
+	compound_node.range.end = ctx.current.range.end;
 
 	return (Node*)compound_node;
 }
@@ -368,7 +369,7 @@ fn Node* parse_case_stmt(ContextScope scope) => @pool()
 		node.flags.has_error = true;
 	}
 
-	node.body = parse_case_stmts(scope, case_row);
+	node.body = parse_case_stmts(scope, start.start.line);
 
 	if (node.body && node.body.flags.has_error) 
 	{
@@ -394,14 +395,14 @@ fn Node* parse_default_stmt(ContextScope scope)
 	}
 	advance(ctx);
 
+	DefaultStmt* node = ctx.ast.alloc_node(DefaultStmt, start);
+	defer node.range.end = ctx.peek(-1).range.end;
+
 	if (!consume(ctx, COLON))
 	{
 		diagnostics::error(ctx.context, ctx.current.range, "Expected ':' after default expression");
 		node.flags.has_error = true;
 	}
-
-	DefaultStmt* node = ctx.ast.alloc_node(DefaultStmt, start_pos);
-	defer node.range.end = ctx.peek(-1).range.end;
 
 	node.body = parse_case_stmts(scope, start.start.line);
 
@@ -423,10 +424,10 @@ fn Node* parse_nextcase_stmt(ContextScope scope)
 
 	Range start = ctx.current.range;
 
-	NextcaseStmt* node = ctx.ast.alloc_node(NextcaseStmt, range);
+	NextcaseStmt* node = ctx.ast.alloc_node(NextcaseStmt, start);
 	defer node.range.end = ctx.current.range.end;
 
-	if (consume(ctx, EOS)!)
+	if (consume(ctx, EOS))
 	{
 		return node;
 	}
@@ -504,7 +505,7 @@ fn Node* parse_switch_stmt(ContextScope scope) => @pool()
 		}
 	}
 
-	if (consume(ctx, LPAREN)!)
+	if (consume(ctx, LPAREN))
 	{
 		node.cond = parse_cond_expr(scope);
 		if (!consume(ctx, RPAREN)) 
@@ -603,7 +604,7 @@ fn Node* parse_ct_switch_stmt(ContextScope scope) => @pool()
 			node.flags.has_error = true;
 			
 			// Sync to the next recognizable part of the switch
-			ctx.skip_until({ CT_CASE, CT_DEFAULT, CT_ENDSWITCH });
+			skip_until(ctx, { CT_CASE, CT_DEFAULT, CT_ENDSWITCH });
 			continue;
 		}
 
@@ -646,7 +647,7 @@ fn Node* parse_if_stmt(ContextScope scope)
 
 	Range start = ctx.current.range;
 	advance(ctx);
-	IfStmt* node = ctx.ast.alloc_node(IfStmt, start_pos);
+	IfStmt* node = ctx.ast.alloc_node(IfStmt, start);
 	defer node.range.end = ctx.current.range.end;
 
 	if (ctx.is(CONST_IDENT))
@@ -727,23 +728,23 @@ fn Node* parse_ct_if_stmt(ContextScope scope) => @pool()
 	stmts.tinit();
 	while (!ctx.eof() && !ctx.is(CT_ELSE) && !ctx.is(CT_ENDIF))
 	{
-		int start_pos = ctx.current.pos;
+		int start_pos = ctx.pos;
 		Node* child_stmt = parse_stmt(scope);
 
 		// Progress check
-		if (ctx.current.pos == start_pos)
+		if (ctx.pos == start_pos)
 		{
 			diagnostics::error(ctx.context, ctx.current.range, "Unexpected token in $if body");
 			node.flags.has_error = true;
 			// Sync to the next branch or end
-			ctx.skip_until({ CT_ELSE, CT_ENDIF });
+			skip_until(ctx, { CT_ELSE, CT_ENDIF });
 			break;
 		}
 		
 		if (child_stmt)
 		{
 			if (child_stmt.flags.has_error) node.flags.has_error = true;
-			then_stmts.push(child_stmt);
+			stmts.push(child_stmt);
 		}
 	}
 
@@ -755,14 +756,14 @@ fn Node* parse_ct_if_stmt(ContextScope scope) => @pool()
 		
 		while (!ctx.eof() && !ctx.is(CT_ENDIF))
 		{
-			Range start_range = ctx.current.range;
+			int start_index = ctx.pos;
 			Node* child_stmt = parse_stmt(scope);
 
-			if (ctx.current.pos == start_range)
+			if (ctx.pos == start_index)
 			{
 				diagnostics::error(ctx.context, ctx.current.range, "Unexpected token in $else body");
 				node.flags.has_error = true;
-				ctx.skip_until({ CT_ENDIF });
+				skip_until(ctx, { CT_ENDIF });
 				break;
 			}
 			
@@ -854,7 +855,7 @@ fn Node* parse_for_stmt(ContextScope scope)
 		Location body_loc = node.body.range.start;
 		if (prev_loc.line != body_loc.line)
 		{
-			diagnostics::error(ctx.context, node.body.offset.start, 
+			diagnostics::error(ctx.context, node.body.range, 
 				"Single statement after 'for' must be on the same line or in {}");
 			node.flags.has_error = true;
 		}
@@ -875,7 +876,7 @@ fn Node* parse_ct_for_stmt(ContextScope scope) => @pool()
 	Range start = ctx.current.range;
 	advance(ctx);
 	
-	CtForStmt* node = ctx.ast.alloc_node(CtForStmt, start_pos);
+	CtForStmt* node = ctx.ast.alloc_node(CtForStmt, start);
 	defer node.range.end = ctx.current.range.end;
 
 	// init
@@ -917,15 +918,15 @@ fn Node* parse_ct_for_stmt(ContextScope scope) => @pool()
 	List{Node*} stmts; stmts.tinit();
 	while (!ctx.eof() && !ctx.is(CT_ENDFOR))
 	{
-		int start_pos = ctx.current.pos;
+		int start_pos = ctx.pos;
 		Node* stmt = parse_stmt(scope);
 
 		// Synchronization check: if we didn't advance, skip to next likely token
-		if (ctx.current.pos == start_pos) 
+		if (ctx.pos == start_pos) 
 		{
 			diagnostics::error(ctx.context, ctx.current.range, "Unexpected token in $for body");
 			node.flags.has_error = true;
-			ctx.skip_until({ CT_ENDFOR });
+			skip_until(ctx, { CT_ENDFOR });
 			break;
 		}
 
@@ -958,8 +959,8 @@ fn Node* parse_while_stmt(ContextScope scope)
 	Range start = ctx.current.range;
 	advance(ctx);
 
-	WhileStmt* node = ctx.ast.alloc_node(WhileStmt, start_pos);
-	defer node.range.end = ctx.current.range.end;
+	WhileStmt* node = ctx.ast.alloc_node(WhileStmt, start);
+	defer node.range.end = ctx.peek(-1).range.end;
 
 	if (ctx.is(CONST_IDENT))
 	{
@@ -993,7 +994,7 @@ fn Node* parse_while_stmt(ContextScope scope)
 	Location body_loc = node.body.range.start;
 	if (node.body.kind != COMPOUND_STMT && prev_loc.line != body_loc.line)
 	{
-		diagnostics::error(ctx.context, node.body.range.start, 
+		diagnostics::error(ctx.context, node.body.range, 
 				"Single statement after 'while' must be on the same line or in {}");
 		node.flags.has_error = true;
 	}
@@ -1018,7 +1019,7 @@ fn Node* parse_do_while_stmt(ContextScope scope)
 	if (ctx.is(CONST_IDENT))
 	{
 		node.label = ctx.ident(ctx.current);
-		advance(ctx)!;
+		advance(ctx);
 		if (!consume(ctx, COLON)) 
 		{
 			diagnostics::error(ctx.context, ctx.current.range, "Expected ':' after label");
@@ -1028,7 +1029,7 @@ fn Node* parse_do_while_stmt(ContextScope scope)
 
 	node.body = parse_compound_stmt(scope);
 
-	if (consume(ctx, WHILE)!)
+	if (consume(ctx, WHILE))
 	{
 		if (!consume(ctx, LPAREN)) 
 		{
@@ -1068,19 +1069,19 @@ fn Node* parse_foreach_var(ContextScope scope)
 		var_node.type = parse_type_expr(scope);
 	}
 
-	var_node.flags.is_ref = consume(ctx, AMP);
+	var_node.var_flags.is_ref = consume(ctx, AMP);
 
 	if (!ctx.is(IDENT))
 	{
 		if (var_node.type != null)
 		{
 			diagnostics::error(ctx.context, ctx.current.range, "Expected an identifier after the type.");
-			node.flags.has_error = true;
+			var_node.node.flags.has_error = true;
 		}
 		else
 		{
 			diagnostics::error(ctx.context, ctx.current.range, "Expected an identifier or type.");
-			node.flags.has_error = true;
+			var_node.node.flags.has_error = true;
 		}
 		skip_until(ctx, { COMMA, COLON, RPAREN });
 		return var_node;
@@ -1107,16 +1108,16 @@ fn Node* parse_foreach_stmt(ContextScope scope)
 	advance(ctx);
 
 	ForeachStmt* node = ctx.ast.alloc_node(ForeachStmt, start);
-	defer node.offset.end = ctx.peek(-1).range.end;
+	defer node.range.end = ctx.peek(-1).range.end;
 	node.is_reverse = is_reverse;
 
 	if (ctx.is(CONST_IDENT))
 	{
 		node.label = ctx.ident(ctx.current);
-		advance(ctx)!;
+		advance(ctx);
 		if (!consume(ctx, COLON))
 		{
-			diagnostics::error(ctx, ctx.current.range, "Expected ':' after label");
+			diagnostics::error(ctx.context, ctx.current.range, "Expected ':' after label");
 			error_node(ctx, node);
 		}
 	}
@@ -1133,16 +1134,16 @@ fn Node* parse_foreach_stmt(ContextScope scope)
 	if (consume(ctx, COMMA))
 	{
 		node.index = idx_or_variable;
-		node.index_by_ref = var_decl.flags.is_ref;
+		node.index_by_ref = var_decl.var_flags.is_ref;
 
 		node.variable = parse_foreach_var(scope);
 		var_decl = node.variable.as(VarDecl);
-		node.value_by_ref = var_decl.flags.is_ref;
+		node.value_by_ref = var_decl.var_flags.is_ref;
 	}
 	else
 	{
 		node.variable = idx_or_variable;
-		node.value_by_ref = var_decl.flags.is_ref;
+		node.value_by_ref = var_decl.var_flags.is_ref;
 	}
 
 	if (!consume(ctx, COLON))
@@ -1337,7 +1338,7 @@ fn Node* parse_assert_stmt(ContextScope scope)
 	advance(ctx);
 	AssertStmt* node = ctx.ast.alloc_node(AssertStmt, start);
 
-	expect(ctx, LPAREN);
+	expect(ctx, node, LPAREN);
 
 	if (!consume(ctx, LPAREN)) 
 	{
@@ -1398,7 +1399,7 @@ fn Node* parse_ct_foreach_stmt(ContextScope scope) => @pool()
 
 	Node* idx_or_variable = parse_ct_foreach_var(scope);
 
-	if (first_var && first_var.flags.has_error)
+	if (idx_or_variable && idx_or_variable.flags.has_error)
 	{ 
 		error_node(ctx, node);
 	}
@@ -1407,7 +1408,7 @@ fn Node* parse_ct_foreach_stmt(ContextScope scope) => @pool()
 	{
 		node.index = idx_or_variable;
 		node.value = parse_ct_foreach_var(scope);
-		if (node.value && node.value.has_error)
+		if (node.value && node.value.flags.has_error)
 		{ 
 			error_node(ctx, node);
 		}
@@ -1435,7 +1436,7 @@ fn Node* parse_ct_foreach_stmt(ContextScope scope) => @pool()
 	stmts.tinit();
 	while (!ctx.eof() && !ctx.is(CT_ENDFOREACH))
 	{
-		Ramge start = ctx.current.range;
+		Range start = ctx.current.range;
 		Node* stmt = parse_stmt(scope);
 
 		// Progress check
@@ -1443,7 +1444,7 @@ fn Node* parse_ct_foreach_stmt(ContextScope scope) => @pool()
 		{
 			diagnostics::error(ctx.context, ctx.current.range, "Unexpected token in $foreach body");
 			node.flags.has_error = true;
-			ctx.skip_until({ CT_ENDFOREACH });
+			skip_until(ctx, { CT_ENDFOREACH });
 			break;
 		}
 
@@ -1460,7 +1461,7 @@ fn Node* parse_ct_foreach_stmt(ContextScope scope) => @pool()
 		node.flags.has_error = true;
 	}
 
-	CompoundStmt* body = ctx.ast.alloc_node(CompoundStmt, start_pos);
+	CompoundStmt* body = ctx.ast.alloc_node(CompoundStmt, ctx.current.range);
 	body.statements = alloc::clone_slice(ctx.allocator, stmts.array_view());
 	node.body = (Node*)body;
 
@@ -1482,7 +1483,7 @@ fn Node* parse_ct_foreach_var(ContextScope scope)
 	else
 	{
 		diagnostics::error(ctx.context, ctx.current.range, "$foreach must have a 'IDENT' identifier");		
-		node.flags.has_error = true;
+		node.node.flags.has_error = true;
 	}
 
 	return (Node*)node;

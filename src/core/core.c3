@@ -1,15 +1,22 @@
 module analyzer::core;
 
+import analyzer::lexer;
+import analyzer::parser;
+
+import std::io;
+
 fn AnalyzerContext* context_create(Allocator alloc)
 {
 	AnalyzerContext* ctx = alloc::new(alloc, AnalyzerContext);
 
 	ctx.allocator = alloc;
 	ctx.files.init(alloc);
-	ctx.methods.init(alloc);
 	ctx.modules.init(alloc);
-	ctx.registry.init(alloc);
-	ctx.symbols.init(alloc);
+	$if $feature(SEMA):
+		ctx.methods.init(alloc);
+		ctx.registry.init(alloc);
+		ctx.symbols.init(alloc);
+	$endif
 
 	return ctx;
 }
@@ -20,10 +27,13 @@ fn AnalyzerContext* context_create(Allocator alloc)
 fn void context_free(AnalyzerContext* ctx)
 {
 	ctx.files.free();
-	ctx.methods.free();
 	ctx.modules.free();
-	ctx.registry.free();
-	ctx.symbols.free();
+
+	$if $feature(SEMA):
+		ctx.registry.free();
+		ctx.methods.free();
+		ctx.symbols.free();
+	$endif
 
 	alloc::free(ctx.allocator, ctx);
 }
@@ -52,23 +62,20 @@ fn Module* module_create(AnalyzerContext* ctx, String name)
 
 <*
  @param [&in] context : "The main context"
+ @param [&in] lexer : "Lexer to parse with and get source from"
+ @param [in] path : "The path the lexer points to"
  @param [in] alloc : "The allocator to use for the file's internal data (AST, etc.) Defaults to context.allocator"
  @return "SourceFile* using context.allocator or null if failed to read from specified path"
 *>
-fn SourceFile* source_file_create(AnalyzerContext* context, String path, Allocator alloc = null)
+fn SourceFile* source_file_create(AnalyzerContext* context, Lexer* lexer, String path, Allocator alloc = null)
 {
-	String? content = (String)file::load(context.allocator, path);
-	if (catch err = content)
-	{
-		diagnostics::log_error("Failed to read file: %s", path);
-		return null;
-	}
-
 	SourceFile* source_file = alloc::new(context.allocator, SourceFile);
+
+	source_file.content = lexer.buffer;
+	source_file.lexer = lexer;
 
 	context.files.set(path, source_file);
 	
-	source_file.content = content;
 	source_file.allocator = alloc ? alloc : context.allocator;
 	source_file.ast.allocator = source_file.allocator;
 	source_file.ast.nodes.init(source_file.allocator);
@@ -89,16 +96,12 @@ fn void source_file_free(AnalyzerContext* context, SourceFile* sf)
 
 <*
  @param [&in] context : "The main context"
- @param [&in] sf
 *>
-fn ParseContext* parse_context_create(AnalyzerContext* context, SourceFile* sf)
+fn ParseContext* parse_context_create(AnalyzerContext* context)
 {
 	ParseContext* ctx = alloc::new(context.allocator, ParseContext);
-
 	ctx.allocator = sf.allocator;
-	ctx.sf = sf;
-	ctx.ast = &sf.ast;
-
+	ctx.context = context;
 	return ctx;
 }
 
@@ -130,16 +133,23 @@ macro void free(AnalyzerContext* context, item)
 	$endif
 }
 
-fn AnalyzerContext* process_file(Allocator alloc, String path)
+fn bool process_file(AnalyzerContext* context, String path) => @pool()
 {
-	AnalyzerContext* main_ctx = context_create(alloc);
-	Lexer* lexer = lexer::create(main_ctx);
-	defer lexer::free(main_ctx, lexer);
-	SourceFile* source = source_file_create(main_ctx, path, alloc);
-	ParseContext* parse_ctx = parse_context_create(main_ctx, source);
+	String? buffer = (String)file::load(tmem, path);
+	if (catch err = buffer)
+	{
+		diagnostics::log_error("core::process_file - failed to load file (&s) %s", err, path);
+		return false;
+	}
 
-	parser::parse(main_ctx);
+	Lexer* lexer = lexer::create(context, buffer);
+	defer lexer::free(context, lexer);
 
-	parse_context_free(main_ctx, parse_ctx);
-	
+	SourceFile* source = source_file_create(context, lexer, path);
+	defer source_file_free(context, source);
+
+	ParseContext* parse_ctx = parse_context_create(context);
+	defer parse_context_free(context, parse_ctx);
+
+	return parser::parse(parse_ctx, source);
 }
