@@ -48,19 +48,34 @@ fn void diagnose(
  		io::eprintf("%s:%s:%s: %s%s%s:%s ", sf.path, range.start.line + 1, range.start.column + 1, color, Ansi.BOLD, level.description, Ansi.RESET);
 		io::eprintf(fmt, ...args);
 		io::eprintn("");
-
-		io::eprintf(" %4s | %s\n", range.start.line + 1, line_str);
-
-		sz padding = 4;
-		io::eprintf(" %4s | ", "");
-		for (sz i = math::max(0, range.start.line - 3); i < range.start.line; i++)
+		sz start_ctx = math::max(0, range.start.line - 3);
+		for (sz i = start_ctx; i <= range.start.line; i++)
 		{
 			if (i < lines.len) 
 			{
-				io::eprintf("%d: %s\n", i + 1, lines[i]);
+				io::eprintf(" %4d | %s\n", i + 1, lines[i]);
+				
+				// If this is the line with the error, print the carets
+				if (i == range.start.line)
+				{
+					// Gutter is " %4d | " -> 1 + 4 + 3 = 8 chars
+					sz gutter_width = 8;
+					
+					for (sz j = 0; j < gutter_width + range.start.column; j++) 
+					{
+						io::eprint(" ");
+					}
+
+					io::eprint(Ansi.RED);
+					sz caret_len = (range.end.line == range.start.line) ? (sz)(range.end.column - range.start.column) : 1;
+					for (sz j = 0; j < caret_len; j++) 
+					{
+						io::eprint("^");
+					}
+					io::eprintn(Ansi.RESET);
+				}
 			}
 		}
-		io::eprintf("%s^%s\n", Ansi.RED, Ansi.RESET);
 	$endif
 }
 
