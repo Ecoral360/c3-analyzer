@@ -243,7 +243,7 @@ fn void advance(ParseContext* ctx, int len = 1)
 {
 	if (ctx.eof())
 	{
-		diagnostics::log_debug("analyzer::advance() : eof");
+		diagnostics::log_debug("parser::advance() : eof");
 	}
 
 	ctx.pos += len;

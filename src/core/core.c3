@@ -100,7 +100,7 @@ fn void source_file_free(AnalyzerContext* context, SourceFile* sf)
 fn ParseContext* parse_context_create(AnalyzerContext* context)
 {
 	ParseContext* ctx = alloc::new(context.allocator, ParseContext);
-	ctx.allocator = sf.allocator;
+	ctx.allocator = context.allocator;
 	ctx.context = context;
 	return ctx;
 }
@@ -144,6 +144,7 @@ fn bool process_file(AnalyzerContext* context, String path) => @pool()
 
 	Lexer* lexer = lexer::create(context, buffer);
 	defer lexer::free(context, lexer);
+	lexer::tokenize(lexer);
 
 	SourceFile* source = source_file_create(context, lexer, path);
 	defer source_file_free(context, source);
