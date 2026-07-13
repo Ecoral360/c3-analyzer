@@ -196,6 +196,9 @@ enum TokenKind : char
 	// '*>'
 	DOCS_END,
 
+	<* Any identifer before a @ *>
+	DOCS_TEXT,
+
 	<* // *>
 	LINE_COMMENT,
 

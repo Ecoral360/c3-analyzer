@@ -8,7 +8,6 @@ import std::collections::list;
 
 <*
  @param [&in] ctx : "main context"
- @require ctx.current_source_file != null
 *>
 fn Lexer* create(AnalyzerContext* ctx, String buffer)
 {
@@ -310,12 +309,8 @@ fn Token lex_identifier(Lexer* self)
 	int start_index = self.index;
 	char first = self.current;
 
-	if (first == '@' || first == '$' || first == '#')
-	{
-		advance(self);
-	}
-
-	while (self.current != 0 && is_ident(self.peek()))
+	advance(self);
+	while (self.current != 0 && is_ident(self.current))
 	{
 		advance(self);
 	}
@@ -508,23 +503,35 @@ fn Token lex_hex_array(Lexer* self)
 
 fn void lex_contract(Lexer* self)
 {
-	Location start = self.location;
+	while (self.current == ' ' || self.current == '\t' || self.current == '\n' || self.current == '\r')
+    {
+        advance(self);
+    }
+
 	int start_index = self.index;
 
-	while (self.current != 0)
-	{
-		Token t = next(self);
-		self.tokens.push(t);
-		if (t.kind == DOCS_END) return;
-		if (t.kind == RETURN)
-		{
-			t.kind = IDENT;
-		}
-		advance(self);
-	}
+	while (self.current != 0 && self.current != '@' && 
+           !(self.current == '*' && self.peek() == '>'))
+    {
+        advance(self);
+    }
 
-	diagnostics::error(self.ctx, { start, self.location }, "Contract not closed");
-	self.tokens.push(self.emit_range(ERROR, start_index));
+    // Emit the DOCS_TEXT if we found anything
+    if (self.index > start_index)
+    {
+        self.tokens.push(self.emit_range(DOCS_TEXT, start_index));
+    }
+
+    while (self.current != 0)
+    {
+        if (self.current == '*' && self.peek() == '>')
+        {
+            self.tokens.push(self.emit(DOCS_END, "*>"));
+            return;
+        }
+
+        self.tokens.push(next(self));
+    }
 }
 
 fn void advance(Lexer* self, int len = 1)
@@ -598,6 +605,7 @@ fn Token Lexer.emit_range(Lexer* self, TokenKind kind, int start_index)
 
 fn void tokenize(Lexer* lexer)
 {
+	advance(lexer);
 	while (lexer.current != 0)
 	{	
 		Token t = next(lexer);
@@ -973,7 +981,6 @@ fn void test_lexer() @test
 		{ IDENT, "foo" },
 		{ EOS, ";" },
 		{ DOCS_START, "<*" },
-		{ IDENT, "hello there" },
 		{ AT_IDENT, "@require" },
 		{ IDENT, "x" },
 		{ GREATER, ">" },
@@ -981,21 +988,22 @@ fn void test_lexer() @test
 		{ COLON, ":" },
 		{ STRING_LITERAL, "\"foo\"" },
 		{ AT_IDENT, "@return" },
-		{ IDENT, "foo" },
+		{ STRING_LITERAL, "\"foo\"" },
+		{ DOCS_END, "*>" },
 		{ FN, "fn" },
-		{ VOID, "void" },
+		{ VOID_TYPE, "void" },
 		{ IDENT, "bar" },
 		{ LPAREN, "(" },
 		{ RPAREN, ")" },
 		{ LBRACE, "{" },
-		{ RBRACE, "}" }
+		{ RBRACE, "}" },
+		{ EOF, "<EOF>" }
 	};
 
 	String src  = `
 		module foo;
 
 		<*
-		  hello there
 		  @require x > y : "foo"
 		  @return "foo"
 		*>
@@ -1004,10 +1012,52 @@ fn void test_lexer() @test
 
 		}
 	`;
-	Lexer* lexer = create(core::context_create(tmem));
-	lexer.buffer = src;
+	AnalyzerContext* context = core::context_create(tmem);
+	Lexer* lexer = create(context, src);
+	SourceFile* sf = core::source_file_create(context, lexer, "");
+	context.current_source_file = sf;
 
 	tokenize(lexer);
+
+	foreach (t : lexer.tokens)
+	{
+		diagnostics::log_error("Token: %s - %s", t.kind.description, t.value);
+	}
+
+	test::eq(lexer.tokens.len(), expected.len);
+
+	foreach (i, v : lexer.tokens)
+	{
+		test::eq(expected[i].kind, v.kind);
+		test::eq(expected[i].value, v.value);
+	}
+}
+
+fn void test_idents() @test
+{	
+	KindString[*] expected = {
+		{ IDENT, "foo" },
+		{ TYPE_IDENT, "Foo" },
+		{ CONST_IDENT, "FOO" },
+		{ AT_TYPE_IDENT, "@Foo" },
+		{ AT_IDENT, "@foo" },
+		{ EOF, "<EOF>" },
+	};
+
+	String src  = `
+		foo Foo FOO @Foo @foo
+	`;
+	AnalyzerContext* context = core::context_create(tmem);
+	Lexer* lexer = create(context, src);
+	SourceFile* sf = core::source_file_create(context, lexer, "");
+	context.current_source_file = sf;
+
+	tokenize(lexer);
+	foreach (t : lexer.tokens)
+	{
+		diagnostics::log_error("Token: %s - %s", t.kind.description, t.value);
+	}
+	test::eq(lexer.tokens.len(), expected.len);
 
 	foreach (i, v : lexer.tokens)
 	{
