@@ -16,6 +16,7 @@ fn Lexer* create(AnalyzerContext* ctx, String buffer)
 	lexer.ctx = ctx;
 	lexer.tokens.init(ctx.allocator);
 	lexer.buffer = buffer;
+	lexer.current = buffer.len > 0 ? buffer[0] : 0;
 
 	return lexer;
 }
@@ -504,34 +505,41 @@ fn Token lex_hex_array(Lexer* self)
 fn void lex_contract(Lexer* self)
 {
 	while (self.current == ' ' || self.current == '\t' || self.current == '\n' || self.current == '\r')
-    {
-        advance(self);
-    }
+	{
+		advance(self);
+	}
 
 	int start_index = self.index;
 
 	while (self.current != 0 && self.current != '@' && 
-           !(self.current == '*' && self.peek() == '>'))
-    {
-        advance(self);
-    }
+		   !(self.current == '*' && self.peek() == '>'))
+	{
+		advance(self);
+	}
 
-    // Emit the DOCS_TEXT if we found anything
-    if (self.index > start_index)
-    {
-        self.tokens.push(self.emit_range(DOCS_TEXT, start_index));
-    }
+	// Emit the DOCS_TEXT if we found anything
+	if (self.index > start_index)
+	{
+		self.tokens.push(self.emit_range(DOCS_TEXT, start_index));
+	}
 
-    while (self.current != 0)
-    {
-        if (self.current == '*' && self.peek() == '>')
-        {
-            self.tokens.push(self.emit(DOCS_END, "*>"));
-            return;
-        }
+	while (self.current != 0)
+	{
+		if (self.current == '*' && self.peek() == '>')
+		{
+			self.tokens.push(self.emit(DOCS_END, "*>"));
+			return;
+		}
 
-        self.tokens.push(next(self));
-    }
+		Token t = next(self);
+		
+		if (t.kind == EOF) 
+		{
+			return;
+		}
+
+		self.tokens.push(t);
+	}
 }
 
 fn void advance(Lexer* self, int len = 1)
@@ -605,17 +613,15 @@ fn Token Lexer.emit_range(Lexer* self, TokenKind kind, int start_index)
 
 fn void tokenize(Lexer* lexer)
 {
-	advance(lexer);
-	while (lexer.current != 0)
+	while (true)
 	{	
 		Token t = next(lexer);
+		diagnostics::log_debug("Added token: %s - %s", t.kind.description, t.value);
 		lexer.tokens.push(t);
 		if (t.kind == EOF) break;
 		if (t.kind == DOCS_START)
 		{
-			lexer.contract_mode = true;
 			lex_contract(lexer);
-			lexer.contract_mode = false;
 		}
 	}
 }
@@ -847,6 +853,16 @@ fn Token next(Lexer* lexer)
 		default:
 			if (is_digit(lexer.current)) return lex_number(lexer);
 			if (is_ident(lexer.current)) return lex_identifier(lexer);
+
+			if (lexer.current != 0)
+			{
+				diagnostics::error(lexer.ctx, { lexer.location, lexer.location }, 
+					"Unexpected character: %c", lexer.current);
+				
+				Token err = lexer.emit(ERROR, "");
+				advance(lexer);
+				return err;
+			}
 			break;
 	}
 
@@ -1014,7 +1030,7 @@ fn void test_lexer() @test
 	`;
 	AnalyzerContext* context = core::context_create(tmem);
 	Lexer* lexer = create(context, src);
-	SourceFile* sf = core::source_file_create(context, lexer, "");
+	SourceFile* sf = core::source_file_create(context, lexer, "test");
 	context.current_source_file = sf;
 
 	tokenize(lexer);
@@ -1045,11 +1061,12 @@ fn void test_idents() @test
 	};
 
 	String src  = `
-		foo Foo FOO @Foo @foo
+		foo Foo FOO @Foo 
+		@foo
 	`;
 	AnalyzerContext* context = core::context_create(tmem);
 	Lexer* lexer = create(context, src);
-	SourceFile* sf = core::source_file_create(context, lexer, "");
+	SourceFile* sf = core::source_file_create(context, lexer, "test");
 	context.current_source_file = sf;
 
 	tokenize(lexer);
