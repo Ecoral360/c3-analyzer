@@ -2,6 +2,7 @@ module analyzer::core;
 
 import analyzer::lexer;
 import analyzer::parser;
+import analyzer::sema;
 
 import std::io;
 
@@ -13,9 +14,8 @@ fn AnalyzerContext* context_create(Allocator alloc)
 	ctx.files.init(alloc);
 	ctx.modules.init(alloc);
 	$if $feature(SEMA):
-		ctx.methods.init(alloc);
-		ctx.registry.init(alloc);
-		ctx.symbols.init(alloc);
+		ctx.lookup = lookup::create(alloc);
+		ctx.registry = registry::create(alloc);
 	$endif
 
 	return ctx;
@@ -30,9 +30,6 @@ fn void context_free(AnalyzerContext* ctx)
 	ctx.modules.free();
 
 	$if $feature(SEMA):
-		ctx.registry.free();
-		ctx.methods.free();
-		ctx.symbols.free();
 	$endif
 
 	alloc::free(ctx.allocator, ctx);
@@ -51,6 +48,8 @@ fn Module* module_create(AnalyzerContext* ctx, String name)
 	}
 
 	Module* mod = alloc::new(ctx.allocator, Module);
+
+	diagnostics::log_debug("Created module: %s", name);
 
 	mod.name = name;	
 	mod.nodes.init(ctx.allocator);
@@ -152,5 +151,15 @@ fn bool process_file(AnalyzerContext* context, String path) => @pool()
 	ParseContext* parse_ctx = parse_context_create(context);
 	defer parse_context_free(context, parse_ctx);
 
-	return parser::parse(parse_ctx, source);
+	if (!parser::parse(parse_ctx, source))
+	{
+		return false;
+	}
+
+	foreach (SourceFile* sf : context.files.value_iter())
+	{
+		registry::register(context, sf);
+	}
+
+	return true;
 }

@@ -59,12 +59,15 @@ struct FunctionInfo
 
 struct TypeInfo
 {
+	TypeInfo* next;
+	String name;
 	String mod;
 	Node* node;
 }
 
 struct VariableInfo
 {
+	String name;
 	String mod;
 	Node* node;
 }
@@ -78,6 +81,8 @@ struct Registry
 struct Scope
 {
 	Scope* parent;
+	Range range;
+	List{Scope*} children;
 	HashMap{String, FunctionInfo*} functions;
 	HashMap{String, VariableInfo*} variables;
 	HashMap{String, TypeInfo*} types;
@@ -92,7 +97,7 @@ struct Type
 	union data
 	{
 		Type* pointer_base;
-		Node* decl;
+		Node* node;
 
 		struct array
 		{
