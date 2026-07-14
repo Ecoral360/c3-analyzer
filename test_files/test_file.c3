@@ -1,18 +1,11 @@
-module 
+module foo;
 
-fn int main()
+struct Foo
 {
-    return 0;
+	int a;
 }
 
-macro @foo($x, #y)
+fn int bar()
 {
-    $switch:
-        $case $x > 10:
-            #y += $x * $x;
-        $case $x < 0:
-            #y += $x;
-        $default:
-            #y -= $x;
-    $endswitch
+    return 0;
 }

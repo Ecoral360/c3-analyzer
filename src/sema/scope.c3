@@ -2,11 +2,13 @@ module analyzer::sema::scope @if($feature(SEMA));
 
 import analyzer::core;
 
-fn Scope* create(Allocator alloc, Scope* parent = null)
+fn Scope* create(Allocator alloc, Range range, Scope* parent = null)
 {
 	Scope* scope = alloc::new(alloc, Scope);
 
 	scope.parent = parent;
+	scope.range = range;
+	scope.children.init(alloc);
 	scope.functions.init(alloc);
 	scope.variables.init(alloc);
 	scope.types.init(alloc);
@@ -20,6 +22,7 @@ fn void free(Scope* scope)
 
 	free(scope.parent);
 
+	scope.children.free();
 	scope.functions.free();
 	scope.variables.free();
 	scope.types.free();
@@ -30,7 +33,7 @@ fn void add_variable(Scope* scope, Allocator alloc, String name, Node* node)
 {
 	VariableInfo* variable = alloc::new(alloc, VariableInfo);
 
-	variable.name = name;
+	variable.mod = name;
 	variable.node = node;
 
 	scope.variables.set(name, variable);

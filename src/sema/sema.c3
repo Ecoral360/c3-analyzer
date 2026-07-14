@@ -19,7 +19,7 @@ fn SemaContext* create(Allocator alloc)
 	SemaContext* ctx = alloc::new(alloc, SemaContext);
 
 	ctx.allocator = alloc;
-	ctx.scope = scope::create(alloc);
+	ctx.scope = scope::create(alloc, {});
 
 	return ctx;
 }

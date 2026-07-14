@@ -1,4 +1,4 @@
-module registry;
+module analyzer::sema::registry;
 
 import analyzer::core;
 import std::collections;
@@ -53,7 +53,6 @@ fn void register_and_dispatch(AnalyzerContext* context, Module* mod, Node* node)
 	switch (node.kind)
 	{
 		case STRUCT_DECL:
-		case UNION_DECL:
 		case ENUM_DECL:
 		case TYPEDEF_DECL:
 			register_type(context, mod, node);
@@ -106,7 +105,7 @@ fn void register_type(AnalyzerContext* context, Module* mod, Node* node)
 		return;
 	}
 
-	String qname = string::format(context.allocator, "%s::%s", mod.name, name);
+	String qname = string::format(context.allocator, "%s::%s", mod.name, name.text);
 
 	TypeInfo* type_info = alloc::new(context.allocator, TypeInfo);
 	type_info.mod = mod.name;
@@ -115,12 +114,14 @@ fn void register_type(AnalyzerContext* context, Module* mod, Node* node)
 	TypeInfo* existing_head = context.registry.types.get(qname) ?? null;
 	type_info.next = existing_head;
 
+	diagnostics::log_debug("[Registry]: registered type: %s", qname);
+
 	context.registry.types.set(qname, type_info);
 }
 
 fn void register_function(AnalyzerContext* context, Module* mod, Node* node)
 {
-	FunctionDecl* decl = node.as(FunctionDecl);
+	FnDecl* decl = node.as(FnDecl);
 	if (!decl.name)
 	{
 		diagnostics::log_error("registry::register_function - function name is null");
@@ -129,12 +130,14 @@ fn void register_function(AnalyzerContext* context, Module* mod, Node* node)
 
 	String qname = string::format(context.allocator, "%s::%s", mod.name, decl.name.text);
 
-	FunctionInfo* function_info = alloc::new(context.alloc, FunctionInfo);
+	FunctionInfo* function_info = alloc::new(context.allocator, FunctionInfo);
 	function_info.mod = mod.name;
 	function_info.node = node;
 
 	FunctionInfo* existing_head = context.registry.functions.get(qname) ?? null;
-	new_info.next = existing_head;
+	function_info.next = existing_head;
+
+	diagnostics::log_debug("[Registry]: registered fn: %s", qname);
 
 	context.registry.functions.set(qname, function_info);
 }
