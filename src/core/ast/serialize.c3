@@ -145,6 +145,7 @@ fn void node_serialize(Node* self, JsonOutput* output, int indent, int depth) @l
 	}
 
 	output.start_obj(indent);
+	output.ser_entry("id", self.id, indent, depth + 1);
 	output.ser_entry("kind", self.kind, indent, depth + 1);
 	output.ser_entry("visibility", self.visibility, indent, depth + 1);
 	output.ser_entry("flags", self.flags, indent, depth + 1);
