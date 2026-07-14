@@ -5,9 +5,10 @@ import analyzer::cursor;
 
 import std::collections::list;
 
+/*
+
 struct SemaLocalContext @local
 {
-	SemaScope* current_scope;
 	SemaContext* ctx;
 	Allocator arena;
 }
