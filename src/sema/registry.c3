@@ -1,6 +1,7 @@
 module analyzer::sema::registry;
 
 import analyzer::core;
+import analyzer::sema::lookup;
 import std::collections;
 import std::io;
 
@@ -117,6 +118,7 @@ fn void register_type(AnalyzerContext* context, Module* mod, Node* node)
 	diagnostics::log_debug("[Registry]: registered type: %s", qname);
 
 	context.registry.types.set(qname, type_info);
+	lookup::register_type(context.lookup, context.allocator, qname, node);
 }
 
 fn void register_function(AnalyzerContext* context, Module* mod, Node* node)

@@ -35,6 +35,7 @@ struct AnalyzerContext
 	Registry* registry;
 	Allocator allocator;
 	SourceFile* current_source_file;
+	Target target;
 }
 
 struct ParseContext
@@ -57,12 +58,22 @@ struct FunctionInfo
 	Node* node;
 }
 
+enum TypeModifierKind : char
+{
+	NONE,
+	POINTER,
+	SLICE,
+	ARRAY,
+	CONST,
+}
+
 struct TypeInfo
 {
 	TypeInfo* next;
 	String name;
 	String mod;
 	Node* node;
+	Type* resolved;
 }
 
 struct VariableInfo
@@ -88,27 +99,23 @@ struct Scope
 	HashMap{String, TypeInfo*} types;
 }
 
+enum ResolveStatus : char
+{
+	UNRESOLVED,
+	RESOLVING,
+	RESOLVED
+}
+
 struct Type 
 {
 	TypeKind kind;
+	ResolveStatus status;
 	uint size;
 	String name;
 
 	union data
 	{
-		Type* pointer_base;
 		Node* node;
-
-		struct array
-		{
-			Type* base;
-			ulong len;
-		}
-
-		struct func
-		{
-			Node* decl;
-		}
 
 		bitstruct builtin : uint
 		{
@@ -118,4 +125,45 @@ struct Type
 			char pref_alignment : 24..31;
 		}
 	}
+}
+
+struct Target
+{
+	TargetOS os;
+	TargetArch arch;
+	TargetLayout layout;
+}
+
+enum TargetOS : char
+{
+	UNKNOWN,
+	WIN32,
+	LINUX,
+	IOS,
+	MACOS,
+	TVOS,
+	WATCHOS,
+}
+
+enum TargetArch : char
+{
+	UNKNOWN,
+	X86,
+	X86_64,
+	ARM,
+	AARCH64,
+	RISCV32,
+	RISCV64,
+}
+
+struct AlignData
+{
+	uint align;
+	uint pref_align;
+}
+
+struct TargetLayout
+{
+    AlignData[BitSizes::len] integers;
+    AlignData[BitSizes::len] floats;
 }
