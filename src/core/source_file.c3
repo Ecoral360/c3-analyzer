@@ -26,7 +26,7 @@ fn SourceFile* create(AnalyzerContext* context, Lexer* lexer, String path, Alloc
 	source_file.ast.allocator = source_file.allocator;
 	source_file.ast.nodes.init(source_file.allocator);
 	source_file.ast.statements.init(source_file.allocator);
-	source_file.path = path;
+	source_file.path = path.copy(source_file.allocator);
 	
 	return source_file;
 }
