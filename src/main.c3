@@ -33,11 +33,11 @@ fn int main(String[] args) => @pool()
 	diagnostics::log_debug("Init...");
 	diagnostics::log_debug("args: %s", args);
 
-	AnalyzerContext* context = core::context_create(tmem);
+	AnalyzerContext* context = context::create(tmem);
 
 	if (try file_path = cli.file.get())
 	{
-		core::process_file(context, file_path);
+		context::process_file(context, file_path);
 	}
 
 	if (cli.json)

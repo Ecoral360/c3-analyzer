@@ -1028,9 +1028,9 @@ fn void test_lexer() @test
 
 		}
 	`;
-	AnalyzerContext* context = core::context_create(tmem);
+	AnalyzerContext* context = context::create(tmem);
 	Lexer* lexer = create(context, src);
-	SourceFile* sf = core::source_file_create(context, lexer, "test");
+	SourceFile* sf = source_file::create(context, lexer, "test");
 	context.current_source_file = sf;
 
 	tokenize(lexer);
@@ -1064,9 +1064,9 @@ fn void test_idents() @test
 		foo Foo FOO @Foo 
 		@foo
 	`;
-	AnalyzerContext* context = core::context_create(tmem);
+	AnalyzerContext* context = context::create(tmem);
 	Lexer* lexer = create(context, src);
-	SourceFile* sf = core::source_file_create(context, lexer, "test");
+	SourceFile* sf = source_file::create(context, lexer, "test");
 	context.current_source_file = sf;
 
 	tokenize(lexer);
