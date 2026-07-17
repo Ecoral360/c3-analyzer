@@ -1,12 +1,17 @@
 module analyzer::sema::lookup @if($feature(SEMA));
 
 import analyzer::core;
+import analyzer::core::arch;
 
-fn Lookup* create(Allocator alloc)
+fn Lookup* create(AnalyzerContext* context, Allocator alloc)
 {
 	Lookup* lookup = alloc::new(alloc, Lookup);
 
 	lookup.types.init(alloc);
+	lookup.alloc = alloc;
+	lookup.target = context.target;
+
+	init_builtin_types(lookup);
 
 	return lookup;
 }
@@ -22,51 +27,62 @@ fn void register_type(Lookup* lookup, Allocator alloc, String name, Node* node)
 	lookup.types.set(name, type);
 }	
 
-fn void create_builtin(Lookup* lookup, Allocator alloc, String name, 
-	TypeKind kind, char bits, char bytes, char abi_align, char pref_align)
+fn void create_builtin(Lookup* lookup, String name, 
+	TypeKind kind, BitSizes bits, char bytes)
 {
-	Type* type = alloc::new(alloc, Type);
+	Type* type = alloc::new(lookup.alloc, Type);
 	type.name = name;
 	type.kind = kind;
 	type.status = RESOLVED;
 
-	type.data.builtin.bitsize = bits;
+	type.data.builtin.bitsize = bits.ordinal;
 	type.data.builtin.bytesize = bytes;
-	type.data.builtin.abi_alignment = abi_align;
-	type.data.builtin.pref_alignment = pref_align;
+
+	AlignData align;
+	switch (kind)
+	{
+		case TYPE_F32:
+		case TYPE_F64:
+			align = lookup.target.layout.floats[bits.ordinal];
+		default:
+			align = lookup.target.layout.integers[bits.ordinal];
+	}
+
+	type.data.builtin.abi_alignment = (char)align.align;
+	type.data.builtin.pref_alignment = (char)align.pref_align;
 
 	lookup.types.set(name, type);
 }
 
-fn void init_builtin_types(Lookup* lookup, Allocator alloc, TargetArch arch)
+fn void init_builtin_types(Lookup* lookup)
 {
-	char psize = arch::ptr_size(arch);
-    char pbits = psize * 8;
+	char psize = arch::ptr_size(lookup.target.arch);
+	BitSizes pbits = arch::is_64bit(lookup.target.arch) ? BITS64 : BITS32;
 
-	create_builtin(lookup, alloc, "void", TYPE_VOID, 1, 1, 1, 1);
-	create_builtin(lookup, alloc, "bool", TYPE_BOOL, 8, 1, 1, 1);
+	create_builtin(lookup, "void", TYPE_VOID, BIT1, 1);
+	create_builtin(lookup, "bool", TYPE_BOOL, BITS8, 1);
 
-	create_builtin(lookup, alloc, "ichar", TYPE_I8, 8, 1, 1, 1);
-	create_builtin(lookup, alloc, "char", TYPE_U8, 8, 1, 1, 1);
+	create_builtin(lookup, "ichar", TYPE_I8, BITS8, 1);
+	create_builtin(lookup, "char", TYPE_U8, BITS8, 1);
 
-	create_builtin(lookup, alloc, "short", TYPE_I16, 16, 2, 1, 1);
-	create_builtin(lookup, alloc, "ushort", TYPE_U16, 16, 2, 1, 1);
+	create_builtin(lookup, "short", TYPE_I16, BITS16, 2);
+	create_builtin(lookup, "ushort", TYPE_U16, BITS16, 2);
 
-	create_builtin(lookup, alloc, "int", TYPE_I32, 32, 4, 4, 4);
-	create_builtin(lookup, alloc, "uint", TYPE_U32, 32, 4, 4, 4);
+	create_builtin(lookup, "int", TYPE_I32, BITS32, 4);
+	create_builtin(lookup, "uint", TYPE_U32, BITS32, 4);
 
-	create_builtin(lookup, alloc, "long", TYPE_I64, 64, 8, 4, 4);
-	create_builtin(lookup, alloc, "ulong", TYPE_U64, 64, 8, 4, 4);
+	create_builtin(lookup, "long", TYPE_I64, BITS64, 8);
+	create_builtin(lookup, "ulong", TYPE_U64, BITS64, 8);
 
-	create_builtin(lookup, alloc, "int128", TYPE_I128, 128, 16, 16, 16);
-	create_builtin(lookup, alloc, "uint128", TYPE_U128, 128, 16, 16, 16);
+	create_builtin(lookup, "int128", TYPE_I128, BITS128, 16);
+	create_builtin(lookup, "uint128", TYPE_U128, BITS128, 16);
 
-	create_builtin(lookup, alloc, "float", TYPE_F32, 32, 4, 4, 4);
-	create_builtin(lookup, alloc, "double", TYPE_F64, 64, 4, 4, 4);
+	create_builtin(lookup, "float", TYPE_F32, BITS32, 4);
+	create_builtin(lookup, "double", TYPE_F64, BITS64, 4);
 
-	create_builtin(lookup, alloc, "sz", TYPE_SZ, pbits, psize, psize, psize);
-	create_builtin(lookup, alloc, "usz", TYPE_USZ, pbits, psize, psize, psize);
+	create_builtin(lookup, "sz", TYPE_SZ, pbits, psize);
+	create_builtin(lookup, "usz", TYPE_USZ, pbits, psize);
 
-	create_builtin(lookup, alloc, "iptr", TYPE_IPTR, pbits, psize, psize, psize);
-	create_builtin(lookup, alloc, "uptr", TYPE_UPTR, pbits, psize, psize, psize);
+	create_builtin(lookup, "iptr", TYPE_IPTR, pbits, psize);
+	create_builtin(lookup, "uptr", TYPE_UPTR, pbits, psize);
 }

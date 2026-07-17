@@ -2,6 +2,22 @@ module analyzer::core::arch;
 
 import analyzer::core;
 
+fn TargetArch current()
+{
+	switch (env::ARCH_TYPE)
+	{
+		case X86_64:  return X86_64;
+		case X86:     return X86;
+		case AARCH64: return AARCH64;
+		case ARM:     return ARM;
+		case RISCV32: return RISCV32;
+		case RISCV64: return RISCV64;
+		default: break;
+	}
+
+	unreachable("Unknown arch");
+}
+
 <*
  get the size of a pointer in bytes for the given architecture
 *>

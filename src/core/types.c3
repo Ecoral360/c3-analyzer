@@ -25,6 +25,8 @@ struct Module
 struct Lookup
 {
 	HashMap{String, Type*} types;
+	Allocator alloc;
+	Target target;
 }
 
 struct AnalyzerContext

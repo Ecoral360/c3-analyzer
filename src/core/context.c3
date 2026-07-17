@@ -2,6 +2,8 @@ module analyzer::core::context;
 
 import analyzer::core::diagnostics;
 import analyzer::core::source_file;
+import analyzer::core::arch;
+import analyzer::core::os;
 
 import analyzer::lexer;
 import analyzer::parser;
@@ -9,15 +11,32 @@ import analyzer::sema;
 
 import std::io;
 
-fn AnalyzerContext* create(Allocator alloc)
+<*
+ If target.os or target.arch is `UNKNOWN` it will be inferred
+*>
+fn AnalyzerContext* create(Allocator alloc, Target target = {})
 {
 	AnalyzerContext* ctx = alloc::new(alloc, AnalyzerContext);
 
 	ctx.allocator = alloc;
 	ctx.files.init(alloc);
 	ctx.modules.init(alloc);
+	ctx.target = target;
+
+	if (target.arch == UNKNOWN)
+	{
+		target.arch = arch::current();
+	}
+
+	if (target.os == UNKNOWN)
+	{
+		target.os = os::current();
+	}
+
+	ctx.target.layout = arch::get_platform_layout(target.os, target.arch);
+
 	$if $feature(SEMA):
-		ctx.lookup = lookup::create(alloc);
+		ctx.lookup = lookup::create(ctx, alloc);
 		ctx.registry = registry::create(alloc);
 	$endif
 

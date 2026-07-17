@@ -2,6 +2,20 @@ module analyzer::core::os;
 
 import std::math;
 
+fn TargetOS current()
+{
+	switch (env::OS_TYPE)
+	{
+		case WIN32:  return WIN32;
+		case LINUX:  return LINUX;
+		case NETBSD: return NETBSD;
+		case MACOS:  return MACOS;
+		default: break;
+	}
+
+	unreachable("Unknown os");
+}
+
 fn bool is_apple(TargetOS os)
 {
 	switch (os)
