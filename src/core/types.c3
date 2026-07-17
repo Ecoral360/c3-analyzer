@@ -106,7 +106,7 @@ enum ResolveStatus : char
 	RESOLVED
 }
 
-struct Type 
+struct Type
 {
 	TypeKind kind;
 	ResolveStatus status;
@@ -143,6 +143,7 @@ enum TargetOS : char
 	MACOS,
 	TVOS,
 	WATCHOS,
+	NETBSD,
 }
 
 enum TargetArch : char
