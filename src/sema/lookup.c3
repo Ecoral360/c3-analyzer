@@ -41,8 +41,10 @@ fn void create_builtin(Lookup* lookup, String name,
 	AlignData align;
 	switch (kind)
 	{
+		case TYPE_F16:
 		case TYPE_F32:
 		case TYPE_F64:
+		case TYPE_F128:
 			align = lookup.target.layout.floats[bits.ordinal];
 		default:
 			align = lookup.target.layout.integers[bits.ordinal];
