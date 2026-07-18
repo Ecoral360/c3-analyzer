@@ -138,32 +138,9 @@ struct Type
 
 struct Target
 {
-	TargetOS os;
-	TargetArch arch;
+	OsType os;
+	ArchType arch;
 	TargetLayout layout;
-}
-
-enum TargetOS : char
-{
-	UNKNOWN,
-	WIN32,
-	LINUX,
-	IOS,
-	MACOS,
-	TVOS,
-	WATCHOS,
-	NETBSD,
-}
-
-enum TargetArch : char
-{
-	UNKNOWN,
-	X86,
-	X86_64,
-	ARM,
-	AARCH64,
-	RISCV32,
-	RISCV64,
 }
 
 struct AlignData

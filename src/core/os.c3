@@ -2,21 +2,12 @@ module analyzer::core::os;
 
 import std::math;
 
-fn TargetOS current()
+fn OsType current()
 {
-	switch (env::OS_TYPE)
-	{
-		case WIN32:  return WIN32;
-		case LINUX:  return LINUX;
-		case NETBSD: return NETBSD;
-		case MACOS:  return MACOS;
-		default: break;
-	}
-
-	unreachable("Unknown os");
+	return env::OS_TYPE;
 }
 
-fn bool is_apple(TargetOS os)
+fn bool is_apple(OsType os)
 {
 	switch (os)
 	{
@@ -33,7 +24,7 @@ fn bool is_apple(TargetOS os)
 <*
  @return "Alignment in bytes"
 *>
-fn AlignData get_alignment(TargetOS os, TargetArch arch, uint bits)
+fn AlignData get_alignment(OsType os, ArchType arch, uint bits)
 {
 	uint bytes = bits / 8;
 
