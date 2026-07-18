@@ -16,10 +16,17 @@ struct SourceFile
 	Ast ast;
 }
 
+<*
+ -`node_map`: a fast lookup table
+ -`nodes`: all nodes in this module with order preserved
+ -`module_decls`: a index table for fast lookup of all modules/sections in this module
+*>
 struct Module
 {
 	String name;
-	HashMap{NodeID, Node*} nodes;
+	HashMap{NodeID, Node*} node_map;
+	List{Node*} nodes;
+	List{ModuleDecl*} module_decls;
 }
 
 struct Lookup

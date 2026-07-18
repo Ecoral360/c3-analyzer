@@ -1,6 +1,7 @@
 module analyzer::core::mod;
 
 import analyzer::core::diagnostics;
+import analyzer::core::ast;
 
 import analyzer::lexer;
 import analyzer::parser;
@@ -26,12 +27,24 @@ fn Module* create(AnalyzerContext* ctx, String name)
 
 	mod.name = name;	
 	mod.nodes.init(ctx.allocator);
+	mod.module_decls.init(ctx.allocator);
+	mod.node_map.init(ctx.allocator);
 
 	ctx.modules.set(name, mod);
 
 	return mod;
 }
 
+fn void add_node(Module* mod, Node* node)
+{
+	mod.nodes.push(node);
+	mod.node_map.set(node.id, node);
+
+	if (node.kind == MODULE_DECL)
+	{
+		mod.module_decls.push(node.as(ModuleDecl));
+	}
+}
 
 <*
  @param [&in] ctx

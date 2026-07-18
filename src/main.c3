@@ -44,7 +44,7 @@ fn int main(String[] args) => @pool()
 	{
 		context.modules.@each(; String name, Module* mod)
 		{
-			mod.nodes.@each(; NodeID id, Node* node)
+			foreach (Node* node : mod.nodes)
 			{
 				io::printn(node.serialize(indent: 4));
 			};
