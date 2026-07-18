@@ -29,7 +29,6 @@ fn void register(AnalyzerContext* context, SourceFile* sf) => @pool()
 			ModuleDecl* mod_decl = statement.as(ModuleDecl);
 			PathExpr* path = mod_decl.path.as(PathExpr);
 			current_mod = mod::create(context, path.path.text);
-			continue; 
 		}
 
 		if (current_mod == null)
@@ -49,7 +48,7 @@ fn void register(AnalyzerContext* context, SourceFile* sf) => @pool()
 
 fn void register_and_dispatch(AnalyzerContext* context, Module* mod, Node* node)
 {
-	mod.nodes.set(node.id, node);
+	mod::add_node(mod, node);
 
 	switch (node.kind)
 	{
@@ -142,4 +141,20 @@ fn void register_function(AnalyzerContext* context, Module* mod, Node* node)
 	diagnostics::log_debug("[Registry]: registered fn: %s", qname);
 
 	context.registry.functions.set(qname, function_info);
+}
+
+<*
+ Find the specified function using qualifief name, e.g. foo::bar
+*>
+fn FunctionInfo* get_function(AnalyzerContext* context, String name)
+{
+	return context.registry.functions.get(name) ?? null;
+}
+
+<*
+ Find the specified function using qualifief name, e.g. foo::bar
+*>
+fn TypeInfo* get_type(AnalyzerContext* context, String name)
+{
+	return context.registry.types.get(name) ?? null;
 }
