@@ -59,6 +59,7 @@ fn TargetLayout get_platform_layout(OsType os, ArchType arch)
     {
    		layout.integers[i] = os::get_alignment(os, arch, BitSizes::from_ordinal(i).bits);
     }
+	layout.integers[BitSizes.BIT1] = layout.integers[BitSizes.BITS8];
     return layout;
 }
 
@@ -78,4 +79,5 @@ fn void test_bitsizes() @test
     test::eq(layout.integers[BitSizes.BITS32].align, 4u);
     test::eq(layout.integers[BitSizes.BITS128].align, 16u);
     test::eq(layout.integers[BitSizes.BITS8].align, 1u);
+    test::eq(layout.integers[BitSizes.BIT1].align, 1u);
 }
