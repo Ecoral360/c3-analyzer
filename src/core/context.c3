@@ -57,15 +57,13 @@ fn void free(AnalyzerContext* ctx)
 	alloc::free(ctx.allocator, ctx);
 }
 
-fn bool process_file(AnalyzerContext* context, String path) => @pool()
+<*
+ process from a buffer
+ @param path : "uri/path to the file or virtual file"
+ @require buffer.len > 0
+*>
+fn bool process(AnalyzerContext* context, String buffer, String path) => @pool()
 {
-	String? buffer = (String)file::load(tmem, path);
-	if (catch err = buffer)
-	{
-		diagnostics::log_error("core::process_file - failed to load file (&s) %s", err, path);
-		return false;
-	}
-
 	Lexer* lexer = lexer::create(context, buffer);
 	defer lexer::free(context, lexer);
 	lexer::tokenize(lexer);
@@ -87,6 +85,18 @@ fn bool process_file(AnalyzerContext* context, String path) => @pool()
 	}
 
 	return true;
+}
+
+fn bool process_file(AnalyzerContext* context, String path) => @pool()
+{
+	String? buffer = (String)file::load(tmem, path);
+	if (catch err = buffer)
+	{
+		diagnostics::log_error("core::process_file - failed to load file (&s) %s", err, path);
+		return false;
+	}
+
+	return process(context, buffer, path);
 }
 
 <*
