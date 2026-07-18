@@ -1,7 +1,5 @@
 module attributes_tests @test;
 
-/*
-
 import parser_tests;
 
 import analyzer::parser;
@@ -17,48 +15,45 @@ fn void module_private_test_weak_if()
 	String source_code = `
 		module hello @private @test @weak @if(1 == 1 && 2 == 2);
 	`;
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
+	Module* mod = context.modules.get("hello")!!;
 
-	Node* module_node       = s.nodes[0];
-	ModuleDecl* module_decl = module_node.as(MODULE_DECL);
+	ModuleDecl* module_node = mod.module_decls[0];
 	test::eq(module_node.visibility, Visibility.PRIVATE);
 
-	test::eq(module_decl.attributes.len, 4);
+	test::eq(module_node.attributes.len, 4);
 
 	// @private
-	test::eq(parser_tests::@attr(module_decl, 0).kind, AttributeKind.PRIVATE);
+	test::eq(parser_tests::@attr(module_node, 0).attribute_kind, AttributeKind.PRIVATE);
 	// @weak
-	test::eq(parser_tests::@attr(module_decl, 1).kind, AttributeKind.TEST);
+	test::eq(parser_tests::@attr(module_node, 1).attribute_kind, AttributeKind.TEST);
 	// @test
-	test::eq(parser_tests::@attr(module_decl, 2).kind, AttributeKind.WEAK);
+	test::eq(parser_tests::@attr(module_node, 2).attribute_kind, AttributeKind.WEAK);
 
 	// @if(1 == 1 && 2 == 2)
-	AttributeDecl* attr = parser_tests::@attr(module_decl, 3);
-	test::eq(attr.kind, AttributeKind.IF);
+	AttributeDecl* attr = parser_tests::@attr(module_node, 3);
+	test::eq(attr.attribute_kind, AttributeKind.IF);
 	test::eq(attr.exprs.len, 1);
 
 	// (1 == 1 && 2 == 2)
-	BinaryExpr* and_expr = attr.exprs[0].as(BINARY_EXPR);
+	BinaryExpr* and_expr = attr.exprs[0].as(BinaryExpr);
 	test::eq(and_expr.op, OperatorKind.OP_AND);
 
 	// 1 == 1
-	BinaryExpr* left_eq_expr = and_expr.left.as(BINARY_EXPR);
-	test::eq(left_eq_expr.left.as(LITERAL_EXPR).integer, 1u);
-	test::eq(left_eq_expr.right.as(LITERAL_EXPR).integer, 1u);
+	BinaryExpr* left_eq_expr = and_expr.left.as(BinaryExpr);
+	test::eq(left_eq_expr.left.as(LiteralExpr).integer, 1u);
+	test::eq(left_eq_expr.right.as(LiteralExpr).integer, 1u);
 
 	// 2 == 2
-	BinaryExpr* right_eq_expr = and_expr.right.as(BINARY_EXPR);
-	test::eq(right_eq_expr.left.as(LITERAL_EXPR).integer, 2u);
-	test::eq(right_eq_expr.right.as(LITERAL_EXPR).integer, 2u);
+	BinaryExpr* right_eq_expr = and_expr.right.as(BinaryExpr);
+	test::eq(right_eq_expr.left.as(LiteralExpr).integer, 2u);
+	test::eq(right_eq_expr.right.as(LiteralExpr).integer, 2u);
 }
+
+/*
 
 fn void module_tag_if()
 {

@@ -1,8 +1,5 @@
 module parser_tests;
 
-/*
-
-import analyzer::workspace;
 import analyzer::core;
 import analyzer::sema;
 
@@ -11,27 +8,17 @@ import std::collections::list;
 
 macro AttributeDecl* @attr(self, int idx)
 {
-	return self.attributes[idx].as(ATTRIBUTE_DECL) @inline;
+	return self.attributes[idx].as(AttributeDecl) @inline;
 }
 
 <*
- @require entries != null
- @require $Typeof(*entries) == List{SymbolEntry}
- @require entries.len() > 0
+ Count how many top-level nodes inside this specific Module match a given kind.
 *>
-macro Node* @node(entries)
-{
-	return (*entries)[0].node;
-}
-
-<*
- Count how many top-level nodes inside this specific ModuleSection match a given kind.
-*>
-fn int count_kind(ModuleSection* s, NodeKind kind)
+fn int count_kind(Module* mod, NodeKind kind)
 {
 	int n = 0;
 
-	foreach (node_ptr : s.nodes)
+	foreach (node_ptr : mod.nodes)
 	{
 		if (node_ptr == null) continue;
 
