@@ -47,6 +47,16 @@ fn void add_node(Module* mod, Node* node)
 }
 
 <*
+ @param [&in] mod
+ @param [in] local_name : "The name to format with"
+ @return "e.g. foo::local"
+*>
+fn String get_qualified_name(Allocator alloc, Module* mod, String local_name)
+{
+	return string::format(alloc, "%s::%s", mod.name, local_name);
+}
+
+<*
  @param [&in] ctx
  @param [&in] mod
 *>
