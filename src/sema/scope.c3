@@ -16,7 +16,7 @@ fn Scope* create(Allocator alloc, Range range, Scope* parent = null)
 	return scope;
 }
 
-fn void free(Scope* scope) 
+fn void free(Scope* scope)
 {
 	if (!scope) return;
 
@@ -33,15 +33,16 @@ fn void add_variable(Scope* scope, Allocator alloc, String name, Node* node)
 {
 	VariableInfo* variable = alloc::new(alloc, VariableInfo);
 
+	variable.name = name;
 	variable.mod = name;
 	variable.node = node;
 
 	scope.variables.set(name, variable);
 }
 
-fn bool has_variable(Scope* scope, String name) 
+fn bool has_variable(Scope* scope, String name)
 {
-    if (scope.variables.has_key(name)) 
+    if (scope.variables.has_key(name))
 	{
         return true;
     }
@@ -54,14 +55,14 @@ fn bool has_variable(Scope* scope, String name)
     return false;
 }
 
-fn VariableInfo* get_variable(Scope* scope, String name) 
+fn VariableInfo* get_variable(Scope* scope, String name)
 {
-    if (scope.variables.has_key(name)) 
+    if (scope.variables.has_key(name))
 	{
         return scope.variables.get(name)!!;
     }
 
-    if (scope.parent) 
+    if (scope.parent)
 	{
         return get_variable(scope.parent, name);
     }
@@ -69,7 +70,7 @@ fn VariableInfo* get_variable(Scope* scope, String name)
     return null;
 }
 
-fn FunctionInfo* add_function(Scope* scope, Allocator alloc, String name, String mod, Node* node) 
+fn FunctionInfo* add_function(Scope* scope, Allocator alloc, String name, String mod, Node* node)
 {
     FunctionInfo* function = alloc::new(alloc, FunctionInfo);
 
@@ -81,14 +82,14 @@ fn FunctionInfo* add_function(Scope* scope, Allocator alloc, String name, String
     return function;
 }
 
-fn bool has_function(Scope* scope, String name) 
+fn bool has_function(Scope* scope, String name)
 {
     if (scope.functions.has_key(name))
 	{
         return true;
     }
 
-    if (scope.parent) 
+    if (scope.parent)
 	{
         return has_function(scope.parent, name);
     }
@@ -96,14 +97,14 @@ fn bool has_function(Scope* scope, String name)
     return false;
 }
 
-fn FunctionInfo* get_function(Scope* scope, String name) 
+fn FunctionInfo* get_function(Scope* scope, String name)
 {
-    if (scope.functions.has_key(name)) 
+    if (scope.functions.has_key(name))
 	{
         return scope.functions.get(name)!!;
     }
 
-    if (scope.parent) 
+    if (scope.parent)
 	{
         return get_function(scope.parent, name);
     }
