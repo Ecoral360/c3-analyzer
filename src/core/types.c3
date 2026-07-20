@@ -76,6 +76,17 @@ enum TypeModifierKind : char
 	CONST,
 }
 
+struct ImportInfo
+{
+	String path;
+	Node* node;
+}
+
+fn bool ImportInfo.eq(self, ImportInfo other) @operator(==)
+{
+	return self.path == other.path && self.node == other.node;
+}
+
 struct TypeInfo
 {
 	TypeInfo* next;
