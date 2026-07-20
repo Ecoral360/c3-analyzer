@@ -84,6 +84,13 @@ fn bool process(AnalyzerContext* context, String buffer, String path) => @pool()
 		registry::register(context, sf);
 	}
 
+	SemaContext* sema_ctx = sema::create(context);
+
+	foreach (SourceFile* sf : context.files.value_iter())
+	{
+	    sema::analyze_source_file(sema_ctx, sf);
+	}
+
 	return true;
 }
 
@@ -103,7 +110,7 @@ fn bool process_file(AnalyzerContext* context, String path) => @pool()
  @param [&in] context
  @require $Typeof(item) == POINTER : "item must be a pointer"
 *>
-macro void free_item(AnalyzerContext* context, item) 
+macro void free_item(AnalyzerContext* context, item)
 {
 	$if $defined(item.free):
 		item.free(context.allocator);
@@ -111,4 +118,3 @@ macro void free_item(AnalyzerContext* context, item)
 		alloc::free(context.allocator, item);
 	$endif
 }
-
