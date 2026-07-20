@@ -3,14 +3,21 @@ module analyzer::core;
 import std::collections::list;
 import analyzer::lexer;
 
+import std::io;
+
 typedef FileID = ushort;
 
 faultdef UNKNOWN_OP_OVERLOAD;
 
-struct Range
+struct Range (Printable)
 {
 	Location start;
 	Location end;
+}
+
+fn sz? Range.to_format(Range* self, Formatter* fmt) @dynamic
+{
+    return fmt.printf("start: %s, end: %s", self.start, self.end);
 }
 
 fn bool Range.eq(self, Range other) @operator(==)
@@ -40,21 +47,26 @@ fn bool Range.contains(self, Location loc)
 
 fn bool Range.contains_range(self, Range other)
 {
-	bool start_le = (self.start.line < other.start.line) || 
-						(self.start.line == other.start.line && 
+	bool start_le = (self.start.line < other.start.line) ||
+						(self.start.line == other.start.line &&
 						self.start.column <= other.start.column);
-					
-	bool end_ge = (self.end.line > other.end.line) || 
-					(self.end.line == other.end.line && 
+
+	bool end_ge = (self.end.line > other.end.line) ||
+					(self.end.line == other.end.line &&
 					self.end.column >= other.end.column);
 
 	return start_le && end_ge;
 }
 
-struct Location
+struct Location (Printable)
 {
 	int line;
 	int column;
+}
+
+fn sz? Location.to_format(Location* self, Formatter* fmt) @dynamic
+{
+    return fmt.printf("(Line: %d, Column: %d)", self.line, self.column);
 }
 
 fn bool Location.eq(self, Location other) @operator(==)
