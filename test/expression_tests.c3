@@ -283,18 +283,14 @@ fn void call()
 		}
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
+	Module* mod = context.modules.get("hello")!!;
 
-	test::eq(parser_tests::count_kind(s, MODULE_DECL), 1);
-	test::eq(parser_tests::count_kind(s, FN_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, MODULE_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, FN_DECL), 1);
 }
 
 fn void builtin()
@@ -308,18 +304,14 @@ fn void builtin()
 		}
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
+	Module* mod = context.modules.get("hello")!!;
 
-	test::eq(parser_tests::count_kind(s, MODULE_DECL), 1);
-	test::eq(parser_tests::count_kind(s, FN_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, MODULE_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, FN_DECL), 1);
 }
 
 fn void lambda()
@@ -340,18 +332,14 @@ fn void lambda()
 		}
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
+	Module* mod = context.modules.get("hello")!!;
 
-	test::eq(parser_tests::count_kind(s, MODULE_DECL), 1);
-	test::eq(parser_tests::count_kind(s, FN_DECL), 2);
+	test::eq(parser_tests::count_kind(mod, MODULE_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, FN_DECL), 2);
 }
 
 fn void group_and_cast()
@@ -366,33 +354,30 @@ fn void group_and_cast()
 		}
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
+	Module* mod = context.modules.get("hello")!!;
 
-	FnDecl* func       = s.nodes[1].as(FN_DECL);
-	CompoundStmt* comp = func.body.as(COMPOUND_STMT);
-	VarDecl* cast_decl = comp.statements[0].as(VAR_DECL);
-	CastExpr* cast     = cast_decl.init_expr.as(CAST_EXPR);
+	FnDecl* func       = mod.nodes[1].as(FnDecl);
+	CompoundStmt* comp = func.body.as(CompoundStmt);
+	VarDecl* cast_decl = comp.statements[0].as(VarDecl);
+	test::ne(cast_decl.init_expr, null);
+	CastExpr* cast     = cast_decl.init_expr.as(CastExpr);
 
 	test::eq(cast.inner.kind, NodeKind.TYPE_EXPR);
 	test::eq(cast.operand.kind, NodeKind.IDENT_EXPR);
 
-	VarDecl* group_decl  = comp.statements[1].as(VAR_DECL);
-	GroupExpr* group     = group_decl.init_expr.as(GROUP_EXPR);
-	CastExpr* group_cast = group.inner.as(CAST_EXPR);
+	VarDecl* group_decl  = comp.statements[1].as(VarDecl);
+	GroupExpr* group     = group_decl.init_expr.as(GroupExpr);
+	CastExpr* group_cast = group.inner.as(CastExpr);
 
 	test::eq(group_cast.inner.kind, NodeKind.TYPE_EXPR);
 	test::eq(group_cast.operand.kind, NodeKind.IDENT_EXPR);
 
-	test::eq(parser_tests::count_kind(s, MODULE_DECL), 1);
-	test::eq(parser_tests::count_kind(s, FN_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, MODULE_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, FN_DECL), 1);
 }
 
 fn void initializers()
@@ -408,21 +393,17 @@ fn void initializers()
 		}
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
+	Module* mod = context.modules.get("hello")!!;
 
-	FnDecl* func       = s.nodes[1].as(FN_DECL);
-	CompoundStmt* comp = func.body.as(COMPOUND_STMT);
+	FnDecl* func       = mod.nodes[1].as(FnDecl);
+	CompoundStmt* comp = func.body.as(CompoundStmt);
 
-	test::eq(parser_tests::count_kind(s, MODULE_DECL), 1);
-	test::eq(parser_tests::count_kind(s, FN_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, MODULE_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, FN_DECL), 1);
 }
 
 fn void access()
@@ -437,28 +418,25 @@ fn void access()
 		}
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
+	Module* mod = context.modules.get("hello")!!;
 
-	FnDecl* func       = s.nodes[1].as(FN_DECL);
-	CompoundStmt* comp = func.body.as(COMPOUND_STMT);
-	VarDecl* type      = comp.statements[0].as(VAR_DECL);
-	VarDecl* name      = comp.statements[1].as(VAR_DECL);
+	FnDecl* func       = mod.nodes[1].as(FnDecl);
+	CompoundStmt* comp = func.body.as(CompoundStmt);
+	VarDecl* type      = comp.statements[0].as(VarDecl);
+	VarDecl* name      = comp.statements[1].as(VarDecl);
 
-	AccessExpr* bar_type = type.init_expr.as(ACCESS_EXPR);
-	AccessExpr* bar_name = name.init_expr.as(ACCESS_EXPR);
-	test::eq(bar_type.kind, AccessKind.INSTANCE);
-	test::eq(bar_name.kind, AccessKind.STATIC);
+	test::ne(type.init_expr, null);
+	AccessExpr* bar_type = type.init_expr.as(AccessExpr);
+	AccessExpr* bar_name = name.init_expr.as(AccessExpr);
+	test::eq(bar_type.access_kind, AccessKind.INSTANCE);
+	test::eq(bar_name.access_kind, AccessKind.STATIC);
 
-	test::eq(parser_tests::count_kind(s, MODULE_DECL), 1);
-	test::eq(parser_tests::count_kind(s, FN_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, MODULE_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, FN_DECL), 1);
 }
 
 <*
@@ -485,21 +463,17 @@ fn void range()
 		}
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
+	Module* mod = context.modules.get("hello")!!;
 
-	FnDecl* func       = s.nodes[1].as(FN_DECL);
-	CompoundStmt* comp = func.body.as(COMPOUND_STMT);
+	FnDecl* func       = mod.nodes[1].as(FnDecl);
+	CompoundStmt* comp = func.body.as(CompoundStmt);
 
-	test::eq(parser_tests::count_kind(s, MODULE_DECL), 1);
-	test::eq(parser_tests::count_kind(s, FN_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, MODULE_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, FN_DECL), 1);
 }
 
 fn void optional_expr()
@@ -515,21 +489,17 @@ fn void optional_expr()
 		}
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
+	Module* mod = context.modules.get("hello")!!;
 
-	FnDecl* func       = s.nodes[2].as(FN_DECL);
-	CompoundStmt* comp = func.body.as(COMPOUND_STMT);
+	FnDecl* func       = mod.nodes[2].as(FnDecl);
+	CompoundStmt* comp = func.body.as(CompoundStmt);
 
-	test::eq(parser_tests::count_kind(s, MODULE_DECL), 1);
-	test::eq(parser_tests::count_kind(s, FN_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, MODULE_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, FN_DECL), 1);
 }
 
 fn void ct_defined()
@@ -545,21 +515,17 @@ fn void ct_defined()
 		}
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
+	Module* mod = context.modules.get("hello")!!;
 
-	FnDecl* func       = s.nodes[1].as(FN_DECL);
-	CompoundStmt* comp = func.body.as(COMPOUND_STMT);
+	FnDecl* func       = mod.nodes[1].as(FnDecl);
+	CompoundStmt* comp = func.body.as(CompoundStmt);
 
-	test::eq(parser_tests::count_kind(s, MODULE_DECL), 1);
-	test::eq(parser_tests::count_kind(s, FN_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, MODULE_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, FN_DECL), 1);
 }
 
 fn void lengthof_expr()
@@ -573,21 +539,17 @@ fn void lengthof_expr()
 		}
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
+	Module* mod = context.modules.get("hello")!!;
 
-	FnDecl* func       = s.nodes[1].as(FN_DECL);
-	CompoundStmt* comp = func.body.as(COMPOUND_STMT);
+	FnDecl* func       = mod.nodes[1].as(FnDecl);
+	CompoundStmt* comp = func.body.as(CompoundStmt);
 
-	test::eq(parser_tests::count_kind(s, MODULE_DECL), 1);
-	test::eq(parser_tests::count_kind(s, FN_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, MODULE_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, FN_DECL), 1);
 }
 
 fn void ct_stringify_expr()
@@ -602,18 +564,14 @@ fn void ct_stringify_expr()
 		}
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
+	Module* mod = context.modules.get("hello")!!;
 
-	test::eq(parser_tests::count_kind(s, MODULE_DECL), 1);
-	test::eq(parser_tests::count_kind(s, MACRO_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, MODULE_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, MACRO_DECL), 1);
 }
 
 fn void vaarg_expr()
@@ -631,18 +589,14 @@ fn void vaarg_expr()
 		}
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
+	Module* mod = context.modules.get("hello")!!;
 
-	test::eq(parser_tests::count_kind(s, MODULE_DECL), 1);
-	test::eq(parser_tests::count_kind(s, MACRO_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, MODULE_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, MACRO_DECL), 1);
 }
 
 fn void ct_reflect_expr()
@@ -658,16 +612,12 @@ fn void ct_reflect_expr()
 		}
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
+	Module* mod = context.modules.get("hello")!!;
 
-	test::eq(parser_tests::count_kind(s, MODULE_DECL), 1);
-	test::eq(parser_tests::count_kind(s, MACRO_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, MODULE_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, MACRO_DECL), 1);
 }

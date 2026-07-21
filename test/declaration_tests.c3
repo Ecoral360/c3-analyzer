@@ -1,6 +1,5 @@
 module decl_tests @test;
 
-
 import parser_tests;
 
 import analyzer::parser;
@@ -94,18 +93,18 @@ fn void macro_with_params()
 
 	Module* mod = context.modules.get("hello")!!;
 
-	// TODO Macro definitions in registry?
-	 FunctionInfo* macro_info = context.registry.functions.get("hello::greet")!!;
-	 MacroDecl* macro_decl = macro_info.node.as(MacroDecl);
-	 test::eq(macro_decl.name.text, "greet");
+	// TODO macro registry?
+	FunctionInfo* macro_info = context.registry.functions.get("hello::greet")!!;
+	MacroDecl* macro_decl = macro_info.node.as(MacroDecl);
+	test::eq(macro_decl.name.text, "greet");
 
-	 macro_info = context.registry.functions.get("hello::foo")!!;
-	 macro_decl = macro_info.node.as(MacroDecl);
-	 test::eq(macro_decl.name.text, "foo");
+	macro_info = context.registry.functions.get("hello::foo")!!;
+	macro_decl = macro_info.node.as(MacroDecl);
+	test::eq(macro_decl.name.text, "foo");
 
-	 macro_info = context.registry.functions.get("hello::bar")!!;
-	 macro_decl = macro_info.node.as(MacroDecl);
-	 test::eq(macro_decl.name.text, "bar");
+	macro_info = context.registry.functions.get("hello::bar")!!;
+	macro_decl = macro_info.node.as(MacroDecl);
+	test::eq(macro_decl.name.text, "bar");
 
 	test::eq(parser_tests::count_kind(mod, MODULE_DECL), 1);
 	test::eq(parser_tests::count_kind(mod, MACRO_DECL), 3);
