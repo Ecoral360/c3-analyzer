@@ -32,17 +32,17 @@ struct ContextScope
 
 fn ContextScope ContextScope.with_flags(&self, ParseFlags flags)
 {
-	return { 
-		.ctx = self.ctx, 
-		.flags = self.flags | flags 
+	return {
+		.ctx = self.ctx,
+		.flags = self.flags | flags
 	};
 }
 
 fn ContextScope ContextScope.with_only_flags(&self, ParseFlags flags)
 {
-	return { 
-		.ctx = self.ctx, 
-		.flags = flags 
+	return {
+		.ctx = self.ctx,
+		.flags = flags
 	};
 }
 
@@ -159,7 +159,7 @@ fn bool is_token_start_of_stmt(TokenKind kind)
 
 fn void skip_until(ParseContext* ctx, TokenKind[] targets)
 {
-	int brace_depth = 0; 
+	int brace_depth = 0;
 	while (!ctx.eof())
 	{
 		if (ctx.is(LBRACE)) brace_depth++;
@@ -175,12 +175,12 @@ fn void skip_until(ParseContext* ctx, TokenKind[] targets)
 		}
 
 		if (brace_depth < 0) return;
-		
+
 		advance(ctx);
 	}
 }
 
-enum SyncTarget 
+enum SyncTarget
 {
 	DECLARATION,
 	STATEMENT
@@ -195,7 +195,7 @@ fn void synchronize(ParseContext* ctx, SyncTarget target)
 			return;
 		}
 
-		if (target == DECLARATION && is_token_start_of_decl(ctx.current.kind)) 
+		if (target == DECLARATION && is_token_start_of_decl(ctx.current.kind))
 		{
 			return;
 		}
@@ -218,11 +218,11 @@ fn bool ParseContext.is(&self, TokenKind kind)
 
 fn Token ParseContext.peek(&self, int pos) @inline
 {
-	if (self.pos + pos >= (int)self.lexer.tokens.len()) 
+	if (self.pos + pos >= (int)self.lexer.tokens.len())
 	{
 		return self.lexer.tokens.last()!!;
 	}
-	if (self.pos + pos < 0) 
+	if (self.pos + pos < 0)
 	{
 		return self.lexer.tokens.first()!!;
 	}
@@ -247,7 +247,7 @@ fn Ident* ParseContext.ident(&self, Token t) @inline
 fn Ident* ParseContext.ident_string(&self, String str) @inline
 {
 	Ident* ident = alloc::new(self.allocator, Ident);
-	*ident = { 
+	*ident = {
 		.text = str.copy(self.allocator)
 	};
 	return ident;
@@ -265,7 +265,7 @@ fn void advance(ParseContext* ctx, int len = 1)
 
 	ctx.pos += len;
 
-	if (ctx.pos >= ctx.lexer.tokens.len()) 
+	if (ctx.pos >= ctx.lexer.tokens.len())
 	{
 		ctx.pos = (int)ctx.lexer.tokens.len() - 1;
 	}
@@ -278,7 +278,7 @@ fn void advance(ParseContext* ctx, int len = 1)
  @param [&inout] node : "Node to flag with error"
  @param [&inout] ctx : "The kind to expect"
 *>
-fn Token expect(ParseContext* ctx, Node* node, TokenKind kind)
+macro Token expect(ParseContext* ctx, Node* node, TokenKind kind)
 {
 	if (ctx.is(kind))
 	{
@@ -286,10 +286,13 @@ fn Token expect(ParseContext* ctx, Node* node, TokenKind kind)
 		return ctx.peek(-1);
 	}
 
-	diagnostics::error(ctx.context, ctx.current.range, 
+	diagnostics::error(ctx.context, ctx.current.range,
 		"Expected '%s' got '%s'", kind.description, ctx.current.kind.description);
+	$if $feature(ANALYZER_PRINT):
+		diagnostics::log_error("Happened here.");
+	$endif
 	node.flags.has_error = true;
-	return { 
+	return {
 		.kind = ERROR,
 		.range = ctx.current.range,
 		.value = "<error>"
@@ -328,7 +331,7 @@ fn bool parse(ParseContext* ctx, SourceFile* source_file) => @pool()
 	ctx.lexer = source_file.lexer;
 	ctx.ast = &source_file.ast;
 	ctx.context.current_source_file = source_file;
-	
+
 	if (ctx.lexer.tokens.last()!!.kind != EOF)
 	{
 		diagnostics::log_error(
@@ -375,7 +378,7 @@ fn Node* parse_top_level_statement(ParseContext* ctx)
 
 		if (t.kind == EXTERN)
 		{
-			if (scope.flags.is_extern) 
+			if (scope.flags.is_extern)
 			{
 				diagnostics::error(ctx.context, t.range, "Duplicate 'extern' modifier");
 			}
@@ -384,14 +387,14 @@ fn Node* parse_top_level_statement(ParseContext* ctx)
 		else if (t.kind == TLOCAL)
 		{
 			if (scope.flags.is_thread_local)
-			{ 
+			{
 				diagnostics::error(ctx.context, t.range, "Duplicate 'tlocal' modifier");
 			}
 			scope.flags.is_thread_local = true;
 		}
 		else if (t.kind == INLINE)
 		{
-			if (scope.flags.is_inline) 
+			if (scope.flags.is_inline)
 			{
 				diagnostics::error(ctx.context, t.range, "Duplicate 'inline' modifier");
 			}

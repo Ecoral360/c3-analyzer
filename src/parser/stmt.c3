@@ -140,13 +140,15 @@ fn Node* parse_decl_or_expr_stmt(ContextScope scope)
 	Token t = ctx.current;
 
 	Node* expr = parse_expr(scope);
-	
+
 	Range start = t.range;
 	if (expr.kind == TYPE_EXPR)
 	{
 		Node* decl = parse_var_decl(scope, expr);
 		return decl;
 	}
+
+	diagnostics::log_debug("ParseExprStmt: %s", expr.kind.description);
 
 	ExprStmt* node = ctx.ast.alloc_node(ExprStmt, start);
 	node.expr_stmt = expr;
@@ -299,8 +301,8 @@ fn Node* parse_case_stmts(ContextScope scope, int row) => @pool()
 		if (next_loc.line > row + 1 && ctx.current.kind != RBRACE)
 		{
 			diagnostics::error(
-				ctx.context, 
-				ctx.current.range, 
+				ctx.context,
+				ctx.current.range,
 				"Fallthrough cases with empty rows/comments need explicit 'break'/'nextcase' or remove spacing."
 			);
 			compound_node.flags.has_error = true;
@@ -321,7 +323,7 @@ fn Node* parse_case_stmts(ContextScope scope, int row) => @pool()
 			diagnostics::error(ctx.context, ctx.current.range, "Unexpected token in case body; skipping to next case boundary");
 			compound_node.flags.has_error = true;
 			skip_until(ctx, { CASE, DEFAULT, NEXTCASE, RBRACE });
-			break; 
+			break;
 		}
 
 		if (child_stmt)
@@ -348,7 +350,7 @@ fn Node* parse_case_stmt(ContextScope scope) => @pool()
 
 	Range start = ctx.current.range;
 	TokenKind expected = flags.is_comptime ? CT_CASE : CASE;
-	if (!ctx.is(expected)) 
+	if (!ctx.is(expected))
 	{
 		return (Node*)ctx.ast.error(ctx.current.range);
 	}
@@ -371,7 +373,7 @@ fn Node* parse_case_stmt(ContextScope scope) => @pool()
 
 	node.body = parse_case_stmts(scope, start.start.line);
 
-	if (node.body && node.body.flags.has_error) 
+	if (node.body && node.body.flags.has_error)
 	{
 		node.flags.has_error = true;
 	}
@@ -389,7 +391,7 @@ fn Node* parse_default_stmt(ContextScope scope)
 
 	Range start = ctx.current.range;
 	TokenKind expected = flags.is_comptime ? CT_DEFAULT : DEFAULT;
-	if (!ctx.is(expected)) 
+	if (!ctx.is(expected))
 	{
 		return (Node*)ctx.ast.error(ctx.current.range);
 	}
@@ -406,7 +408,7 @@ fn Node* parse_default_stmt(ContextScope scope)
 
 	node.body = parse_case_stmts(scope, start.start.line);
 
-	if (node.body && node.body.flags.has_error) 
+	if (node.body && node.body.flags.has_error)
 	{
 		node.flags.has_error = true;
 	}
@@ -472,9 +474,9 @@ fn Node* parse_continue_break_stmt(ContextScope scope)
 
 	if (!consume(ctx, EOS))
 	{
-		diagnostics::error(ctx.context, ctx.current.range, 
+		diagnostics::error(ctx.context, ctx.current.range,
 			"Expected ';' after '%s' statement", is_continue ? "continue" : "break");
-		
+
 		node.flags.has_error = true;
 	}
 
@@ -498,7 +500,7 @@ fn Node* parse_switch_stmt(ContextScope scope) => @pool()
 		Token label_tok = ctx.current;
 		node.label = ctx.ident(label_tok);
 		advance(ctx);
-		if (!consume(ctx, COLON)) 
+		if (!consume(ctx, COLON))
 		{
 			diagnostics::error(ctx.context, ctx.current.range, "Expected ':' after switch label");
 			node.flags.has_error = true;
@@ -508,35 +510,35 @@ fn Node* parse_switch_stmt(ContextScope scope) => @pool()
 	if (consume(ctx, LPAREN))
 	{
 		node.cond = parse_cond_expr(scope);
-		if (!consume(ctx, RPAREN)) 
+		if (!consume(ctx, RPAREN))
 		{
 			diagnostics::error(ctx.context, ctx.current.range, "Expected ')' to close switch condition");
 			node.flags.has_error = true;
 		}
 	}
 
-	if (!consume(ctx, LBRACE)) 
+	if (!consume(ctx, LBRACE))
 	{
 		diagnostics::error(ctx.context, ctx.current.range, "Expected '{' to start switch body");
 		node.flags.has_error = true;
 		// Synchronization: Since we missed the '{', we shouldn't attempt to parse the body
 		skip_until(ctx, { RBRACE });
-	} 
-	else 
+	}
+	else
 	{
 		List{Node*} bodies; bodies.tinit();
-		
-		parse_switch_body(scope, &bodies); 
-		
+
+		parse_switch_body(scope, &bodies);
+
 		node.cases = alloc::clone_slice(ctx.allocator, bodies.array_view());
 
-		if (!consume(ctx, RBRACE)) 
+		if (!consume(ctx, RBRACE))
 		{
 			diagnostics::error(ctx.context, ctx.current.range, "Expected '}' to close switch body");
 			node.flags.has_error = true;
 		}
 	}
-	
+
 	return node;
 }
 
@@ -558,7 +560,7 @@ fn Node* parse_return_stmt(ContextScope scope)
 		node.expr = parse_expr(scope);
 	}
 
-	if (!consume(ctx, EOS)) 
+	if (!consume(ctx, EOS))
 	{
 		diagnostics::error(ctx.context, ctx.current.range, "Expected ';'");
 		node.flags.has_error = true;
@@ -602,7 +604,7 @@ fn Node* parse_ct_switch_stmt(ContextScope scope) => @pool()
 		{
 			diagnostics::error(ctx.context, ctx.current.range, "Expected '$case' or '$default' in $switch");
 			node.flags.has_error = true;
-			
+
 			// Sync to the next recognizable part of the switch
 			skip_until(ctx, { CT_CASE, CT_DEFAULT, CT_ENDSWITCH });
 			continue;
@@ -654,14 +656,14 @@ fn Node* parse_if_stmt(ContextScope scope)
 	{
 		node.label = ctx.ident(ctx.current);
 		advance(ctx);
-		if (!consume(ctx, COLON)) 
+		if (!consume(ctx, COLON))
 		{
 			diagnostics::error(ctx.context, ctx.current.range, "Expected ':' after if-label");
 			node.flags.has_error = true;
 		}
 	}
 
-	if (!consume(ctx, LPAREN)) 
+	if (!consume(ctx, LPAREN))
 	{
 		diagnostics::error(ctx.context, ctx.current.range, "Expected '(' after 'if'");
 		node.flags.has_error = true;
@@ -669,19 +671,19 @@ fn Node* parse_if_stmt(ContextScope scope)
 
 	node.condition = parse_cond_expr(scope);
 
-	if (!node.condition || node.condition.flags.has_error) 
+	if (!node.condition || node.condition.flags.has_error)
 	{
 		node.flags.has_error = true;
 	}
 
-	if (!consume(ctx, RPAREN)) 
+	if (!consume(ctx, RPAREN))
 	{
 		diagnostics::error(ctx.context, ctx.current.range, "Expected ')' to close if-condition");
 		node.flags.has_error = true;
 	}
 
 	node.then_body = parse_stmt(scope);
-	if (!node.then_body || node.then_body.flags.has_error) 
+	if (!node.then_body || node.then_body.flags.has_error)
 	{
 		node.flags.has_error = true;
 	}
@@ -689,12 +691,12 @@ fn Node* parse_if_stmt(ContextScope scope)
 	if (consume(ctx, ELSE))
 	{
 		node.else_body = parse_stmt(scope);
-		if (!node.else_body || node.else_body.flags.has_error) 
+		if (!node.else_body || node.else_body.flags.has_error)
 		{
 			node.flags.has_error = true;
 		}
 	}
-	
+
 	return (Node*)node;
 }
 
@@ -740,7 +742,7 @@ fn Node* parse_ct_if_stmt(ContextScope scope) => @pool()
 			skip_until(ctx, { CT_ELSE, CT_ENDIF });
 			break;
 		}
-		
+
 		if (child_stmt)
 		{
 			if (child_stmt.flags.has_error) node.flags.has_error = true;
@@ -753,7 +755,7 @@ fn Node* parse_ct_if_stmt(ContextScope scope) => @pool()
 	{
 		List{Node*} else_stmts;
 		else_stmts.init(tmem, 8);
-		
+
 		while (!ctx.eof() && !ctx.is(CT_ENDIF))
 		{
 			int start_index = ctx.pos;
@@ -766,7 +768,7 @@ fn Node* parse_ct_if_stmt(ContextScope scope) => @pool()
 				skip_until(ctx, { CT_ENDIF });
 				break;
 			}
-			
+
 			if (child_stmt)
 			{
 				if (child_stmt.flags.has_error) node.flags.has_error = true;
@@ -804,7 +806,7 @@ fn Node* parse_for_stmt(ContextScope scope)
 	{
 		node.label = ctx.ident(ctx.current);
 		advance(ctx);
-		if (!consume(ctx, COLON)) 
+		if (!consume(ctx, COLON))
 		{
 			diagnostics::error(ctx.context, ctx.current.range, "Expected ':' after label");
 			node.flags.has_error = true;
@@ -817,31 +819,31 @@ fn Node* parse_for_stmt(ContextScope scope)
 		node.flags.has_error = true;
 	}
 
-	if (!ctx.is(EOS)) 
+	if (!ctx.is(EOS))
 	{
 		node.init.set(parse_expr_list(scope));
 	}
-	if (!consume(ctx, EOS)) 
+	if (!consume(ctx, EOS))
 	{
 		diagnostics::error(ctx.context, ctx.current.range, "Expected ';' in for-loop header");
 		node.flags.has_error = true;
 	}
 
-	if (!ctx.is(EOS)) 
+	if (!ctx.is(EOS))
 	{
 		node.cond.set(parse_cond_expr(scope));
 	}
-	if (!consume(ctx, EOS)) 
+	if (!consume(ctx, EOS))
 	{
 		diagnostics::error(ctx.context, ctx.current.range, "Expected ';' in for-loop header");
 		node.flags.has_error = true;
 	}
 
-	if (!ctx.is(RPAREN)) 
+	if (!ctx.is(RPAREN))
 	{
 		node.incr.set(parse_expr_list(scope));
 	}
-	if (!consume(ctx, RPAREN)) 
+	if (!consume(ctx, RPAREN))
 	{
 		diagnostics::error(ctx.context, ctx.current.range, "Expected ')' to close for-loop header");
 		node.flags.has_error = true;
@@ -849,13 +851,13 @@ fn Node* parse_for_stmt(ContextScope scope)
 
 	Location prev_loc = ctx.current.range.start;
 	node.body = parse_stmt(scope);
-	
+
 	if (node.body && node.body.kind != COMPOUND_STMT)
 	{
 		Location body_loc = node.body.range.start;
 		if (prev_loc.line != body_loc.line)
 		{
-			diagnostics::error(ctx.context, node.body.range, 
+			diagnostics::error(ctx.context, node.body.range,
 				"Single statement after 'for' must be on the same line or in {}");
 			node.flags.has_error = true;
 		}
@@ -875,38 +877,38 @@ fn Node* parse_ct_for_stmt(ContextScope scope) => @pool()
 
 	Range start = ctx.current.range;
 	advance(ctx);
-	
+
 	CtForStmt* node = ctx.ast.alloc_node(CtForStmt, start);
 	defer node.range.end = ctx.current.range.end;
 
 	// init
-	if (!ctx.is(EOS)) 
+	if (!ctx.is(EOS))
 	{
 		node.init.set(parse_expr_list(scope.with_only_flags({ .is_comptime = true })));
 	}
-	if (!consume(ctx, EOS)) 
+	if (!consume(ctx, EOS))
 	{
 		diagnostics::error(ctx.context, ctx.current.range, "Expected ';' after init expression");
 		node.flags.has_error = true;
 	}
 
 	// cond
-	if (!ctx.is(EOS)) 
+	if (!ctx.is(EOS))
 	{
 		node.cond = parse_expr(scope.with_only_flags({ .is_comptime = true }));
 	}
-	if (!consume(ctx, EOS)) 
+	if (!consume(ctx, EOS))
 	{
 		diagnostics::error(ctx.context, ctx.current.range, "Expected ';' after loop condition");
 		node.flags.has_error = true;
 	}
 
 	// Update List
-	if (!ctx.is(COLON)) 
+	if (!ctx.is(COLON))
 	{
 		node.incr.set(parse_expr_list(scope.with_only_flags({ .is_comptime = true })));
 	}
-	if (!consume(ctx, COLON)) 
+	if (!consume(ctx, COLON))
 	{
 		diagnostics::error(ctx.context, ctx.current.range, "Expected ':' after loop update");
 		node.flags.has_error = true;
@@ -914,7 +916,7 @@ fn Node* parse_ct_for_stmt(ContextScope scope) => @pool()
 
 	CompoundStmt* comp_node = ctx.ast.alloc_node(CompoundStmt, ctx.current.range);
 	node.body = comp_node;
-	
+
 	List{Node*} stmts; stmts.tinit();
 	while (!ctx.eof() && !ctx.is(CT_ENDFOR))
 	{
@@ -922,7 +924,7 @@ fn Node* parse_ct_for_stmt(ContextScope scope) => @pool()
 		Node* stmt = parse_stmt(scope);
 
 		// Synchronization check: if we didn't advance, skip to next likely token
-		if (ctx.pos == start_pos) 
+		if (ctx.pos == start_pos)
 		{
 			diagnostics::error(ctx.context, ctx.current.range, "Unexpected token in $for body");
 			node.flags.has_error = true;
@@ -930,14 +932,14 @@ fn Node* parse_ct_for_stmt(ContextScope scope) => @pool()
 			break;
 		}
 
-		if (stmt) 
+		if (stmt)
 		{
 			if (stmt.flags.has_error) node.flags.has_error = true;
 			stmts.push(stmt);
 		}
 	}
 
-	if (!consume(ctx, CT_ENDFOR)) 
+	if (!consume(ctx, CT_ENDFOR))
 	{
 		diagnostics::error(ctx.context, ctx.current.range, "Expected '$endfor' to terminate loop");
 		node.flags.has_error = true;
@@ -966,14 +968,14 @@ fn Node* parse_while_stmt(ContextScope scope)
 	{
 		node.label = ctx.ident(ctx.current);
 		advance(ctx);
-		if (!consume(ctx, COLON)) 
+		if (!consume(ctx, COLON))
 		{
 			diagnostics::error(ctx.context, ctx.current.range, "Expected ':' after label");
 			node.flags.has_error = true;
 		}
 	}
 
-	if (!consume(ctx, LPAREN)) 
+	if (!consume(ctx, LPAREN))
 	{
 		diagnostics::error(ctx.context, ctx.current.range, "Expected '(' to open while header");
 		node.flags.has_error = true;
@@ -981,7 +983,7 @@ fn Node* parse_while_stmt(ContextScope scope)
 
 	node.cond = parse_cond_expr(scope);
 
-	if (!consume(ctx, RPAREN)) 
+	if (!consume(ctx, RPAREN))
 	{
 		diagnostics::error(ctx.context, ctx.current.range, "Expected ')' to close while header");
 		node.flags.has_error = true;
@@ -994,7 +996,7 @@ fn Node* parse_while_stmt(ContextScope scope)
 	Location body_loc = node.body.range.start;
 	if (node.body.kind != COMPOUND_STMT && prev_loc.line != body_loc.line)
 	{
-		diagnostics::error(ctx.context, node.body.range, 
+		diagnostics::error(ctx.context, node.body.range,
 				"Single statement after 'while' must be on the same line or in {}");
 		node.flags.has_error = true;
 	}
@@ -1020,7 +1022,7 @@ fn Node* parse_do_while_stmt(ContextScope scope)
 	{
 		node.label = ctx.ident(ctx.current);
 		advance(ctx);
-		if (!consume(ctx, COLON)) 
+		if (!consume(ctx, COLON))
 		{
 			diagnostics::error(ctx.context, ctx.current.range, "Expected ':' after label");
 			node.flags.has_error = true;
@@ -1031,7 +1033,7 @@ fn Node* parse_do_while_stmt(ContextScope scope)
 
 	if (consume(ctx, WHILE))
 	{
-		if (!consume(ctx, LPAREN)) 
+		if (!consume(ctx, LPAREN))
 		{
 			diagnostics::error(ctx.context, ctx.current.range, "Expected '()' to open do header");
 			node.flags.has_error = true;
@@ -1039,14 +1041,14 @@ fn Node* parse_do_while_stmt(ContextScope scope)
 
 		node.cond.set(parse_cond_expr(scope));
 
-		if (!consume(ctx, RPAREN)) 
+		if (!consume(ctx, RPAREN))
 		{
 			diagnostics::error(ctx.context, ctx.current.range, "Expected ')' after do header");
 			node.flags.has_error = true;
 		}
 	}
 
-	if (!consume(ctx, EOS)) 
+	if (!consume(ctx, EOS))
 	{
 		diagnostics::error(ctx.context, ctx.current.range, "Expected ';'");
 		node.flags.has_error = true;
@@ -1189,7 +1191,7 @@ fn Node* parse_ct_assert_stmt(ContextScope scope) => @pool()
 	if (consume(ctx, COLON))
 	{
 		node.msg_expr.set(parse_constant_expr(scope));
-		
+
 		List{Node*} args; args.tinit();
 
 		while (!ctx.eof() && consume(ctx, COMMA))
@@ -1277,37 +1279,37 @@ fn Node* parse_defer_stmt(ContextScope scope)
 
 	diagnostics::log_debug("parse_defer");
 
-	if (consume(ctx, TRY)) 
+	if (consume(ctx, TRY))
 	{
 		node.defer_kind = TRY;
-	} 
-	else if (consume(ctx, CATCH)) 
+	}
+	else if (consume(ctx, CATCH))
 	{
 		node.defer_kind = CATCH;
-	} 
-	else if (consume(ctx, LPAREN)) 
+	}
+	else if (consume(ctx, LPAREN))
 	{
-		if (consume(ctx, CATCH)) 
+		if (consume(ctx, CATCH))
 		{
 			node.ident = parse_expr(scope);
-			
+
 			// Validate that we actually got an identifier
-			if (!node.ident || node.ident.kind != IDENT_EXPR) 
+			if (!node.ident || node.ident.kind != IDENT_EXPR)
 			{
 				diagnostics::error(ctx.context, ctx.current.range, "Expected identifier after 'catch'");
 				node.flags.has_error = true;
 			}
-			
+
 			node.defer_kind = CATCH_VAR;
-			
-			if (!consume(ctx, RPAREN)) 
+
+			if (!consume(ctx, RPAREN))
 			{
 				diagnostics::error(ctx.context, ctx.current.range, "Expected ')'");
 				node.flags.has_error = true;
 				skip_until(ctx, { RPAREN });
 			}
-		} 
-		else 
+		}
+		else
 		{
 			diagnostics::error(ctx.context, ctx.current.range, "Expected 'catch' inside parenthesis");
 			node.flags.has_error = true;
@@ -1340,12 +1342,12 @@ fn Node* parse_assert_stmt(ContextScope scope)
 
 	expect(ctx, node, LPAREN);
 
-	if (!consume(ctx, LPAREN)) 
+	if (!consume(ctx, LPAREN))
 	{
 		diagnostics::error(ctx.context, ctx.current.range, "Expected '('");
 		error_node(ctx, node);
 	}
-	
+
 	node.expr = parse_expr(scope);
 
 	if (!node.expr || node.flags.has_error)
@@ -1371,13 +1373,13 @@ fn Node* parse_assert_stmt(ContextScope scope)
 		};
 	}
 
-	if (!consume(ctx, RPAREN)) 
+	if (!consume(ctx, RPAREN))
 	{
 		diagnostics::error(ctx.context, ctx.current.range, "Expected ')'");
 		error_node(ctx, node);
 	}
 
-	if (!consume(ctx, EOS)) 
+	if (!consume(ctx, EOS))
 	{
 		diagnostics::error(ctx.context, ctx.current.range, "Expected ';'");
 		error_node(ctx, node);
@@ -1400,7 +1402,7 @@ fn Node* parse_ct_foreach_stmt(ContextScope scope) => @pool()
 	Node* idx_or_variable = parse_ct_foreach_var(scope);
 
 	if (idx_or_variable && idx_or_variable.flags.has_error)
-	{ 
+	{
 		error_node(ctx, node);
 	}
 
@@ -1409,7 +1411,7 @@ fn Node* parse_ct_foreach_stmt(ContextScope scope) => @pool()
 		node.index = idx_or_variable;
 		node.value = parse_ct_foreach_var(scope);
 		if (node.value && node.value.flags.has_error)
-		{ 
+		{
 			error_node(ctx, node);
 		}
 	}
@@ -1448,7 +1450,7 @@ fn Node* parse_ct_foreach_stmt(ContextScope scope) => @pool()
 			break;
 		}
 
-		if (stmt) 
+		if (stmt)
 		{
 			if (stmt.flags.has_error) error_node(ctx, node);
 			stmts.push(stmt);
@@ -1475,14 +1477,14 @@ fn Node* parse_ct_foreach_var(ContextScope scope)
 	defer node.range.end = ctx.peek(-1).range.end;
 	node.var_kind = VAR_LOCAL;
 
-	if (ctx.is(CT_IDENT)) 
+	if (ctx.is(CT_IDENT))
 	{
 		node.name = ctx.ident(ctx.current);
 		advance(ctx);
-	} 
+	}
 	else
 	{
-		diagnostics::error(ctx.context, ctx.current.range, "$foreach must have a 'IDENT' identifier");		
+		diagnostics::error(ctx.context, ctx.current.range, "$foreach must have a 'IDENT' identifier");
 		node.node.flags.has_error = true;
 	}
 
@@ -1497,7 +1499,7 @@ fn Node* parse_ct_expand_stmt(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
 	Range start = ctx.current.range;
-	advance(ctx); 
+	advance(ctx);
 	CtExpandStmt* node = ctx.ast.alloc_node(CtExpandStmt, start);
 	defer node.range.end = ctx.peek(-1).range.end;
 

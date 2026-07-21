@@ -1,6 +1,6 @@
 <*
  Pratt parsing using Binding power
-	
+
 	Resources for Binding power pratt parsing:
 	- https://matklad.github.io/2020/04/13/simple-but-powerful-pratt-parsing.html
 *>
@@ -151,7 +151,7 @@ fn void get_binding_power(TokenKind type, int* lbp, int* rbp)
 <*
  parse expressions recursively with Pratt parsing
 	using Binding power.
- @require(scope.ctx != null) 
+ @require(scope.ctx != null)
  @param min_bp : "Starting binding power"
 *>
 fn Node* parse_expr(ContextScope scope, Precedence min_bp = LOWEST)
@@ -253,8 +253,8 @@ fn Node* parse_prefix_expr(ContextScope scope)
 		case LPAREN:
 			return parse_group_expr(scope);
 		default:
-			diagnostics::error(ctx.context, ctx.current.range, "Expected expression");
-			advance(ctx); 
+			diagnostics::error(ctx.context, ctx.current.range, "Expected expression, got: %s", ctx.current.kind.description);
+			advance(ctx);
 			return ctx.ast.error(ctx.current.range);
 	}
 }
@@ -340,7 +340,7 @@ fn Node* parse_infix(ContextScope scope, Node* left, Precedence rbp)
 			return parse_range_expr(scope, left, ctx.peek(-1).range);
 		default:
 			diagnostics::error(ctx.context, ctx.current.range, "Expected expression");
-			advance(ctx); 
+			advance(ctx);
 			return ctx.ast.error(ctx.current.range);
 	}
 }
@@ -381,7 +381,7 @@ fn Node* parse_decl_or_expr(ContextScope scope)
 }
 
 <*
- "Shortcut" for when a left node has already been parsed (like an identifier) 
+ "Shortcut" for when a left node has already been parsed (like an identifier)
  and want to continue building an expression from that specific point without starting over
 *>
 fn Node* parse_expr_resuming_with_left(ContextScope scope, Node* left, Precedence min_bp)
@@ -399,7 +399,7 @@ fn Node* parse_expr_resuming_with_left(ContextScope scope, Node* left, Precedenc
 }
 
 <*
- Parses only the leading prefix/atom expression and returns immediately 
+ Parses only the leading prefix/atom expression and returns immediately
  without binding any trailing infix operators.
 *>
 fn Node* parse_prefix_expr_only(ContextScope scope)

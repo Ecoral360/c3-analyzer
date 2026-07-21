@@ -33,7 +33,7 @@ fn Node* parse_module_decl(ContextScope scope)
 	{
 		node.generics = parse_generic_decl(scope);
 	}
-	
+
 	if (ctx.is(AT_IDENT))
 	{
 		node.attributes = parse_attributes(scope, node);
@@ -52,7 +52,7 @@ fn Node* parse_module_decl(ContextScope scope)
 *>
 fn Node* parse_contract_decl(ContextScope scope) => @pool()
 {
-	ParseContext* ctx = scope.ctx;	
+	ParseContext* ctx = scope.ctx;
 	ContractDecl* node = ctx.ast.alloc_node(ContractDecl, ctx.current.range);
 	defer node.range.end = ctx.peek(-1).range.end;
 
@@ -193,7 +193,7 @@ fn Node* parse_import_decl(ContextScope scope) => @pool()
 	{
 		node.attributes = parse_attributes(scope, node);
 	}
-	
+
 	(void)expect(ctx, node, EOS);
 
 	return (Node*)node;
@@ -212,7 +212,7 @@ fn Node* parse_alias_decl(ContextScope scope)
 	advance(ctx);
 	AliasDecl* node = ctx.ast.alloc_node(AliasDecl, start);
 	defer node.range.end = ctx.peek(-1).range.end;
-	
+
 	Token t = ctx.current;
 	switch (t.kind)
 	{
@@ -240,7 +240,7 @@ fn Node* parse_alias_decl(ContextScope scope)
 		node.attributes = parse_attributes(scope, node, { .allow_type_ident = true });
 	}
 
-	if (!consume(ctx, EQ)) 
+	if (!consume(ctx, EQ))
 	{
 		diagnostics::error(ctx.context, ctx.current.range, "Expected '=' in alias declaration");
 		node.flags.has_error = true;
@@ -328,7 +328,7 @@ fn Node* parse_typedef_decl(ContextScope scope)
 		{
 			diagnostics::error(ctx.context, ctx.current.range, "Cannot define a new function type in typedef");
 			node.flags.has_error = true;
-			advance(ctx); 
+			advance(ctx);
 		}
 		else
 		{
@@ -377,7 +377,7 @@ fn Node* parse_macro_decl(ContextScope scope)
 			if (is_type(ctx))
 			{
 				node.associated_type.set(parse_type_expr(scope));
-				if (!consume(ctx, DOT)) 
+				if (!consume(ctx, DOT))
 				{
 					diagnostics::error(ctx.context, ctx.current.range, "Expected '.' after associated type");
 					node.flags.has_error = true;
@@ -385,7 +385,7 @@ fn Node* parse_macro_decl(ContextScope scope)
 			}
 		}
 	}
-	
+
 	if (ctx.is(AT_IDENT) || ctx.is(IDENT))
 	{
 		node.name = ctx.ident(ctx.current);
@@ -516,7 +516,7 @@ fn Node* parse_param_decl(ContextScope scope, ParamParseFlags flags = {})
 			node.var_flags.is_ref = is_ref;
 			advance(ctx);
 
-			if (token_text == "self") 
+			if (token_text == "self")
 			{
 				node.var_flags.is_self = true;
 				node.var_flags.is_self_by_ref = is_ref;
@@ -524,7 +524,7 @@ fn Node* parse_param_decl(ContextScope scope, ParamParseFlags flags = {})
 
 			if (consume(ctx, ELLIPSIS))
 			{
-				if (has_ellipsis_after_type || parsed_type) 
+				if (has_ellipsis_after_type || parsed_type)
 				{
 					diagnostics::error(ctx.context, ctx.current.range, "Invalid variadic usage.");
 					node.flags.has_error = true;
@@ -544,7 +544,7 @@ fn Node* parse_param_decl(ContextScope scope, ParamParseFlags flags = {})
 			advance(ctx);
 			break;
 		default:
-			if (!parsed_type) 
+			if (!parsed_type)
 			{
 				diagnostics::error(ctx.context, ctx.current.range, "Expected parameter name or type.");
 				node.flags.has_error = true;
@@ -568,7 +568,7 @@ fn Node* parse_param_decl(ContextScope scope, ParamParseFlags flags = {})
 			node.init_expr = parse_expr(scope);
 		}
 	}
-	
+
 	return node;
 }
 
@@ -604,7 +604,7 @@ fn Node* parse_var_decl(ContextScope scope, Node* type = null)
 			diagnostics::error(ctx.context, ctx.current.range, "Local variable cannot be 'inline'");
 		}
 	}
-	
+
 	Node* type_node = type;
 
 	if (!type_node)
@@ -846,7 +846,7 @@ fn NodeArray parse_attributes(ContextScope scope, Node* parent_node, AttributePa
 						expr = parse_constant_expr(scope);
 						break;
 				}
-				
+
 				exprs.push(expr);
 				if (!consume(ctx, COMMA)) break;
 			}
@@ -881,9 +881,9 @@ fn Node* parse_expand_decl(ContextScope scope)
 	if (!consume(ctx, LPAREN))
 	{
 		node.flags.has_error = true;
-		diagnostics::error(ctx.context, ctx.current.range, 
-			"Expected '%s' got '%s'", 
-			ctx.current.kind.description, 
+		diagnostics::error(ctx.context, ctx.current.range,
+			"Expected '%s' got '%s'",
+			ctx.current.kind.description,
 			ctx.current.kind.description);
 
 		skip_until(ctx, { RPAREN, EOS });
@@ -926,12 +926,12 @@ fn Node* parse_struct_union_decl(ContextScope scope, bool is_sub = false) => @po
 
 	if (!is_sub)
 	{
-		if (ctx.is(TYPE_IDENT)) 
+		if (ctx.is(TYPE_IDENT))
 		{
 			node.name = ctx.ident(ctx.current);
 			advance(ctx);
-		} 
-		else 
+		}
+		else
 		{
 			diagnostics::error(ctx.context, ctx.current.range, "Structs must have a 'Type' identifier");
 			node.flags.has_error = true;
@@ -960,7 +960,7 @@ fn Node* parse_struct_union_decl(ContextScope scope, bool is_sub = false) => @po
 	{
 		diagnostics::error(ctx.context, ctx.current.range, "Expected '{' to start struct body");
 		node.flags.has_error = true;
-		return (Node*)node; 
+		return (Node*)node;
 	}
 
 	List{Node*} fields;
@@ -1026,12 +1026,12 @@ fn Node* parse_bitstruct_decl(ContextScope scope, bool is_nested = false) => @po
 
 	if (!is_nested || ctx.is(IDENT) || ctx.is(TYPE_IDENT))
 	{
-		if (ctx.is(IDENT) || ctx.is(TYPE_IDENT)) 
+		if (ctx.is(IDENT) || ctx.is(TYPE_IDENT))
 		{
 			node.name = ctx.ident(ctx.current);
 			advance(ctx);
-		} 
-		else 
+		}
+		else
 		{
 			diagnostics::error(ctx.context, ctx.current.range, "Bitstructs must have a name");
 			node.flags.has_error = true;
@@ -1049,7 +1049,7 @@ fn Node* parse_bitstruct_decl(ContextScope scope, bool is_nested = false) => @po
 		node.attributes = parse_attributes(scope, node);
 	}
 
-	if (!consume(ctx, LBRACE)) 
+	if (!consume(ctx, LBRACE))
 	{
 		diagnostics::error(ctx.context, ctx.current.range, "Expected '{'");
 		node.flags.has_error = true;
@@ -1078,12 +1078,12 @@ fn Node* parse_bitstruct_decl(ContextScope scope, bool is_nested = false) => @po
 		field_node.type = parse_type_expr(scope);
 		field_node.attributes = parse_attributes(scope, field_node);
 
-		if (ctx.is(IDENT)) 
+		if (ctx.is(IDENT))
 		{
 			field_node.name = ctx.ident(ctx.current);
 			advance(ctx);
-		} 
-		else 
+		}
+		else
 		{
 			diagnostics::error(ctx.context, ctx.current.range, "Expected field name");
 			field_node.flags.has_error = true;
@@ -1098,7 +1098,7 @@ fn Node* parse_bitstruct_decl(ContextScope scope, bool is_nested = false) => @po
 			}
 		}
 
-		if (!consume(ctx, EOS)) 
+		if (!consume(ctx, EOS))
 		{
 			diagnostics::error(ctx.context, ctx.current.range, "Expected ';'");
 			skip_until(ctx, { EOS, RBRACE });
@@ -1108,7 +1108,7 @@ fn Node* parse_bitstruct_decl(ContextScope scope, bool is_nested = false) => @po
 		fields.push((Node*)field_node);
 	}
 
-	if (!consume(ctx, RBRACE)) 
+	if (!consume(ctx, RBRACE))
 	{
 		diagnostics::error(ctx.context, ctx.current.range, "Expected '}'");
 		node.flags.has_error = true;
@@ -1141,7 +1141,7 @@ fn Node* parse_faultdef_decl(ContextScope scope) => @pool()
 			diagnostics::error(ctx.context, ctx.current.range, "Expected constant identifier for fault");
 			node.flags.has_error = true;
 			skip_until(ctx, { COMMA, EOS });
-			
+
 			if (consume(ctx, COMMA)) continue;
 			break;
 		}
@@ -1155,7 +1155,7 @@ fn Node* parse_faultdef_decl(ContextScope scope) => @pool()
 		}
 
 		fault_node.name = ctx.ident(ctx.current);
-		
+
 		advance(ctx);
 
 		fault_node.attributes = parse_attributes(scope, node);
@@ -1187,15 +1187,15 @@ fn Node* parse_interface_decl(ContextScope scope) => @pool()
 	advance(ctx);
 	InterfaceDecl* node = ctx.ast.alloc_node(InterfaceDecl, start);
 	defer node.range.end = ctx.peek(-1).range.end;
-	
-	if (ctx.is(TYPE_IDENT)) 
+
+	if (ctx.is(TYPE_IDENT))
 	{
 		node.name = ctx.ident(ctx.current);
 		advance(ctx);
-	} 
-	else 
+	}
+	else
 	{
-		diagnostics::error(ctx.context, ctx.current.range, "Interfaces must have a 'Type' identifier");		
+		diagnostics::error(ctx.context, ctx.current.range, "Interfaces must have a 'Type' identifier");
 		node.flags.has_error = true;
 	}
 
@@ -1248,7 +1248,7 @@ fn Node* parse_interface_decl(ContextScope scope) => @pool()
 	}
 
 	node.methods = alloc::clone_slice(ctx.allocator, list.array_view());
-	
+
 	if (!consume(ctx, RBRACE))
 	{
 		diagnostics::error(ctx.context, ctx.current.range, "Expected '}' to terminate interface");
@@ -1270,14 +1270,14 @@ fn Node* parse_attrdef_decl(ContextScope scope) => @pool()
 	AttrdefDecl* node = ctx.ast.alloc_node(AttrdefDecl, start);
 	defer node.range.end = ctx.peek(-1).range.end;
 
-	if (ctx.is(AT_TYPE_IDENT)) 
+	if (ctx.is(AT_TYPE_IDENT))
 	{
 		node.name = ctx.ident(ctx.current);
 		advance(ctx);
-	} 
-	else 
+	}
+	else
 	{
-		diagnostics::error(ctx.context, ctx.current.range, "Attrdef must have a '@Type' identifier");		
+		diagnostics::error(ctx.context, ctx.current.range, "Attrdef must have a '@Type' identifier");
 		node.flags.has_error = true;
 		skip_until(ctx, { LPAREN, EQ, EOS });
 	}
@@ -1325,14 +1325,14 @@ fn Node* parse_enum_constdef_decl(ContextScope scope) => @pool()
 	EnumDecl* node = ctx.ast.alloc_node(EnumDecl, start);
 	defer node.range.end = ctx.peek(-1).range.end;
 
-	if (ctx.is(TYPE_IDENT)) 
+	if (ctx.is(TYPE_IDENT))
 	{
 		node.name = ctx.ident(ctx.current);
 		advance(ctx);
-	} 
-	else 
+	}
+	else
 	{
-		diagnostics::error(ctx.context, ctx.current.range, "constdef & enum must have a 'Type' identifier");		
+		diagnostics::error(ctx.context, ctx.current.range, "constdef & enum must have a 'Type' identifier");
 		node.flags.has_error = true;
 		skip_until(ctx, { LPAREN, EQ, LBRACE, EOS });
 	}
@@ -1377,7 +1377,7 @@ fn Node* parse_enum_constdef_decl(ContextScope scope) => @pool()
 				if (!consume(ctx, COMMA)) break;
 			}
 
-			if (!consume(ctx, RPAREN)) 
+			if (!consume(ctx, RPAREN))
 			{
 				diagnostics::error(ctx.context, ctx.current.range, "Expected ')' in parameter list");
 			}
@@ -1484,9 +1484,9 @@ fn Node* parse_generic_decl(ContextScope scope) => @pool()
 		{
 			diagnostics::error(ctx.context, ctx.current.range, "Expected type or constant identifier in generic list");
 			node.flags.has_error = true;
-			
+
 			skip_until(ctx, { COMMA, GREATER });
-			
+
 			if (consume(ctx, COMMA)) continue;
 			break;
 		}
