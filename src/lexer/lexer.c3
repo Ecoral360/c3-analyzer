@@ -151,8 +151,8 @@ fn Token lex_char(Lexer* self)
 			if (next == 'x')
 			{
 			   	advance(self, 4);
-			} 
-			else 
+			}
+			else
 			{
 				advance(self, 2);
 			}
@@ -319,8 +319,8 @@ fn Token lex_identifier(Lexer* self)
 	int length = self.index - start_index;
 	if (length <= 0)
 	{
-		diagnostics::error(self.ctx, 
-		{ start, self.location }, 
+		diagnostics::error(self.ctx,
+		{ start, self.location },
 		"Length of identifier was less or eq to 0");
 		return self.emit_range(ERROR, start_index);
 	}
@@ -429,7 +429,7 @@ fn Token lex_number(Lexer* self)
 		}
 	}
 
-	// Handle Suffixes (e.g., 1u, 1.0f, 0xFFu64) 
+	// Handle Suffixes (e.g., 1u, 1.0f, 0xFFu64)
 	char c = (char)ascii::to_lower(self.current);
 	if (c == 'u' || c == 'i' || c == 'f' || c == 'l')
 	{
@@ -511,7 +511,7 @@ fn void lex_contract(Lexer* self)
 
 	int start_index = self.index;
 
-	while (self.current != 0 && self.current != '@' && 
+	while (self.current != 0 && self.current != '@' &&
 		   !(self.current == '*' && self.peek() == '>'))
 	{
 		advance(self);
@@ -532,8 +532,8 @@ fn void lex_contract(Lexer* self)
 		}
 
 		Token t = next(self);
-		
-		if (t.kind == EOF) 
+
+		if (t.kind == EOF)
 		{
 			return;
 		}
@@ -556,12 +556,12 @@ fn void advance(Lexer* self, int len = 1)
 		if (self.index < self.buffer.len)
 		{
 			char c = self.buffer[self.index];
-			if (c == '\n') 
+			if (c == '\n')
 			{
 				self.location.line++;
 				self.location.column = 0;
-			} 
-			else 
+			}
+			else
 			{
 				self.location.column++;
 			}
@@ -621,7 +621,7 @@ fn Token Lexer.emit_range(Lexer* self, TokenKind kind, int start_index)
 fn void tokenize(Lexer* lexer)
 {
 	while (true)
-	{	
+	{
 		Token t = next(lexer);
 		diagnostics::log_debug("Added token: %s - %s", t.kind.description, t.value);
 		lexer.tokens.push(t);
@@ -863,9 +863,9 @@ fn Token next(Lexer* lexer)
 
 			if (lexer.current != 0)
 			{
-				diagnostics::error(lexer.ctx, { lexer.location, lexer.location }, 
+				diagnostics::error(lexer.ctx, { lexer.location, lexer.location },
 					"Unexpected character: %c", lexer.current);
-				
+
 				Token err = lexer.emit(ERROR, "");
 				advance(lexer);
 				return err;
@@ -940,8 +940,8 @@ fn TokenKind categorize_identifier(Lexer* self, String text)
 		TokenKind kind = lookup_keyword(base);
 		if (kind != IDENT) return kind;
 	}
-	
-	
+
+
 
 	while (base.len > 0 && base[0] == '_')
 	{
@@ -998,7 +998,7 @@ struct KindString @private
 }
 
 fn void test_lexer() @test
-{	
+{
 	KindString[*] expected = {
 		{ MODULE, "module" },
 		{ IDENT, "foo" },
@@ -1030,7 +1030,7 @@ fn void test_lexer() @test
 		  @require x > y : "foo"
 		  @return "foo"
 		*>
-		fn void bar() 
+		fn void bar()
 		{
 
 		}
@@ -1057,7 +1057,7 @@ fn void test_lexer() @test
 }
 
 fn void test_idents() @test
-{	
+{
 	KindString[*] expected = {
 		{ IDENT, "foo" },
 		{ TYPE_IDENT, "Foo" },
@@ -1068,7 +1068,7 @@ fn void test_idents() @test
 	};
 
 	String src  = `
-		foo Foo FOO @Foo 
+		foo Foo FOO @Foo
 		@foo
 	`;
 	AnalyzerContext* context = context::create(tmem);
