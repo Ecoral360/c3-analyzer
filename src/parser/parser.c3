@@ -292,6 +292,7 @@ macro Token expect(ParseContext* ctx, Node* node, TokenKind kind)
 		diagnostics::log_error("Happened here.");
 	$endif
 	node.flags.has_error = true;
+	ctx.error_count++;
 	return {
 		.kind = ERROR,
 		.range = ctx.current.range,
