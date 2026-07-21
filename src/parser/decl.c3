@@ -63,7 +63,7 @@ fn Node* parse_contract_decl(ContextScope scope) => @pool()
 
 	advance(ctx); // skip <*
 
-	if (ctx.is(IDENT))
+	if (ctx.is(DOCS_TEXT))
 	{
 		node.comment = ctx.ident(ctx.current);
 		advance(ctx);
