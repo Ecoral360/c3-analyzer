@@ -538,6 +538,13 @@ fn void lex_contract(Lexer* self)
 			return;
 		}
 
+		if (t.kind == RETURN)
+		{
+			t.kind = IDENT;
+		}
+
+		diagnostics::log_debug("[Lexer] lex_contract: Added token: %s - %s", t.kind.description, t.value);
+
 		self.tokens.push(t);
 	}
 }
@@ -722,7 +729,7 @@ fn Token next(Lexer* lexer)
 			switch (lexer.peek())
 			{
 				case '=': return lexer.emit(MULT_ASSIGN, "*=");
-				case '>': return lexer.emit(DOCS_END, "*>");
+				default:
 			}
 			return lexer.emit(ASTERISK, "*");
 		case '?':
