@@ -525,16 +525,19 @@ fn void lex_contract(Lexer* self)
 
 	while (self.current != 0)
 	{
-		if (self.current == '*' && self.peek() == '>')
+		Token t = next(self);
+
+		if (t.kind == DOCS_END)
 		{
-			self.tokens.push(self.emit(DOCS_END, "*>"));
+			self.tokens.push(t);
+			diagnostics::log_debug("[Lexer] lex_contract: Added token: %s - %s", t.kind.description, t.value);
 			return;
 		}
 
-		Token t = next(self);
-
 		if (t.kind == EOF)
 		{
+			self.tokens.push(t);
+			diagnostics::log_debug("[Lexer] lex_contract: Added token: %s - %s", t.kind.description, t.value);
 			return;
 		}
 
@@ -729,7 +732,7 @@ fn Token next(Lexer* lexer)
 			switch (lexer.peek())
 			{
 				case '=': return lexer.emit(MULT_ASSIGN, "*=");
-				default:
+				case '>': return lexer.emit(DOCS_END, "*>");
 			}
 			return lexer.emit(ASTERISK, "*");
 		case '?':
