@@ -1,14 +1,10 @@
 module stmt_tests @test;
 
-/*
-
 import parser_tests;
 
-import analyzer::workspace;
 import analyzer::parser;
 import analyzer::sema;
 import analyzer::core;
-import analyzer::core::string_pool;
 import std::io;
 import std::collections::list;
 import std::io::file;
@@ -40,35 +36,30 @@ fn void switch_stmt()
 			}
 		}
 	`;
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
-	StringPool* pool = &s.source_file.ast.string_pool;
+	Module* mod = context.modules.get("hello")!!;
 
-	Node* node = parser_tests::@node(ws.lookup("hello", "foo")!!);
-	FnDecl* func          = node.as(FN_DECL);
-	CompoundStmt* fn_comp = func.body.as(COMPOUND_STMT);
-	SwitchStmt* sw        = fn_comp.statements[1].as(SWITCH_STMT);
+	FunctionInfo* func_info = context.registry.functions.get("hello::foo")!!;
+	FnDecl* fn_decl          = func_info.node.as(FnDecl);
+	CompoundStmt* fn_comp = fn_decl.body.as(CompoundStmt);
+	SwitchStmt* sw        = fn_comp.statements[1].as(SwitchStmt);
 	test::eq(sw.cases.len, 9);
-	CondExpr* cond = sw.cond.as(COND_EXPR);
-	test::eq(cond.exprs[0].as(IDENT_EXPR).get_ident(pool)!!, "a");
-	test::eq(pool.get(sw.label.id)!!, "LABEL");
+	CondExpr* cond = sw.cond.as(CondExpr);
+	test::eq(cond.exprs[0].as(IdentExpr).ident.text, "a");
+	test::eq(sw.label.text, "LABEL");
 
-	CaseStmt* case0      = sw.cases[0].as(CASE_STMT);
-	CompoundStmt* comp_0 = case0.body.as(COMPOUND_STMT);
+	CaseStmt* case0      = sw.cases[0].as(CaseStmt);
+	CompoundStmt* comp_0 = case0.body.as(CompoundStmt);
 	test::eq(comp_0.statements[0].kind, NodeKind.CONTINUE_BREAK_STMT);
-	CaseStmt* case1      = sw.cases[1].as(CASE_STMT);
-	CompoundStmt* comp_1 = case1.body.as(COMPOUND_STMT);
+	CaseStmt* case1      = sw.cases[1].as(CaseStmt);
+	CompoundStmt* comp_1 = case1.body.as(CompoundStmt);
 	test::eq(comp_1.statements.len, 1);
 
-	test::eq(parser_tests::count_kind(s, MODULE_DECL), 1);
-	test::eq(parser_tests::count_kind(s, FN_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, MODULE_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, FN_DECL), 1);
 }
 
 fn void ct_switch_stmt()
@@ -90,26 +81,21 @@ fn void ct_switch_stmt()
 			$endswitch
 		}
 	`;
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
-	StringPool* pool = &s.source_file.ast.string_pool;
+	Module* mod = context.modules.get("hello")!!;
 
-	Node* node = parser_tests::@node(ws.lookup("hello", "foo")!!);
-	FnDecl* func          = node.as(FN_DECL);
-	CompoundStmt* fn_comp = func.body.as(COMPOUND_STMT);
-	CtSwitchStmt* sw      = fn_comp.statements[0].as(CT_SWITCH_STMT);
+	FunctionInfo* func_info = context.registry.functions.get("hello::foo")!!;
+	FnDecl* fn_decl          = func_info.node.as(FnDecl);
+	CompoundStmt* fn_comp = fn_decl.body.as(CompoundStmt);
+	CtSwitchStmt* sw      = fn_comp.statements[0].as(CtSwitchStmt);
 	test::eq(sw.cases.len, 4);
-	test::eq(sw.cond[0].as(IDENT_EXPR).get_ident(pool)!!, "$x");
+	test::eq(sw.cond[0].as(IdentExpr).ident.text, "$x");
 
-	test::eq(parser_tests::count_kind(s, MODULE_DECL), 1);
-	test::eq(parser_tests::count_kind(s, FN_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, MODULE_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, FN_DECL), 1);
 }
 
 fn void if_elseif_else()
@@ -131,30 +117,25 @@ fn void if_elseif_else()
 		}
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
-	StringPool* pool = &s.source_file.ast.string_pool;
+	Module* mod = context.modules.get("hello")!!;
 
-	Node* node            = parser_tests::@node(ws.lookup("hello", "foo")!!);
-	FnDecl* func          = node.as(FN_DECL);
-	CompoundStmt* fn_comp = func.body.as(COMPOUND_STMT);
-	IfStmt* if_stmt       = fn_comp.statements[0].as(IF_STMT);
-	IfStmt* if_stmt_2     = if_stmt.else_body.as(IF_STMT);
+	FunctionInfo* func_info = context.registry.functions.get("hello::foo")!!;
+	FnDecl* fn_decl          = func_info.node.as(FnDecl);
+	CompoundStmt* fn_comp = fn_decl.body.as(CompoundStmt);
+	IfStmt* if_stmt       = fn_comp.statements[0].as(IfStmt);
+	IfStmt* if_stmt_2     = if_stmt.else_body.as(IfStmt);
 	test::eq(if_stmt_2.then_body.kind, NodeKind.COMPOUND_STMT);
 	test::eq(if_stmt_2.else_body.kind, NodeKind.COMPOUND_STMT);
 	test::eq(if_stmt.then_body.kind, NodeKind.COMPOUND_STMT);
 	test::ne(if_stmt.else_body, null);
-	test::eq(pool.get(if_stmt.label.id)!!, "LABEL");
+	test::eq(if_stmt.label.text, "LABEL");
 	test::eq(fn_comp.statements.len, 1);
-	test::eq(parser_tests::count_kind(s, MODULE_DECL), 1);
-	test::eq(parser_tests::count_kind(s, FN_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, MODULE_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, FN_DECL), 1);
 }
 
 fn void ct_if_else()
@@ -176,23 +157,18 @@ fn void ct_if_else()
 		}
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
-	StringPool* pool = &s.source_file.ast.string_pool;
+	Module* mod = context.modules.get("hello")!!;
 
-	Node* node = parser_tests::@node(ws.lookup("hello", "foo")!!);
-	FnDecl* func = node.as(FN_DECL);
-	CompoundStmt* fn_comp = func.body.as(COMPOUND_STMT);
+	FunctionInfo* func_info = context.registry.functions.get("hello::foo")!!;
+	FnDecl* fn_decl          = func_info.node.as(FnDecl);
+	CompoundStmt* fn_comp = fn_decl.body.as(CompoundStmt);
 
-	test::eq(parser_tests::count_kind(s, MODULE_DECL), 1);
-	test::eq(parser_tests::count_kind(s, FN_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, MODULE_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, FN_DECL), 1);
 }
 
 fn void for_stmt()
@@ -216,25 +192,20 @@ fn void for_stmt()
 		}
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
-	StringPool* pool = &s.source_file.ast.string_pool;
+	Module* mod = context.modules.get("hello")!!;
 
-	Node* node            = parser_tests::@node(ws.lookup("hello", "foo")!!);
-	FnDecl* func          = node.as(FN_DECL);
-	CompoundStmt* fn_comp = func.body.as(COMPOUND_STMT);
-	ForStmt* for_stmt     = fn_comp.statements[0].as(FOR_STMT);
+	FunctionInfo* func_info = context.registry.functions.get("hello::foo")!!;
+	FnDecl* fn_decl          = func_info.node.as(FnDecl);
+	CompoundStmt* fn_comp = fn_decl.body.as(CompoundStmt);
+	ForStmt* for_stmt     = fn_comp.statements[0].as(ForStmt);
 
-	test::eq((sz)for_stmt.label.id, -1);
-	test::eq(parser_tests::count_kind(s, MODULE_DECL), 1);
-	test::eq(parser_tests::count_kind(s, FN_DECL), 1);
+	test::eq(for_stmt.label, null);
+	test::eq(parser_tests::count_kind(mod, MODULE_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, FN_DECL), 1);
 }
 
 fn void while_stmt()
@@ -256,29 +227,24 @@ fn void while_stmt()
 		}
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
-	StringPool* pool = &s.source_file.ast.string_pool;
+	Module* mod = context.modules.get("hello")!!;
 
-	Node* node            = parser_tests::@node(ws.lookup("hello", "foo")!!);
-	FnDecl* func          = node.as(FN_DECL);
-	CompoundStmt* fn_comp = func.body.as(COMPOUND_STMT);
+	FunctionInfo* func_info = context.registry.functions.get("hello::foo")!!;
+	FnDecl* fn_decl          = func_info.node.as(FnDecl);
+	CompoundStmt* fn_comp = fn_decl.body.as(CompoundStmt);
 
-	test::eq(parser_tests::count_kind(s, MODULE_DECL), 1);
-	test::eq(parser_tests::count_kind(s, FN_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, MODULE_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, FN_DECL), 1);
 
-	WhileStmt* while_stmt = fn_comp.statements[0].as(WHILE_STMT);
-	test::eq(pool.get(while_stmt.label.id)!!, "FOO");
+	WhileStmt* while_stmt = fn_comp.statements[0].as(WhileStmt);
+	test::eq(while_stmt.label.text, "FOO");
 
-	while_stmt = fn_comp.statements[1].as(WHILE_STMT);
-	test::eq(while_stmt.label.id, string_pool::EMPTY_STR);
+	while_stmt = fn_comp.statements[1].as(WhileStmt);
+	test::eq(while_stmt.label, null);
 }
 
 fn void ct_assert_stmt()
@@ -295,23 +261,18 @@ fn void ct_assert_stmt()
 		}
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
-	StringPool* pool = &s.source_file.ast.string_pool;
+	Module* mod = context.modules.get("hello")!!;
 
-	Node* node            = parser_tests::@node(ws.lookup("hello", "foo")!!);
-	FnDecl* func          = node.as(FN_DECL);
-	CompoundStmt* fn_comp = func.body.as(COMPOUND_STMT);
+	FunctionInfo* func_info = context.registry.functions.get("hello::foo")!!;
+	FnDecl* fn_decl          = func_info.node.as(FnDecl);
+	CompoundStmt* fn_comp = fn_decl.body.as(CompoundStmt);
 
-	test::eq(parser_tests::count_kind(s, MODULE_DECL), 1);
-	test::eq(parser_tests::count_kind(s, FN_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, MODULE_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, FN_DECL), 1);
 }
 
 fn void ct_error_stmt()
@@ -326,23 +287,18 @@ fn void ct_error_stmt()
 		}
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
-	StringPool* pool = &s.source_file.ast.string_pool;
+	Module* mod = context.modules.get("hello")!!;
 
-	Node* node            = parser_tests::@node(ws.lookup("hello", "foo")!!);
-	FnDecl* func          = node.as(FN_DECL);
-	CompoundStmt* fn_comp = func.body.as(COMPOUND_STMT);
+	FunctionInfo* func_info = context.registry.functions.get("hello::foo")!!;
+	FnDecl* fn_decl          = func_info.node.as(FnDecl);
+	CompoundStmt* fn_comp = fn_decl.body.as(CompoundStmt);
 
-	test::eq(parser_tests::count_kind(s, MODULE_DECL), 1);
-	test::eq(parser_tests::count_kind(s, FN_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, MODULE_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, FN_DECL), 1);
 }
 
 fn void var_decl_stmt()
@@ -358,23 +314,18 @@ fn void var_decl_stmt()
 		}
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
-	StringPool* pool = &s.source_file.ast.string_pool;
+	Module* mod = context.modules.get("hello")!!;
 
-	Node* node            = parser_tests::@node(ws.lookup("hello", "foo")!!);
-	FnDecl* func          = node.as(FN_DECL);
-	CompoundStmt* fn_comp = func.body.as(COMPOUND_STMT);
+	FunctionInfo* func_info = context.registry.functions.get("hello::foo")!!;
+	FnDecl* fn_decl          = func_info.node.as(FnDecl);
+	CompoundStmt* fn_comp = fn_decl.body.as(CompoundStmt);
 
-	test::eq(parser_tests::count_kind(s, MODULE_DECL), 1);
-	test::eq(parser_tests::count_kind(s, FN_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, MODULE_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, FN_DECL), 1);
 }
 
 fn void foreach_stmt()
@@ -401,130 +352,125 @@ fn void foreach_stmt()
 		}
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
-	StringPool* pool = &s.source_file.ast.string_pool;
+	Module* mod = context.modules.get("hello")!!;
 
-	Node* fn_node           = parser_tests::@node(ws.lookup("hello", "foo")!!);
-	FnDecl* fn_decl         = fn_node.as(FN_DECL);
-	CompoundStmt* body_stmt = fn_decl.body.as(COMPOUND_STMT);
+	FunctionInfo* func_info = context.registry.functions.get("hello::foo")!!;
+	FnDecl* fn_decl          = func_info.node.as(FnDecl);
+	CompoundStmt* body_stmt = fn_decl.body.as(CompoundStmt);
 
 	// foreach LOOP: (x : arr) — labeled, no reverse,  no index, no type, no ref
-	ForeachStmt* foreach_stmt = body_stmt.statements[0].as(FOREACH_STMT);
-	test::eq(pool.get(foreach_stmt.label.id)!!, "LOOP");
+	ForeachStmt* foreach_stmt = body_stmt.statements[0].as(ForeachStmt);
+	test::eq(foreach_stmt.label.text, "LOOP");
 	test::eq(foreach_stmt.is_reverse, false);
 	test::eq(foreach_stmt.index, null);
-	VarDecl* var_decl = foreach_stmt.variable.as(VAR_DECL);
+	VarDecl* var_decl = foreach_stmt.variable.as(VarDecl);
 	test::eq(var_decl.type, null);
 	test::eq(foreach_stmt.value_by_ref, false);
-	test::eq(pool.get(var_decl.name.id)!!, "x");
+	test::eq(var_decl.name.text, "x");
 
 	// foreach (x : arr) — no label, no reverse, no index, no type, no ref
-	foreach_stmt = body_stmt.statements[1].as(FOREACH_STMT);
-	test::eq((sz)foreach_stmt.label.id, -1);
+	foreach_stmt = body_stmt.statements[1].as(ForeachStmt);
+	test::eq(foreach_stmt.label, null);
 	test::eq(foreach_stmt.is_reverse, false);
 	test::eq(foreach_stmt.index, null);
-	var_decl = foreach_stmt.variable.as(VAR_DECL);
+	var_decl = foreach_stmt.variable.as(VarDecl);
 	test::eq(var_decl.type, null);
 	test::eq(foreach_stmt.value_by_ref, false);
-	test::eq(pool.get(var_decl.name.id)!!, "x");
+	test::eq(var_decl.name.text, "x");
 
 	// foreach (int x : arr) — typed value, no ref
-	foreach_stmt = body_stmt.statements[2].as(FOREACH_STMT);
-	var_decl = foreach_stmt.variable.as(VAR_DECL);
+	foreach_stmt = body_stmt.statements[2].as(ForeachStmt);
+	var_decl = foreach_stmt.variable.as(VarDecl);
 	test::ne(var_decl.type, null);
-	TypeExpr* type_expr = var_decl.type.as(TYPE_EXPR);
-	test::eq(pool.get(type_expr.unresolved.name.id)!!, "int");
+	TypeExpr* type_expr = var_decl.type.as(TypeExpr);
+	test::eq(type_expr.unresolved.name.text, "int");
 	test::eq(foreach_stmt.value_by_ref, false);
 
 	// foreach (&x : arr) — ref value
-	foreach_stmt = body_stmt.statements[3].as(FOREACH_STMT);
-	var_decl = foreach_stmt.variable.as(VAR_DECL);
+	foreach_stmt = body_stmt.statements[3].as(ForeachStmt);
+	var_decl = foreach_stmt.variable.as(VarDecl);
 	test::eq(var_decl.type == null, true);
 	test::eq(foreach_stmt.value_by_ref, true);
-	test::eq(var_decl.flags.is_ref, true);
-	test::eq(pool.get(var_decl.name.id)!!, "x");
+	test::eq(var_decl.var_flags.is_ref, true);
+	test::eq(var_decl.name.text, "x");
 
 	// foreach (i, x : arr) — index + value, no ref on either
-	foreach_stmt = body_stmt.statements[4].as(FOREACH_STMT);
+	foreach_stmt = body_stmt.statements[4].as(ForeachStmt);
 	test::ne(foreach_stmt.index, null);
 	test::eq(foreach_stmt.index_by_ref, false);
 	test::eq(foreach_stmt.value_by_ref, false);
-	VarDecl* var_idx_decl = foreach_stmt.index.as(VAR_DECL);
-	test::eq(pool.get(var_idx_decl.name.id)!!, "i");
-	var_decl = foreach_stmt.variable.as(VAR_DECL);
-	test::eq(pool.get(var_decl.name.id)!!, "x");
+	VarDecl* var_idx_decl = foreach_stmt.index.as(VarDecl);
+	test::eq(var_idx_decl.name.text, "i");
+	var_decl = foreach_stmt.variable.as(VarDecl);
+	test::eq(var_decl.name.text, "x");
 
 	// foreach (i, &x : arr) — index, ref value
-	foreach_stmt = body_stmt.statements[5].as(FOREACH_STMT);
+	foreach_stmt = body_stmt.statements[5].as(ForeachStmt);
 	test::ne(foreach_stmt.index, null);
 	test::eq(foreach_stmt.index_by_ref, false);
 	test::eq(foreach_stmt.value_by_ref, true);
-	var_decl = foreach_stmt.variable.as(VAR_DECL);
-	test::eq(var_decl.flags.is_ref, true);
+	var_decl = foreach_stmt.variable.as(VarDecl);
+	test::eq(var_decl.var_flags.is_ref, true);
 
 	// foreach_r LOOP_R: (x : arr) — reverse, label
-	foreach_stmt = body_stmt.statements[6].as(FOREACH_STMT);
+	foreach_stmt = body_stmt.statements[6].as(ForeachStmt);
 	test::eq(foreach_stmt.is_reverse, true);
-	test::eq(pool.get(foreach_stmt.label.id)!!, "LOOP_R");
-	var_decl = foreach_stmt.variable.as(VAR_DECL);
-	test::eq(pool.get(var_decl.name.id)!!, "x");
+	test::eq(foreach_stmt.label.text, "LOOP_R");
+	var_decl = foreach_stmt.variable.as(VarDecl);
+	test::eq(var_decl.name.text, "x");
 
 	// foreach_r (x : arr) no index, no type, no ref
-	foreach_stmt = body_stmt.statements[7].as(FOREACH_STMT);
+	foreach_stmt = body_stmt.statements[7].as(ForeachStmt);
 	test::eq(foreach_stmt.is_reverse, true);
 	test::eq(foreach_stmt.index, null);
-	var_decl = foreach_stmt.variable.as(VAR_DECL);
+	var_decl = foreach_stmt.variable.as(VarDecl);
 	test::eq(var_decl.type, null);
 	test::eq(foreach_stmt.value_by_ref, false);
-	test::eq(pool.get(var_decl.name.id)!!, "x");
+	test::eq(var_decl.name.text, "x");
 
 	// foreach_r (int x : arr) typed
-	foreach_stmt = body_stmt.statements[8].as(FOREACH_STMT);
+	foreach_stmt = body_stmt.statements[8].as(ForeachStmt);
 	test::eq(foreach_stmt.is_reverse, true);
-	var_decl = foreach_stmt.variable.as(VAR_DECL);
+	var_decl = foreach_stmt.variable.as(VarDecl);
 	test::ne(var_decl.type, null);
-	type_expr = var_decl.type.as(TYPE_EXPR);
-	test::eq(pool.get(type_expr.unresolved.name.id)!!, "int");
+	type_expr = var_decl.type.as(TypeExpr);
+	test::eq(type_expr.unresolved.name.text, "int");
 	test::eq(foreach_stmt.value_by_ref, false);
-	test::eq(pool.get(var_decl.name.id)!!, "x");
+	test::eq(var_decl.name.text, "x");
 
 	// foreach_r (&x : arr) no type, ref
-	foreach_stmt = body_stmt.statements[9].as(FOREACH_STMT);
+	foreach_stmt = body_stmt.statements[9].as(ForeachStmt);
 	test::eq(foreach_stmt.is_reverse, true);
-	var_decl = foreach_stmt.variable.as(VAR_DECL);
+	var_decl = foreach_stmt.variable.as(VarDecl);
 	test::eq(var_decl.type == null, true);
 	test::eq(foreach_stmt.value_by_ref, true);
-	test::eq(var_decl.flags.is_ref, true);
-	test::eq(pool.get(var_decl.name.id)!!, "x");
+	test::eq(var_decl.var_flags.is_ref, true);
+	test::eq(var_decl.name.text, "x");
 
 	// foreach_r (i, x : arr)
-	foreach_stmt = body_stmt.statements[10].as(FOREACH_STMT);
+	foreach_stmt = body_stmt.statements[10].as(ForeachStmt);
 	test::eq(foreach_stmt.is_reverse, true);
 	test::ne(foreach_stmt.index, null);
 	test::eq(foreach_stmt.index_by_ref, false);
 	test::eq(foreach_stmt.value_by_ref, false);
-	var_idx_decl = foreach_stmt.index.as(VAR_DECL);
-	test::eq(pool.get(var_idx_decl.name.id)!!, "i");
-	var_decl = foreach_stmt.variable.as(VAR_DECL);
-	test::eq(pool.get(var_decl.name.id)!!, "x");
+	var_idx_decl = foreach_stmt.index.as(VarDecl);
+	test::eq(var_idx_decl.name.text, "i");
+	var_decl = foreach_stmt.variable.as(VarDecl);
+	test::eq(var_decl.name.text, "x");
 
 	// foreach_r (i, &x : arr)
-	foreach_stmt = body_stmt.statements[11].as(FOREACH_STMT);
+	foreach_stmt = body_stmt.statements[11].as(ForeachStmt);
 	test::eq(foreach_stmt.is_reverse, true);
 	test::ne(foreach_stmt.index, null);
 	test::eq(foreach_stmt.index_by_ref, false);
 	test::eq(foreach_stmt.value_by_ref, true);
-	var_decl = foreach_stmt.variable.as(VAR_DECL);
-	test::eq(var_decl.flags.is_ref, true);
-	test::eq(pool.get(var_decl.name.id)!!, "x");
+	var_decl = foreach_stmt.variable.as(VarDecl);
+	test::eq(var_decl.var_flags.is_ref, true);
+	test::eq(var_decl.name.text, "x");
 }
 
 fn void err_foreach_missing_name_after_type()
@@ -537,22 +483,21 @@ fn void err_foreach_missing_name_after_type()
 		}
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, true);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Node* fn_node           = parser_tests::@node(ws.lookup("hello", "foo")!!);
-	FnDecl* fn_decl         = fn_node.as(FN_DECL);
-	CompoundStmt* body_stmt = fn_decl.body.as(COMPOUND_STMT);
+	Module* mod = context.modules.get("hello")!!;
+
+	FunctionInfo* func_info = context.registry.functions.get("hello::foo")!!;
+	FnDecl* fn_decl         = func_info.node.as(FnDecl);
+	CompoundStmt* body_stmt = fn_decl.body.as(CompoundStmt);
 
 	// foreach still produces a FOREACH_STMT node; value has type but name = -1
-	ForeachStmt* foreach_stmt = body_stmt.statements[0].as(FOREACH_STMT);
-	VarDecl* var_decl         = foreach_stmt.variable.as(VAR_DECL);
+	ForeachStmt* foreach_stmt = body_stmt.statements[0].as(ForeachStmt);
+	VarDecl* var_decl         = foreach_stmt.variable.as(VarDecl);
 	test::ne(var_decl.type, null);
-	test::eq((sz)var_decl.name.id, -1);
+	test::eq(var_decl.name, null);
 }
 
 fn void err_foreach_missing_name_no_type()
@@ -566,24 +511,23 @@ fn void err_foreach_missing_name_no_type()
 		}
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, true);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Node* node              = parser_tests::@node(ws.lookup("hello", "foo")!!);
-	FnDecl* fn_decl         = node.as(FN_DECL);
-	CompoundStmt* body_stmt = fn_decl.body.as(COMPOUND_STMT);
+	Module* mod = context.modules.get("hello")!!;
+
+	FunctionInfo* func_info = context.registry.functions.get("hello::foo")!!;
+	FnDecl* fn_decl         = func_info.node.as(FnDecl);
+	CompoundStmt* body_stmt = fn_decl.body.as(CompoundStmt);
 
 	// value_by_ref set, no type, name = -1
-	ForeachStmt* foreach_stmt = body_stmt.statements[0].as(FOREACH_STMT);
-	VarDecl* var_decl         = foreach_stmt.variable.as(VAR_DECL);
+	ForeachStmt* foreach_stmt = body_stmt.statements[0].as(ForeachStmt);
+	VarDecl* var_decl         = foreach_stmt.variable.as(VarDecl);
 	test::eq(var_decl.type == null, true);
 	test::eq(foreach_stmt.value_by_ref, true);
-	test::eq(var_decl.flags.is_ref, true);
-	test::eq((sz)var_decl.name.id, -1);
+	test::eq(var_decl.var_flags.is_ref, true);
+	test::eq(var_decl.name, null);
 }
 
 fn void err_foreach_missing_colon()
@@ -597,19 +541,18 @@ fn void err_foreach_missing_colon()
 		}
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, true);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Node* node              = parser_tests::@node(ws.lookup("hello", "foo")!!);
-	FnDecl* func            = node.as(FN_DECL);
-	CompoundStmt* body_stmt = func.body.as(COMPOUND_STMT);
+	Module* mod = context.modules.get("hello")!!;
+
+	FunctionInfo* func_info = context.registry.functions.get("hello::foo")!!;
+	FnDecl* fn_decl         = func_info.node.as(FnDecl);
+	CompoundStmt* body_stmt = fn_decl.body.as(CompoundStmt);
 
 	// the foreach node has kind ERROR due to the missing colon
-	test::eq(body_stmt.statements[0].kind, NodeKind.ERROR);
+	test::eq(body_stmt.statements[0].flags.has_error, true);
 }
 
 fn void defer_stmt()
@@ -629,19 +572,14 @@ fn void defer_stmt()
 		}
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
-	StringPool* pool = &s.source_file.ast.string_pool;
+	Module* mod = context.modules.get("hello")!!;
 
-	test::eq(parser_tests::count_kind(s, MODULE_DECL), 1);
-	test::eq(parser_tests::count_kind(s, FN_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, MODULE_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, FN_DECL), 1);
 }
 
 fn void do_while_stmt()
@@ -667,39 +605,34 @@ fn void do_while_stmt()
 		}
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
-	StringPool* pool = &s.source_file.ast.string_pool;
+	Module* mod = context.modules.get("hello")!!;
 
-	test::eq(parser_tests::count_kind(s, MODULE_DECL), 1);
-	test::eq(parser_tests::count_kind(s, FN_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, MODULE_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, FN_DECL), 1);
 
-	Node* node              = parser_tests::@node(ws.lookup("hello", "foo")!!);
-	FnDecl* fn_decl         = node.as(FN_DECL);
-	CompoundStmt* func_body = fn_decl.body.as(COMPOUND_STMT);
+	FunctionInfo* func_info = context.registry.functions.get("hello::foo")!!;
+	FnDecl* fn_decl         = func_info.node.as(FnDecl);
+	CompoundStmt* func_body = fn_decl.body.as(CompoundStmt);
 	test::eq(func_body.statements.len, 3);
 
 	// do { ... } while (cond); — has cond, no label
-	DoWhileStmt* do_while_stmt = func_body.statements[0].as(DO_WHILE_STMT);
+	DoWhileStmt* do_while_stmt = func_body.statements[0].as(DoWhileStmt);
 	test::eq(do_while_stmt.body.kind, NodeKind.COMPOUND_STMT);
-	test::eq(do_while_stmt.label.id, string_pool::EMPTY_STR);
+	test::eq(do_while_stmt.label, null);
 
 	// do LABEL: { ... } while (cond); — has cond and label
-	do_while_stmt = func_body.statements[1].as(DO_WHILE_STMT);
+	do_while_stmt = func_body.statements[1].as(DoWhileStmt);
 	test::eq(do_while_stmt.body.kind, NodeKind.COMPOUND_STMT);
-	test::eq(pool.get(do_while_stmt.label.id)!!, "FOO");
+	test::eq(do_while_stmt.label.text, "FOO");
 
 	// do { ... }; — no while clause, parses successfully
-	do_while_stmt = func_body.statements[2].as(DO_WHILE_STMT);
+	do_while_stmt = func_body.statements[2].as(DoWhileStmt);
 	test::eq(do_while_stmt.body.kind, NodeKind.COMPOUND_STMT);
-	test::eq(do_while_stmt.label.id, string_pool::EMPTY_STR);
+	test::eq(do_while_stmt.label, null);
 }
 
 fn void assert_stmt()
@@ -713,19 +646,14 @@ fn void assert_stmt()
 		}
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
-	StringPool* pool = &s.source_file.ast.string_pool;
+	Module* mod = context.modules.get("hello")!!;
 
-	test::eq(parser_tests::count_kind(s, MODULE_DECL), 1);
-	test::eq(parser_tests::count_kind(s, FN_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, MODULE_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, FN_DECL), 1);
 }
 
 fn void ct_expand_stmt()
@@ -738,19 +666,14 @@ fn void ct_expand_stmt()
 		}
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
-	StringPool* pool = &s.source_file.ast.string_pool;
+	Module* mod = context.modules.get("hello")!!;
 
-	test::eq(parser_tests::count_kind(s, MODULE_DECL), 1);
-	test::eq(parser_tests::count_kind(s, FN_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, MODULE_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, FN_DECL), 1);
 }
 
 fn void ct_foreach_stmt()
@@ -785,57 +708,54 @@ fn void ct_foreach_stmt()
 		}
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
-	StringPool* pool = &s.source_file.ast.string_pool;
+	Module* mod = context.modules.get("hello")!!;
 
-	test::eq(parser_tests::count_kind(s, MODULE_DECL), 1);
-	test::eq(parser_tests::count_kind(s, MACRO_DECL), 2);
-	test::eq(parser_tests::count_kind(s, FN_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, MODULE_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, MACRO_DECL), 2);
+	test::eq(parser_tests::count_kind(mod, FN_DECL), 1);
 
-	List{SymbolEntry} node = *ws.lookup("hello", "@create_set")!!;
-	MacroDecl* macro_decl = node[0].node.as(MACRO_DECL);
-	CompoundStmt* macro_body = macro_decl.body.as(COMPOUND_STMT);
-	CtForeachStmt* foreach_stmt = macro_body.statements[0].as(CT_FOREACH_STMT);
-	VarDecl* foreach_value_decl = foreach_stmt.value.as(VAR_DECL);
+	FunctionInfo* macro_info = context.registry.functions.get("hello::@create_set")!!;
+
+	// TODO Macro definitions in registry?
+	MacroDecl* macro_decl = macro_info.node.as(MacroDecl);
+	CompoundStmt* macro_body = macro_decl.body.as(CompoundStmt);
+	CtForeachStmt* foreach_stmt = macro_body.statements[0].as(CtForeachStmt);
+	VarDecl* foreach_value_decl = foreach_stmt.value.as(VarDecl);
 	test::eq(foreach_stmt.index, null);
-	test::eq(pool.get(foreach_value_decl.name.id)!!, "$c");
-	test::eq(foreach_stmt.expr.as(IDENT_EXPR).get_ident(pool)!!, "$string");
-	CompoundStmt* foreach_body = foreach_stmt.body.as(COMPOUND_STMT);
+	test::eq(foreach_value_decl.name.text, "$c");
+	test::eq(foreach_stmt.expr.as(IdentExpr).ident.text, "$string");
+	CompoundStmt* foreach_body = foreach_stmt.body.as(CompoundStmt);
 	test::eq(foreach_body.statements.len, 1);
 	test::eq(foreach_body.statements[0].kind, NodeKind.EXPR_STMT);
 
-	node = *ws.lookup("hello", "format_members")!!;
-	macro_decl = node[0].node.as(MACRO_DECL);
-	macro_body = macro_decl.body.as(COMPOUND_STMT);
-	foreach_stmt = macro_body.statements[0].as(CT_FOREACH_STMT);
-	VarDecl* foreach_index_decl = foreach_stmt.index.as(VAR_DECL);
-	foreach_value_decl = foreach_stmt.value.as(VAR_DECL);
-	test::eq(pool.get(foreach_index_decl.name.id)!!, "$i");
-	test::eq(pool.get(foreach_value_decl.name.id)!!, "$member");
+	macro_info = context.registry.functions.get("hello::@create_set")!!;
+	macro_decl = macro_info.node.as(MacroDecl);
+	macro_body = macro_decl.body.as(CompoundStmt);
+	foreach_stmt = macro_body.statements[0].as(CtForeachStmt);
+	VarDecl* foreach_index_decl = foreach_stmt.index.as(VarDecl);
+	foreach_value_decl = foreach_stmt.value.as(VarDecl);
+	test::eq(foreach_index_decl.name.text, "$i");
+	test::eq(foreach_value_decl.name.text, "$member");
 	test::eq(foreach_stmt.expr.kind, NodeKind.ACCESS_EXPR);
-	foreach_body = foreach_stmt.body.as(COMPOUND_STMT);
+	foreach_body = foreach_stmt.body.as(CompoundStmt);
 	test::eq(foreach_body.statements.len, 2);
 	test::eq(foreach_body.statements[0].kind, NodeKind.CT_IF_STMT);
 	test::eq(foreach_body.statements[1].kind, NodeKind.EXPR_STMT);
 
-	node = *ws.lookup("hello", "inline_foreach")!!;
-	FnDecl* fn_decl = node[0].node.as(FN_DECL);
-	CompoundStmt* fn_body = fn_decl.body.as(COMPOUND_STMT);
-	foreach_stmt = fn_body.statements[0].as(CT_FOREACH_STMT);
-	foreach_index_decl = foreach_stmt.index.as(VAR_DECL);
-	foreach_value_decl = foreach_stmt.value.as(VAR_DECL);
-	test::eq(pool.get(foreach_index_decl.name.id)!!, "$x");
-	test::eq(pool.get(foreach_value_decl.name.id)!!, "$c");
-	test::eq(foreach_stmt.expr.as(IDENT_EXPR).get_ident(pool)!!, "$indices");
-	foreach_body = foreach_stmt.body.as(COMPOUND_STMT);
+	FunctionInfo* func_info = context.registry.functions.get("hello::inline_foreach")!!;
+	FnDecl* fn_decl = func_info.node.as(FnDecl);
+	CompoundStmt* fn_body = fn_decl.body.as(CompoundStmt);
+	foreach_stmt = fn_body.statements[0].as(CtForeachStmt);
+	foreach_index_decl = foreach_stmt.index.as(VarDecl);
+	foreach_value_decl = foreach_stmt.value.as(VarDecl);
+	test::eq(foreach_index_decl.name.text, "$x");
+	test::eq(foreach_value_decl.name.text, "$c");
+	test::eq(foreach_stmt.expr.as(IdentExpr).ident.text, "$indices");
+	foreach_body = foreach_stmt.body.as(CompoundStmt);
 	test::eq(foreach_body.statements.len, 1);
 	test::eq(foreach_body.statements[0].kind, NodeKind.EXPR_STMT);
 }
@@ -854,27 +774,23 @@ fn void decl_stmt_ambiguity()
 		}
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
-	StringPool* pool = &s.source_file.ast.string_pool;
+	Module* mod = context.modules.get("hello")!!;
 
-	Node* node              = parser_tests::@node(ws.lookup("hello", "foo")!!);
-	FnDecl* fn_decl         = node.as(FN_DECL);
-	CompoundStmt* func_body = fn_decl.body.as(COMPOUND_STMT);
+	FunctionInfo* func_info = context.registry.functions.get("hello::foo")!!;
+	FnDecl* fn_decl         = func_info.node.as(FnDecl);
+
+	CompoundStmt* func_body = fn_decl.body.as(CompoundStmt);
 	test::eq(func_body.statements.len, 4);
 
-	VarDecl* vardecl = func_body.statements[2].as(VAR_DECL);
+	VarDecl* vardecl = func_body.statements[2].as(VarDecl);
 
-	ExprStmt* expr_stmt = func_body.statements[3].as(EXPR_STMT);
-	BinaryExpr* bin = expr_stmt.expr_stmt.as(BINARY_EXPR);
+	ExprStmt* expr_stmt = func_body.statements[3].as(ExprStmt);
+	BinaryExpr* bin = expr_stmt.expr_stmt.as(BinaryExpr);
 
-	test::eq(parser_tests::count_kind(s, MODULE_DECL), 1);
-	test::eq(parser_tests::count_kind(s, FN_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, MODULE_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, FN_DECL), 1);
 }

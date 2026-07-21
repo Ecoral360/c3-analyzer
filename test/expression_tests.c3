@@ -1,10 +1,7 @@
 module expr_tests @test;
 
-/*
-
 import parser_tests;
 
-import analyzer::workspace;
 import analyzer::parser;
 import analyzer::core;
 import std::io;
@@ -54,41 +51,33 @@ fn void test_literals()
 		char char_c = '\\';
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
-	test::eq(ws.modules.len(), 1);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod = ws.modules.get("test_module")!!;
+	Module* mod = context.modules.get("hello")!!;
+
 	test::ne(mod, null);
 	io::printfn("%s", mod.name);
 	test::eq(mod.name, "test_module");
-	test::eq(mod.sections.len(), 1);
 
-	ModuleSection* s = mod.sections[0];
-	io::printfn("%s", string::from_struct(tmem, s.source_file.ast));
-	StringPool* pool = &s.source_file.ast.string_pool;
-
-	foreach (node : s.nodes)
+	foreach (node : mod.nodes)
 	{
 		if (node.kind != VAR_DECL) continue;
 
-		VarDecl* var_decl = node.as(VAR_DECL);
-		test::eq(var_decl.kind, VarDeclKind.VAR_GLOBAL);
-		String var_name = pool.get(var_decl.name.id)!!;
+		VarDecl* var_decl = node.as(VarDecl);
+		test::eq(var_decl.var_kind, VarDeclKind.VAR_GLOBAL);
+		String var_name = var_decl.name.text;
 
 		test::ne(var_decl.init_expr, null);
 		Node* expr_node = var_decl.init_expr;
 
 		if (var_name == "blocal")
 		{
-			test::eq(var_decl.flags.is_thread_local, true);
+			test::eq(var_decl.var_flags.is_thread_local, true);
 			test::eq(expr_node.kind, NodeKind.LITERAL_EXPR);
-			LiteralExpr* lit = expr_node.as(LITERAL_EXPR);
-			test::eq(lit.kind, LiteralKind.BOOL_LITERAL);
+			LiteralExpr* lit = expr_node.as(LiteralExpr);
+			test::eq(lit.literal_kind, LiteralKind.BOOL_LITERAL);
 			test::eq(lit.boolean, true);
 			continue;
 		}
@@ -97,75 +86,75 @@ fn void test_literals()
 		if (var_name == "ax" || var_name == "bx" || var_name == "kx" || var_name == "arr" || var_name == "arr2")
 		{
 			test::eq(expr_node.kind, NodeKind.INITIALIZER_LIST_EXPR);
-			InitializerListExpr* init = expr_node.as(INITIALIZER_LIST_EXPR);
+			InitializerListExpr* init = expr_node.as(InitializerListExpr);
 			test::eq(init.exprs.len, var_name == "arr2" ? 1 : 0);
 			continue;
 		}
 
 		test::eq(expr_node.kind, NodeKind.LITERAL_EXPR);
-		LiteralExpr* lit = expr_node.as(LITERAL_EXPR);
+		LiteralExpr* lit = expr_node.as(LiteralExpr);
 		if (var_name == "a")
 		{
-			test::eq(lit.kind, LiteralKind.NULL_LITERAL);
+			test::eq(lit.literal_kind, LiteralKind.NULL_LITERAL);
 		}
 		else if (var_name == "b")
 		{
-			test::eq(lit.kind, LiteralKind.BOOL_LITERAL);
+			test::eq(lit.literal_kind, LiteralKind.BOOL_LITERAL);
 			test::eq(lit.boolean, true);
 		}
 		else if (var_name == "c")
 		{
-			test::eq(lit.kind, LiteralKind.BOOL_LITERAL);
+			test::eq(lit.literal_kind, LiteralKind.BOOL_LITERAL);
 			test::eq(lit.boolean, false);
 		} // Integers (Decimal, Hex, Binary, Octal)
 		else if (var_name == "d")
 		{
-			test::eq(lit.kind, LiteralKind.INT_LITERAL);
+			test::eq(lit.literal_kind, LiteralKind.INT_LITERAL);
 			test::eq(lit.integer, 1000000u);
 		}
 		else if (var_name == "e")
 		{
-			test::eq(lit.kind, LiteralKind.INT_LITERAL);
+			test::eq(lit.literal_kind, LiteralKind.INT_LITERAL);
 			test::eq(lit.integer, 0xFFAAu); // 65450
 		}
 		else if (var_name == "f")
 		{
-			test::eq(lit.kind, LiteralKind.INT_LITERAL);
+			test::eq(lit.literal_kind, LiteralKind.INT_LITERAL);
 			test::eq(lit.integer, 0b10110101u); // 181
 		}
 		else if (var_name == "g")
 		{
-			test::eq(lit.kind, LiteralKind.INT_LITERAL);
+			test::eq(lit.literal_kind, LiteralKind.INT_LITERAL);
 			test::eq(lit.integer, 0o755u); // 493
 		}
 		else if (var_name == "h")
 		{
-			test::eq(lit.kind, LiteralKind.REAL_LITERAL);
+			test::eq(lit.literal_kind, LiteralKind.REAL_LITERAL);
 			test::eq_approx(lit.real, 3.14159);
 		}
 		else if (var_name == "i")
 		{
-			test::eq(lit.kind, LiteralKind.REAL_LITERAL);
+			test::eq(lit.literal_kind, LiteralKind.REAL_LITERAL);
 			test::eq_approx(lit.real, 2e+10);
 		}
 		else if (var_name == "j")
 		{
-			test::eq(lit.kind, LiteralKind.REAL_LITERAL);
+			test::eq(lit.literal_kind, LiteralKind.REAL_LITERAL);
 			test::eq_approx(lit.real, 0.40625); // 0x1.Ap-2 is 1.625 * 0.25 = 0.40625
 		}
 		else if (var_name == "k")
 		{
-			test::eq(lit.kind, LiteralKind.STRING_LITERAL);
-			test::eq(pool.get(lit.string)!!, "Hello");
+			test::eq(lit.literal_kind, LiteralKind.STRING_LITERAL);
+			test::eq(lit.string, "Hello");
 		}
 		else if (var_name == "l" || var_name == "lx")
 		{
-			test::eq(lit.kind, LiteralKind.STRING_LITERAL);
-			test::eq(pool.get(lit.string)!!, "Raw string with structural text");
+			test::eq(lit.literal_kind, LiteralKind.STRING_LITERAL);
+			test::eq(lit.string, "Raw string with structural text");
 		}
 		else if (var_name == "m")
 		{
-			test::eq(lit.kind, LiteralKind.BYTES_LITERAL);
+			test::eq(lit.literal_kind, LiteralKind.BYTES_LITERAL);
 			test::eq(lit.bytes.len, 12);
 			// "Hello world!" in bytes
 			test::eq((char)lit.bytes[0], 'H');
@@ -173,7 +162,7 @@ fn void test_literals()
 		}
 		else if (var_name == "n")
 		{
-			test::eq(lit.kind, LiteralKind.BYTES_LITERAL);
+			test::eq(lit.literal_kind, LiteralKind.BYTES_LITERAL);
 			test::eq(lit.bytes.len, 3);
 			// "ABC"
 			test::eq((char)lit.bytes[0], 'A');
@@ -182,7 +171,7 @@ fn void test_literals()
 		}
 		else if (var_name == "o")
 		{
-			test::eq(lit.kind, LiteralKind.BYTES_LITERAL);
+			test::eq(lit.literal_kind, LiteralKind.BYTES_LITERAL);
 			test::eq(lit.bytes.len, 11);
 			// "Hello World" decoded from Base64
 			test::eq((char)lit.bytes[0], 'H');
@@ -190,17 +179,17 @@ fn void test_literals()
 		}
 		else if (var_name == "char_a")
 		{
-			test::eq(lit.kind, LiteralKind.INT_LITERAL);
+			test::eq(lit.literal_kind, LiteralKind.INT_LITERAL);
 			test::eq(lit.integer, 97u);
 		}
 		else if (var_name == "char_b")
 		{
-			test::eq(lit.kind, LiteralKind.INT_LITERAL);
+			test::eq(lit.literal_kind, LiteralKind.INT_LITERAL);
 			test::eq(lit.integer, 10u);
 		}
 		else if (var_name == "char_c")
 		{
-			test::eq(lit.kind, LiteralKind.INT_LITERAL);
+			test::eq(lit.literal_kind, LiteralKind.INT_LITERAL);
 			test::eq(lit.integer, 92u);
 		}
 		else
@@ -222,18 +211,14 @@ fn void unary()
         void* f = &&foo;
         int g = *foo;
 	`;
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
+	Module* mod = context.modules.get("hello")!!;
 
-	test::eq(parser_tests::count_kind(s, MODULE_DECL), 1);
-	test::eq(parser_tests::count_kind(s, VAR_DECL), 7);
+	test::eq(parser_tests::count_kind(mod, MODULE_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, VAR_DECL), 7);
 }
 
 fn void try_catch()
@@ -266,20 +251,16 @@ fn void try_catch()
 		}
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
+	Module* mod = context.modules.get("hello")!!;
 
-	test::eq(parser_tests::count_kind(s, MODULE_DECL), 1);
-	test::eq(parser_tests::count_kind(s, FN_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, MODULE_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, FN_DECL), 1);
 }
-
+/*
 fn void call()
 {
 	String source_code = `

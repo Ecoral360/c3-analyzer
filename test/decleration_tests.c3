@@ -1,11 +1,10 @@
 module decl_tests @test;
 
-/*
 
 import parser_tests;
 
-import analyzer::workspace;
 import analyzer::parser;
+import analyzer::lexer;
 import analyzer::core;
 import analyzer::sema;
 import std::io;
@@ -21,25 +20,16 @@ fn void basic_module()
 		
 		fn void greet() {}
 	`;
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
-	test::eq(ws.modules.len(), 1);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod = ws.modules.get("hello")!!;
-	test::ne(mod, null);
-	io::printfn("%s", mod.name);
+	Module* mod = context.modules.get("hello")!!;
+
 	test::eq(mod.name, "hello");
-	test::eq(mod.sections.len(), 1);
 
-	ModuleSection* s = mod.sections[0];
-	io::printfn("%s", string::from_struct(tmem, s.source_file.ast));
-
-	test::eq(parser_tests::count_kind(s, MODULE_DECL), 1);
-	test::eq(parser_tests::count_kind(s, FN_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, MODULE_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, FN_DECL), 1);
 }
 
 fn void function_with_params()
@@ -55,18 +45,14 @@ fn void function_with_params()
 		fn void untyped(args...) {}
 		fn void path_prefixed(bar::Foo* foo) {}
 	`;
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
+	Module* mod = context.modules.get("hello")!!;
 
-	test::eq(parser_tests::count_kind(s, MODULE_DECL), 1);
-	test::eq(parser_tests::count_kind(s, FN_DECL), 8);
+	test::eq(parser_tests::count_kind(mod, MODULE_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, FN_DECL), 8);
 }
 
 fn void method_with_params()
@@ -76,26 +62,22 @@ fn void method_with_params()
 		fn void Foo.greet(&self, Bar baz) {}
 		fn void Foo.greet_2(self, Bar baz) {}
 	`;
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
+	Module* mod = context.modules.get("hello")!!;
 
-	List{SymbolEntry}* entries = ws.lookup_method("hello::Foo", "greet")!!;
-	test::ne(entries, null);
-	test::eq(entries.len(), 1);
-	Node* node = (*entries)[0].node;
-	test::ne(node, null);
+	// TODO should this work?
+	FunctionInfo* func_info = context.registry.functions.get("hello::greet")!!;
+	test::ne(func_info, null);
+	FnDecl* func = func_info.node.as(FnDecl);
+	TypeExpr* type = func.associated_type.as(TypeExpr);
+	test::eq(type.unresolved.name.text, "Foo");
 
-	FnDecl* func = node.as(FN_DECL);
 
-	test::eq(parser_tests::count_kind(s, MODULE_DECL), 1);
-	test::eq(parser_tests::count_kind(s, FN_DECL), 2);
+	test::eq(parser_tests::count_kind(mod, MODULE_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, FN_DECL), 2);
 }
 
 fn void macro_with_params()
@@ -106,27 +88,27 @@ fn void macro_with_params()
 		macro foo(int foo, Bar baz) {}
 		macro bar(int foo, Bar baz) => 2;
 	`;
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
+	Module* mod = context.modules.get("hello")!!;
 
-	Node* node = parser_tests::@node(ws.lookup("hello", "greet")!!);
-	MacroDecl* func = node.as(MACRO_DECL);
+	// TODO Macro definitions in registry?
+	 FunctionInfo* macro_info = context.registry.functions.get("hello::greet")!!;
+	 MacroDecl* macro_decl = macro_info.node.as(MacroDecl);
+	 test::eq(macro_decl.name.text, "greet");
 
-	Node* node_2      = parser_tests::@node(ws.lookup("hello", "foo")!!);
-	MacroDecl* func_2 = node_2.as(MACRO_DECL);
+	 macro_info = context.registry.functions.get("hello::foo")!!;
+	 macro_decl = macro_info.node.as(MacroDecl);
+	 test::eq(macro_decl.name.text, "foo");
 
-	Node* node_3      = parser_tests::@node(ws.lookup("hello", "bar")!!);
-	MacroDecl* func_3 = node_3.as(MACRO_DECL);
+	 macro_info = context.registry.functions.get("hello::bar")!!;
+	 macro_decl = macro_info.node.as(MacroDecl);
+	 test::eq(macro_decl.name.text, "bar");
 
-	test::eq(parser_tests::count_kind(s, MODULE_DECL), 1);
-	test::eq(parser_tests::count_kind(s, MACRO_DECL), 3);
+	test::eq(parser_tests::count_kind(mod, MODULE_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, MACRO_DECL), 3);
 }
 
 fn void macro_method_with_params()
@@ -137,21 +119,16 @@ fn void macro_method_with_params()
 		macro Foo.wow(&self, Bar bar) {}
 		macro @expect_else_skip(ParseContext* ctx, TokenKind kind, TokenKind[] targets; @body(err)) {}
 	`;
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
+	Module* mod = context.modules.get("hello")!!;
 
-	Node* node     = parser_tests::@node(ws.lookup("hello", "greet")!!);
-	MacroDecl* mac = node.as(MACRO_DECL);
+	MacroDecl* mac = mod.nodes[1].as(MacroDecl);
 
-	test::eq(parser_tests::count_kind(s, MODULE_DECL), 1);
-	test::eq(parser_tests::count_kind(s, MACRO_DECL), 3);
+	test::eq(parser_tests::count_kind(mod, MODULE_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, MACRO_DECL), 3);
 }
 
 fn void alias_declarations_parse()
@@ -168,91 +145,83 @@ fn void alias_declarations_parse()
 		alias NamedList @private @AliasAttr = List{int};
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
-	Ast* ast         = s.source_file.ast;
-	test::eq(ast.top_level_nodes.len(), 10);
+	Module* mod = context.modules.get("hello")!!;
+	
+	test::eq(mod.nodes.len(), 10);
 
-	StringPool* pool = &s.source_file.ast.string_pool;
-
-	Node* type_node = ast.top_level_nodes[1];
+	Node* type_node = mod.nodes[1];
 	test::eq(type_node.kind, NodeKind.ALIAS_DECL);
-	AliasDecl* type_alias = type_node.as(NodeKind.ALIAS_DECL);
+	AliasDecl* type_alias = type_node.as(AliasDecl);
 	test::eq(type_alias.alias_kind, AliasDeclKind.TYPE_ALIAS);
 	test::eq(type_alias.name_kind, TokenKind.TYPE_IDENT);
-	test::eq(ast.string_pool.get(type_alias.name.id)!!, "IntList");
+	test::eq(type_alias.name.text, "IntList");
 	test::eq(type_alias.target.kind, NodeKind.TYPE_EXPR);
-	TypeExpr* type_target = type_alias.target.as(NodeKind.TYPE_EXPR);
-	test::eq(type_target.kind, TypeKind.TYPE_GENERIC);
+	TypeExpr* type_target = type_alias.target.as(TypeExpr);
+	test::eq(type_target.type_kind, TypeExprKind.TYPE_GENERIC);
 	test::eq(type_target.generic.params.len, 1);
-	TypeExpr* type_base = type_target.generic.base.as(NodeKind.TYPE_EXPR);
-	test::eq(type_base.kind, TypeKind.TYPE_IDENTIFIER);
-	test::eq(ast.string_pool.get(type_base.unresolved.name.id)!!, "List");
+	TypeExpr* type_base = type_target.generic.base.as(TypeExpr);
+	test::eq(type_base.type_kind, TypeExprKind.TYPE_IDENTIFIER);
+	test::eq(type_base.unresolved.name.text, "List");
 
-	AliasDecl* stack_node = ast.top_level_nodes[2].as(NodeKind.ALIAS_DECL);
+	AliasDecl* stack_node = mod.nodes[2].as(AliasDecl);
 	test::eq(stack_node.alias_kind, AliasDeclKind.TYPE_ALIAS);
-	GenericDecl* generic = stack_node.generics.as(NodeKind.GENERIC_DECL);
+	GenericDecl* generic = stack_node.generics.as(GenericDecl);
 	test::eq(generic.params.len, 1);
-	TypeExpr* first_type = generic.params[0].as(NodeKind.TYPE_EXPR);
-	test::eq(first_type.kind, TypeKind.TYPE_IDENTIFIER);
-	test::eq(ast.string_pool.get(first_type.unresolved.name.id)!!, "Ty");
-	test::eq(stack_node.target.as(NodeKind.TYPE_EXPR).kind, TypeKind.TYPE_GENERIC);
+	TypeExpr* first_type = generic.params[0].as(TypeExpr);
+	test::eq(first_type.type_kind, TypeExprKind.TYPE_IDENTIFIER);
+	test::eq(first_type.unresolved.name.text, "Ty");
+	test::eq(stack_node.target.as(TypeExpr).type_kind, TypeExprKind.TYPE_GENERIC);
 
-	Node* module_node       = ast.top_level_nodes[3];
-	AliasDecl* module_alias = module_node.as(NodeKind.ALIAS_DECL);
+	Node* module_node       = mod.nodes[3];
+	AliasDecl* module_alias = module_node.as(AliasDecl);
 	test::eq(module_alias.alias_kind, AliasDeclKind.MODULE_ALIAS);
 	test::eq(module_alias.name_kind, TokenKind.IDENT);
 	test::eq(module_alias.target.kind, NodeKind.PATH_EXPR);
-	PathExpr* module_path = module_alias.target.as(NodeKind.PATH_EXPR);
-	test::eq(module_path.segments.len, 2);
-	test::eq(ast.string_pool.get(module_path.segments[0].id)!!, "my");
-	test::eq(ast.string_pool.get(module_path.segments[1].id)!!, "collection");
+	PathExpr* module_path = module_alias.target.as(PathExpr);
+	test::eq(module_path.path.text, "my/collection");
 
-	Node* ident_node       = ast.top_level_nodes[4];
-	AliasDecl* ident_alias = ident_node.as(NodeKind.ALIAS_DECL);
+	Node* ident_node       = mod.nodes[4];
+	AliasDecl* ident_alias = ident_node.as(AliasDecl);
 	test::eq(ident_alias.alias_kind, AliasDeclKind.IDENT_ALIAS);
 	test::eq(ident_alias.name_kind, TokenKind.IDENT);
 
-	AliasDecl* attr_alias = ast.top_level_nodes[6].as(NodeKind.ALIAS_DECL);
+	AliasDecl* attr_alias = mod.nodes[6].as(AliasDecl);
 	test::eq(attr_alias.alias_kind, AliasDeclKind.IDENT_ALIAS);
 	test::eq(attr_alias.name_kind, TokenKind.AT_IDENT);
 
-	AliasDecl* generic_target_alias = ast.top_level_nodes[7].as(NodeKind.ALIAS_DECL);
+	AliasDecl* generic_target_alias = mod.nodes[7].as(AliasDecl);
 	test::eq(generic_target_alias.alias_kind, AliasDeclKind.IDENT_ALIAS);
-	GenericIdentExpr* generic_target_path = generic_target_alias.target.as(NodeKind.GENERIC_IDENT_EXPR);
+	GenericIdentExpr* generic_target_path = generic_target_alias.target.as(GenericIdentExpr);
 	test::eq(generic_target_path.exprs.len, 2);
 
-	AliasDecl* fn_ptr_alias = ast.top_level_nodes[8].as(NodeKind.ALIAS_DECL);
+	AliasDecl* fn_ptr_alias = mod.nodes[8].as(AliasDecl);
 	test::eq(fn_ptr_alias.alias_kind, AliasDeclKind.TYPE_ALIAS);
-	test::eq(ast.string_pool.get(fn_ptr_alias.name.id)!!, "ElementPredicate");
-	TypeExpr* fn_ptr_type = fn_ptr_alias.target.as(NodeKind.TYPE_EXPR);
-	test::eq(fn_ptr_type.kind, TypeKind.TYPE_FUNCTION);
-	TypeExpr* fn_ret_type = fn_ptr_type.func.ret_type.as(NodeKind.TYPE_EXPR);
-	test::eq(fn_ret_type.kind, TypeKind.TYPE_IDENTIFIER);
-	test::eq(ast.string_pool.get(fn_ret_type.unresolved.name.id)!!, "bool");
+	test::eq(fn_ptr_alias.name.text, "ElementPredicate");
+	TypeExpr* fn_ptr_type = fn_ptr_alias.target.as(TypeExpr);
+	test::eq(fn_ptr_type.type_kind, TypeExprKind.TYPE_FUNCTION);
+	TypeExpr* fn_ret_type = fn_ptr_type.func.ret_type.as(TypeExpr);
+	test::eq(fn_ret_type.type_kind, TypeExprKind.TYPE_IDENTIFIER);
+	test::eq(fn_ret_type.unresolved.name.text, "bool");
 	test::eq(fn_ptr_type.func.params.len, 1);
-	VarDecl* fn_param = fn_ptr_type.func.params[0].as(NodeKind.VAR_DECL);
-	test::eq(fn_param.kind, VarDeclKind.VAR_PARAM);
-	test::eq(ast.string_pool.get(fn_param.name.id)!!, "type");
-	TypeExpr* param_type = fn_param.type.as(NodeKind.TYPE_EXPR);
-	test::eq(param_type.kind, TypeKind.TYPE_POINTER);
-	TypeExpr* param_base_type = param_type.modify.base.as(NodeKind.TYPE_EXPR);
-	test::eq(ast.string_pool.get(param_base_type.unresolved.name.id)!!, "Type");
+	VarDecl* fn_param = fn_ptr_type.func.params[0].as(VarDecl);
+	test::eq(fn_param.var_kind, VarDeclKind.VAR_PARAM);
+	test::eq(fn_param.name.text, "type");
+	TypeExpr* param_type = fn_param.type.as(TypeExpr);
+	test::eq(param_type.type_kind, TypeExprKind.TYPE_POINTER);
+	TypeExpr* param_base_type = param_type.modify.base.as(TypeExpr);
+	test::eq(param_base_type.unresolved.name.text, "Type");
 
-	Node* node            = ast.top_level_nodes[9];
-	AliasDecl* alias_decl = node.as(NodeKind.ALIAS_DECL);
+	Node* node            = mod.nodes[9];
+	AliasDecl* alias_decl = node.as(AliasDecl);
 	test::eq(alias_decl.alias_kind, AliasDeclKind.TYPE_ALIAS);
 	test::eq(alias_decl.generics, null);
 	test::eq(alias_decl.attributes.len, 2);
-	test::eq(parser_tests::@attr(alias_decl, 0).kind, AttributeKind.PRIVATE);
-	test::eq(pool.get(parser_tests::@attr(alias_decl, 1).name.id)!!, "@AliasAttr");
+	test::eq(parser_tests::@attr(alias_decl, 0).attribute_kind, AttributeKind.PRIVATE);
+	test::eq(parser_tests::@attr(alias_decl, 1).name.text, "@AliasAttr");
 	test::eq(node.flags.has_attributes, true);
 	test::eq(node.visibility, Visibility.PRIVATE);
 }
@@ -269,64 +238,60 @@ fn void typedef_declarations_parse()
 		typedef Option<Type> = Type*;
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
-	Ast* ast         = s.source_file.ast;
-	test::eq(ast.top_level_nodes.len(), 8);
+	Module* mod = context.modules.get("hello")!!;
 
-	TypedefDecl* my_id = ast.top_level_nodes[1].as(NodeKind.TYPEDEF_DECL);
-	test::eq(ast.string_pool.get(my_id.name.id)!!, "MyId");
+	test::eq(mod.nodes.len(), 8);
+
+	TypedefDecl* my_id = mod.nodes[1].as(TypedefDecl);
+	test::eq(my_id.name.text, "MyId");
 	test::eq(my_id.is_inline, false);
 	test::eq(my_id.attributes.len, 0);
-	TypeExpr* my_id_base = my_id.base_type.as(NodeKind.TYPE_EXPR);
-	test::eq(my_id_base.kind, TypeKind.TYPE_IDENTIFIER);
-	test::eq(ast.string_pool.get(my_id_base.unresolved.name.id)!!, "int");
+	TypeExpr* my_id_base = my_id.base_type.as(TypeExpr);
+	test::eq(my_id_base.type_kind, TypeExprKind.TYPE_IDENTIFIER);
+	test::eq(my_id_base.unresolved.name.text, "int");
 
-	TypedefDecl* my_id2 = ast.top_level_nodes[2].as(NodeKind.TYPEDEF_DECL);
-	test::eq(ast.string_pool.get(my_id2.name.id)!!, "MyId2");
+	TypedefDecl* my_id2 = mod.nodes[2].as(TypedefDecl);
+	test::eq(my_id2.name.text, "MyId2");
 	test::eq(my_id2.attributes.len, 1);
 
-	TypedefDecl* bcd = ast.top_level_nodes[3].as(NodeKind.TYPEDEF_DECL);
-	test::eq(ast.string_pool.get(bcd.name.id)!!, "Bcd");
+	TypedefDecl* bcd = mod.nodes[3].as(TypedefDecl);
+	test::eq(bcd.name.text, "Bcd");
 	test::eq(bcd.is_inline, true);
 	test::eq(bcd.attributes.len, 1);
 
-	TypedefDecl* int_align = ast.top_level_nodes[4].as(NodeKind.TYPEDEF_DECL);
-	test::eq(ast.string_pool.get(int_align.name.id)!!, "IntAlign2");
+	TypedefDecl* int_align = mod.nodes[4].as(TypedefDecl);
+	test::eq(int_align.name.text, "IntAlign2");
 	test::eq(int_align.attributes.len, 1);
 
-	TypedefDecl* float4 = ast.top_level_nodes[5].as(NodeKind.TYPEDEF_DECL);
-	test::eq(ast.string_pool.get(float4.name.id)!!, "Float4");
+	TypedefDecl* float4 = mod.nodes[5].as(TypedefDecl);
+	test::eq(float4.name.text, "Float4");
 	test::eq(float4.attributes.len, 1);
-	TypeExpr* float4_base = float4.base_type.as(NodeKind.TYPE_EXPR);
-	test::eq(float4_base.kind, TypeKind.TYPE_VECTOR);
+	TypeExpr* float4_base = float4.base_type.as(TypeExpr);
+	test::eq(float4_base.type_kind, TypeExprKind.TYPE_VECTOR);
 	test::eq(float4_base.array.len_expr.kind, NodeKind.LITERAL_EXPR);
 
-	TypedefDecl* enum_set = ast.top_level_nodes[6].as(NodeKind.TYPEDEF_DECL);
-	test::eq(ast.string_pool.get(enum_set.name.id)!!, "EnumSet");
+	TypedefDecl* enum_set = mod.nodes[6].as(TypedefDecl);
+	test::eq(enum_set.name.text, "EnumSet");
 	test::eq(enum_set.interfaces.len, 1);
-	TypeExpr* interface_type = enum_set.interfaces[0].as(NodeKind.TYPE_EXPR);
-	test::eq(ast.string_pool.get(interface_type.unresolved.name.id)!!, "Printable");
-	TypeExpr* enum_set_base = enum_set.base_type.as(NodeKind.TYPE_EXPR);
-	test::eq(ast.string_pool.get(enum_set_base.unresolved.name.id)!!, "EnumSetType");
+	TypeExpr* interface_type = enum_set.interfaces[0].as(TypeExpr);
+	test::eq(interface_type.unresolved.name.text, "Printable");
+	TypeExpr* enum_set_base = enum_set.base_type.as(TypeExpr);
+	test::eq(enum_set_base.unresolved.name.text, "EnumSetType");
 
-	TypedefDecl* option = ast.top_level_nodes[7].as(NodeKind.TYPEDEF_DECL);
-	test::eq(ast.string_pool.get(option.name.id)!!, "Option");
-	GenericDecl* option_generics = option.generics.as(NodeKind.GENERIC_DECL);
+	TypedefDecl* option = mod.nodes[7].as(TypedefDecl);
+	test::eq(option.name.text, "Option");
+	GenericDecl* option_generics = option.generics.as(GenericDecl);
 	test::eq(option_generics.params.len, 1);
-	TypeExpr* option_generic_param = option_generics.params[0].as(NodeKind.TYPE_EXPR);
-	test::eq(ast.string_pool.get(option_generic_param.unresolved.name.id)!!, "Type");
-	TypeExpr* option_base = option.base_type.as(NodeKind.TYPE_EXPR);
-	test::eq(option_base.kind, TypeKind.TYPE_POINTER);
-	TypeExpr* option_inner = option_base.modify.base.as(NodeKind.TYPE_EXPR);
-	test::eq(ast.string_pool.get(option_inner.unresolved.name.id)!!, "Type");
+	TypeExpr* option_generic_param = option_generics.params[0].as(TypeExpr);
+	test::eq(option_generic_param.unresolved.name.text, "Type");
+	TypeExpr* option_base = option.base_type.as(TypeExpr);
+	test::eq(option_base.type_kind, TypeExprKind.TYPE_POINTER);
+	TypeExpr* option_inner = option_base.modify.base.as(TypeExpr);
+	test::eq(option_inner.unresolved.name.text, "Type");
 }
 
 fn void function_pointer_types_are_alias_only()
@@ -335,21 +300,17 @@ fn void function_pointer_types_are_alias_only()
 		alias CallbackDefault = fn void(int value = 0);
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* alias_mod      = ws.modules.get("hello")!!;
-	ModuleSection* alias_s = alias_mod.sections[0];
-	Ast* alias_ast         = alias_s.source_file.ast;
-	AliasDecl* alias_decl  = alias_ast.top_level_nodes[1].as(NodeKind.ALIAS_DECL);
-	TypeExpr* alias_target = alias_decl.target.as(NodeKind.TYPE_EXPR);
-	test::eq(alias_target.kind, TypeKind.TYPE_FUNCTION);
+	Module* mod = context.modules.get("hello")!!;
+
+	AliasDecl* alias_decl  = mod.nodes[1].as(AliasDecl);
+	TypeExpr* alias_target = alias_decl.target.as(TypeExpr);
+	test::eq(alias_target.type_kind, TypeExprKind.TYPE_FUNCTION);
 	test::eq(alias_target.func.params.len, 1);
-	VarDecl* alias_param = alias_target.func.params[0].as(NodeKind.VAR_DECL);
+	VarDecl* alias_param = alias_target.func.params[0].as(VarDecl);
 	test::eq(alias_param.init_expr.kind, NodeKind.LITERAL_EXPR);
 }
 
@@ -361,21 +322,17 @@ fn void global_var_const()
 		const int[4]* FOO = null;
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
+	Module* mod = context.modules.get("hello")!!;
 
-	Node* target_node = s.nodes[1];
-	VarDecl* decl     = target_node.as(VAR_DECL);
-	test::eq(decl.kind, VarDeclKind.VAR_GLOBAL);
+	Node* target_node = mod.nodes[1];
+	VarDecl* decl     = target_node.as(VarDecl);
+	test::eq(decl.var_kind, VarDeclKind.VAR_GLOBAL);
 	test::eq(decl.type.kind, NodeKind.TYPE_EXPR);
-	TypeExpr* type_data = decl.type.as(TYPE_EXPR);
+	TypeExpr* type_data = decl.type.as(TypeExpr);
 }
 
 fn void global_var_multi_decl()
@@ -386,37 +343,32 @@ fn void global_var_multi_decl()
 		int foo, bar, z;
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
-	StringPool* pool = &s.source_file.ast.string_pool;
+	Module* mod = context.modules.get("hello")!!;
 
-	Node* target_node = s.nodes[1];
-	VarDecl* decl     = target_node.as(VAR_DECL);
-	test::eq(decl.kind, VarDeclKind.VAR_GLOBAL);
+	Node* target_node = mod.nodes[1];
+	VarDecl* decl     = target_node.as(VarDecl);
+	test::eq(decl.var_kind, VarDeclKind.VAR_GLOBAL);
 	test::eq(decl.type.kind, NodeKind.TYPE_EXPR);
-	test::eq(pool.get(decl.name.id)!!, "foo");
+	test::eq(decl.name.text, "foo");
 	test::eq(decl.init_expr, null);
-	test::eq(pool.get(decl.type.as(TYPE_EXPR).unresolved.name.id)!!, "int");
+	test::eq(decl.type.as(TypeExpr).unresolved.name.text, "int");
 
 	test::ne(decl.next, null);
-	VarDecl* decl_2 = decl.next.as(VAR_DECL);
-	test::eq(pool.get(decl_2.name.id)!!, "bar");
+	VarDecl* decl_2 = decl.next.as(VarDecl);
+	test::eq(decl_2.name.text, "bar");
 	test::eq(decl_2.init_expr, null);
-	test::eq(pool.get(decl_2.type.as(TYPE_EXPR).unresolved.name.id)!!, "int");
+	test::eq(decl_2.type.as(TypeExpr).unresolved.name.text, "int");
 
 	test::ne(decl_2.next, null);
-	VarDecl* decl_3 = decl_2.next.as(VAR_DECL);
-	test::eq(pool.get(decl_3.name.id)!!, "z");
+	VarDecl* decl_3 = decl_2.next.as(VarDecl);
+	test::eq(decl_3.name.text, "z");
 	test::eq(decl_3.next, null);
 	test::eq(decl_3.init_expr, null);
-	test::eq(pool.get(decl_3.type.as(TYPE_EXPR).unresolved.name.id)!!, "int");
+	test::eq(decl_3.type.as(TypeExpr).unresolved.name.text, "int");
 }
 
 fn void global_var()
@@ -427,21 +379,17 @@ fn void global_var()
 		int[4] foo;
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
+	Module* mod = context.modules.get("hello")!!;
 
-	Node* target_node = s.nodes[1];
-	VarDecl* decl     = target_node.as(VAR_DECL);
-	test::eq(decl.kind, VarDeclKind.VAR_GLOBAL);
+	Node* target_node = mod.nodes[1];
+	VarDecl* decl     = target_node.as(VarDecl);
+	test::eq(decl.var_kind, VarDeclKind.VAR_GLOBAL);
 	test::eq(decl.type.kind, NodeKind.TYPE_EXPR);
-	TypeExpr* type_data = decl.type.as(TYPE_EXPR);
+	TypeExpr* type_data = decl.type.as(TypeExpr);
 }
 
 fn void global_var_tlocal()
@@ -452,21 +400,17 @@ fn void global_var_tlocal()
 		tlocal int foo = 1;
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
+	Module* mod = context.modules.get("hello")!!;
 
-	Node* target_node = s.nodes[1];
-	VarDecl* decl     = target_node.as(VAR_DECL);
-	test::eq(decl.kind, VarDeclKind.VAR_GLOBAL);
+	Node* target_node = mod.nodes[1];
+	VarDecl* decl     = target_node.as(VarDecl);
+	test::eq(decl.var_kind, VarDeclKind.VAR_GLOBAL);
 	test::eq(decl.type.kind, NodeKind.TYPE_EXPR);
-	TypeExpr* type_data = decl.type.as(TYPE_EXPR);
+	TypeExpr* type_data = decl.type.as(TypeExpr);
 }
 
 fn void global_var_extern()
@@ -477,21 +421,17 @@ fn void global_var_extern()
 		extern int foo;
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
+	Module* mod = context.modules.get("hello")!!;
 
-	Node* target_node = s.nodes[1];
-	VarDecl* decl     = target_node.as(VAR_DECL);
-	test::eq(decl.kind, VarDeclKind.VAR_GLOBAL);
+	Node* target_node = mod.nodes[1];
+	VarDecl* decl     = target_node.as(VarDecl);
+	test::eq(decl.var_kind, VarDeclKind.VAR_GLOBAL);
 	test::eq(decl.type.kind, NodeKind.TYPE_EXPR);
-	TypeExpr* type_data = decl.type.as(TYPE_EXPR);
+	TypeExpr* type_data = decl.type.as(TypeExpr);
 }
 
 fn void expand()
@@ -502,21 +442,16 @@ fn void expand()
 		$expand("fn void foo();");
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
-	StringPool* pool = &s.source_file.ast.string_pool;
+	Module* mod = context.modules.get("hello")!!;
 
-	Node* target_node    = s.nodes[1];
-	CtExpandDecl* decl   = target_node.as(CT_EXPAND_DECL);
-	LiteralExpr* literal = decl.expr.as(LITERAL_EXPR);
-	test::eq(pool.get(literal.string)!!, "fn void foo();");
+	Node* target_node    = mod.nodes[1];
+	CtExpandDecl* decl   = target_node.as(CtExpandDecl);
+	LiteralExpr* literal = decl.expr.as(LiteralExpr);
+	test::eq(literal.string, "fn void foo();");
 }
 
 fn void struct_decl()
@@ -563,22 +498,19 @@ fn void struct_decl()
 		}
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod       = ws.modules.get("hello")!!;
-	ModuleSection* s  = mod.sections[0];
-	StringPool* pool  = &s.source_file.ast.string_pool;
-	Node* target_node = s.nodes[2];
-	StructDecl* head  = target_node.as(STRUCT_DECL);
+	Module* mod = context.modules.get("hello")!!;
+
+	Node* target_node = mod.nodes[1];
+	StructDecl* head  = target_node.as(StructDecl);
 	test::ne(head.next, null);
-	test::eq(parser_tests::count_kind(s, MODULE_DECL), 1);
-	test::eq(parser_tests::count_kind(s, STRUCT_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, MODULE_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, STRUCT_DECL), 1);
 }
+
 
 fn void bitstruct_decl()
 {
@@ -600,20 +532,16 @@ fn void bitstruct_decl()
 		}
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod       = ws.modules.get("hello")!!;
-	ModuleSection* s  = mod.sections[0];
-	StringPool* pool  = &s.source_file.ast.string_pool;
-	Node* target_node = s.nodes[2];
-	StructDecl* head  = target_node.as(STRUCT_DECL);
-	test::eq(parser_tests::count_kind(s, MODULE_DECL), 1);
-	test::eq(parser_tests::count_kind(s, STRUCT_DECL), 2);
+	Module* mod = context.modules.get("hello")!!;
+
+	Node* target_node = mod.nodes[2];
+	StructDecl* head  = target_node.as(StructDecl);
+	test::eq(parser_tests::count_kind(mod, MODULE_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, STRUCT_DECL), 2);
 }
 
 fn void union_decl()
@@ -640,21 +568,16 @@ fn void union_decl()
 		}
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
-	StringPool* pool = &s.source_file.ast.string_pool;
+	Module* mod = context.modules.get("hello")!!;
 
-	Node* target_node = s.nodes[1];
+	Node* target_node = mod.nodes[1];
 
-	test::eq(parser_tests::count_kind(s, MODULE_DECL), 1);
-	test::eq(parser_tests::count_kind(s, STRUCT_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, MODULE_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, STRUCT_DECL), 1);
 }
 
 fn void faultdef_decl()
@@ -668,21 +591,16 @@ fn void faultdef_decl()
 		faultdef ERROR, FOO, BAR;
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
-	StringPool* pool = &s.source_file.ast.string_pool;
+	Module* mod = context.modules.get("hello")!!;
 
-	Node* target_node = s.nodes[1];
+	Node* target_node = mod.nodes[1];
 
-	test::eq(parser_tests::count_kind(s, MODULE_DECL), 1);
-	test::eq(parser_tests::count_kind(s, FAULTDEF_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, MODULE_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, FAULTDEF_DECL), 1);
 }
 
 
@@ -698,21 +616,16 @@ fn void interface_decl()
 		}
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
-	StringPool* pool = &s.source_file.ast.string_pool;
+	Module* mod = context.modules.get("hello")!!;
 
-	Node* target_node = s.nodes[1];
+	Node* target_node = mod.nodes[1];
 
-	test::eq(parser_tests::count_kind(s, MODULE_DECL), 1);
-	test::eq(parser_tests::count_kind(s, INTERFACE_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, MODULE_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, INTERFACE_DECL), 1);
 }
 
 fn void attrdef_decl()
@@ -726,21 +639,16 @@ fn void attrdef_decl()
 		attrdef @MyAttributeEmpty;
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
-	StringPool* pool = &s.source_file.ast.string_pool;
+	Module* mod = context.modules.get("hello")!!;
 
-	Node* target_node = s.nodes[1];
+	Node* target_node = mod.nodes[1];
 
-	test::eq(parser_tests::count_kind(s, MODULE_DECL), 1);
-	test::eq(parser_tests::count_kind(s, ATTRDEF_DECL), 4);
+	test::eq(parser_tests::count_kind(mod, MODULE_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, ATTRDEF_DECL), 4);
 }
 
 fn void ct_assert_decl()
@@ -754,19 +662,14 @@ fn void ct_assert_decl()
 		$assert 98 == -2 : @sprintf("no %s", @bar());
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
-	StringPool* pool = &s.source_file.ast.string_pool;
+	Module* mod = context.modules.get("hello")!!;
 
-	Node* target_node = s.nodes[1];
+	Node* target_node = mod.nodes[1];
 
-	test::eq(parser_tests::count_kind(s, MODULE_DECL), 1);
-	test::eq(parser_tests::count_kind(s, CT_ASSERT_DECL), 4);
+	test::eq(parser_tests::count_kind(mod, MODULE_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, CT_ASSERT_DECL), 4);
 }

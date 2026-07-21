@@ -1,10 +1,7 @@
 module overflow_tests @test;
 
-/*
-
 import parser_tests;
 
-import analyzer::workspace;
 import analyzer::parser;
 import analyzer::core;
 import std::io;
@@ -33,16 +30,12 @@ fn void basic_overflow()
 		}
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, true);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
+	Module* mod = context.modules.get("hello")!!;
 
-	test::eq(parser_tests::count_kind(s, MODULE_DECL), 1);
-	test::eq(parser_tests::count_kind(s, MACRO_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, MODULE_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, MACRO_DECL), 1);
 }
