@@ -62,6 +62,12 @@ fn void analyze_imports(SemaContext* ctx)
 				continue;
 			}
 
+			if (!ctx.context.modules.has_key(expr.path.text))
+			{
+				diagnostics::error(ctx.context, expr.range, "No module '%s' found", expr.path.text);
+				continue;
+			}
+
 			diagnostics::log_debug("[AnalyzeImports]: Added import '%s'", expr.path.text);
 			ctx.imports.set(expr.path.text, {expr.path.text, node});
 		}
