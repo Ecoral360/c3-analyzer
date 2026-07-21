@@ -1021,6 +1021,7 @@ fn Node* parse_bitstruct_decl(ContextScope scope, bool is_nested = false) => @po
 {
 	ParseContext* ctx = scope.ctx;
 	StructDecl* node = ctx.ast.alloc_node(StructDecl, ctx.current.range);
+	advance(ctx);
 	defer node.range.end = ctx.peek(-1).range.end;
 
 	if (!is_nested || ctx.is(IDENT) || ctx.is(TYPE_IDENT))
