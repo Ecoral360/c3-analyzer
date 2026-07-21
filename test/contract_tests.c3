@@ -129,7 +129,7 @@ fn void contract_description()
 	FnDecl* fn_decl = mod.nodes[1].as(FnDecl);
 	ContractDecl* contract_decl = fn_decl.contract.get()!!.as(ContractDecl);
 	test::ne(contract_decl.comment, null);
-	test::eq(contract_decl.comment.text, "this is a comment");
+	test::eq(contract_decl.comment.text.trim(), "this is a comment");
 }
 
 fn void contract_with_deprecated()

@@ -260,7 +260,7 @@ fn void try_catch()
 	test::eq(parser_tests::count_kind(mod, MODULE_DECL), 1);
 	test::eq(parser_tests::count_kind(mod, FN_DECL), 1);
 }
-/*
+
 fn void call()
 {
 	String source_code = `
