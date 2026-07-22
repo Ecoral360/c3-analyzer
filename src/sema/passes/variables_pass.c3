@@ -31,8 +31,7 @@ fn void run_variable_pass(SemaContext* ctx) => @pool()
 				continue;
 		}
 
-		Cursor root_cursor = { .node = root_node };
-		cursor::visit(root_cursor, {}, { &sema_on_enter, &sema_on_exit }, ctx);
+		cursor::visit(root_node, null, { &sema_on_enter, &sema_on_exit }, ctx);
 	}
 }
 
@@ -54,10 +53,9 @@ fn void pop_scope(SemaContext* ctx)
 	}
 }
 
-fn ChildVisitResult sema_on_enter(Cursor cursor, Cursor parent, void* user_data) @local
+fn ChildVisitResult sema_on_enter(Node* node, Node* parent, void* user_data) @local
 {
 	SemaContext* ctx = (SemaContext*)user_data;
-	Node* node = cursor.node;
 
 	while (ctx.scope.parent && !ctx.scope.range.contains(node.range.end))
 	{
@@ -72,12 +70,12 @@ fn ChildVisitResult sema_on_enter(Cursor cursor, Cursor parent, void* user_data)
 			if (if_stmt.then_body.kind != COMPOUND_STMT)
 			{
 				push_scope(ctx, if_stmt.then_body);
-				cursor::visit({ .node = if_stmt.then_body }, cursor, { &sema_on_enter, &sema_on_exit }, ctx);
+				cursor::visit(if_stmt.then_body, node, { &sema_on_enter, &sema_on_exit }, ctx);
 				pop_scope(ctx);
 			}
 			else
 			{
-				cursor::visit({ .node = if_stmt.then_body }, cursor, { &sema_on_enter, &sema_on_exit }, ctx);
+				cursor::visit(if_stmt.then_body, node, { &sema_on_enter, &sema_on_exit }, ctx);
 			}
 
 			if (if_stmt.else_body)
@@ -85,12 +83,12 @@ fn ChildVisitResult sema_on_enter(Cursor cursor, Cursor parent, void* user_data)
 				if (if_stmt.else_body.kind != COMPOUND_STMT)
 				{
 					push_scope(ctx, if_stmt.else_body);
-					cursor::visit({ .node = if_stmt.else_body }, cursor, { &sema_on_enter, &sema_on_exit }, ctx);
+					cursor::visit(if_stmt.else_body, node, { &sema_on_enter, &sema_on_exit }, ctx);
 					pop_scope(ctx);
 				}
 				else
 				{
-					cursor::visit({ .node = if_stmt.else_body }, cursor, { &sema_on_enter, &sema_on_exit }, ctx);
+					cursor::visit(if_stmt.else_body, node, { &sema_on_enter, &sema_on_exit }, ctx);
 				}
 			}
 
@@ -102,7 +100,7 @@ fn ChildVisitResult sema_on_enter(Cursor cursor, Cursor parent, void* user_data)
 			push_scope(ctx, node);
 			foreach (child : if_stmt.then_stmts)
 			{
-				cursor::visit({ .node = child }, cursor, { &sema_on_enter, &sema_on_exit }, ctx);
+				cursor::visit(child, node, { &sema_on_enter, &sema_on_exit }, ctx);
 			}
 			pop_scope(ctx);
 			if (if_stmt.else_stmts.len > 0)
@@ -110,7 +108,7 @@ fn ChildVisitResult sema_on_enter(Cursor cursor, Cursor parent, void* user_data)
 				push_scope(ctx, node);
 				foreach (child : if_stmt.else_stmts)
 				{
-					cursor::visit({ .node = child }, cursor, { &sema_on_enter, &sema_on_exit }, ctx);
+					cursor::visit(child, node, { &sema_on_enter, &sema_on_exit }, ctx);
 				}
 				pop_scope(ctx);
 			}
@@ -151,10 +149,10 @@ fn ChildVisitResult sema_on_enter(Cursor cursor, Cursor parent, void* user_data)
 	return RECURSE;
 }
 
-fn ChildVisitResult sema_on_exit(Cursor cursor, Cursor parent, void* user_data) @local
+fn ChildVisitResult sema_on_exit(Node* node, Node* parent, void* user_data) @local
 {
 	SemaContext* ctx = (SemaContext*)user_data;
-	switch (cursor.node.kind)
+	switch (node.kind)
 	{
 		case MACRO_DECL:
 		case FN_DECL:
