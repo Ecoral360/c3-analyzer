@@ -21,11 +21,10 @@ jobs:
           curl -sL "https://github.com/c3lang/c3c/releases/download/v0.8.2/c3-linux.tar.gz" -o c3.tar.gz
           
           sudo mkdir -p /usr/local/c3
-          
           sudo tar -xzf c3.tar.gz -C /usr/local/c3 --strip-components=1
           rm -f c3.tar.gz
           
-          echo "/usr/local/c3" >> $GITHUB_PATH
+          sudo ln -s /usr/local/c3/c3c /usr/local/bin/c3c
           
           c3c --version
       - name: Build
