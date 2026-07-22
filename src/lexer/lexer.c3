@@ -520,7 +520,9 @@ fn void lex_contract(Lexer* self)
 	// Emit the DOCS_TEXT if we found anything
 	if (self.index > start_index)
 	{
-		self.tokens.push(self.emit_range(DOCS_TEXT, start_index));
+		Token t = self.emit_range(DOCS_TEXT, start_index);
+		diagnostics::log_debug("[Lexer] lex_contract: Added token: %s - %s", t.kind.description, t.value);
+		self.tokens.push(t);
 	}
 
 	while (self.current != 0)
