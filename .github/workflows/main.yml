@@ -19,6 +19,8 @@ jobs:
         run: |
           echo "Installing c3c..."
           curl -fsSL https://raw.githubusercontent.com/c3lang/c3c/refs/heads/master/install/install.sh | C3_VERSION=0.8.2 bash
+          echo "$HOME/.c3/bin" >> $GITHUB_PATH
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
 
       - name: Build
         run: c3c build
