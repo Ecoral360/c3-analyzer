@@ -18,7 +18,18 @@ jobs:
       - name: Setup c3c
         run: |
           echo "Installing c3c..."
-          curl -fsSL https://raw.githubusercontent.com/c3lang/c3c/refs/heads/master/install/install.sh | sudo C3_HOME=/usr/local C3_VERSION=0.8.2 bash
+          curl -sL "https://github.com/c3lang/c3c/releases/download/v0.8.2/c3-linux.tar.gz" -o c3.tar.gz
+          # Extract archive
+          tar -xzf c3.tar.gz
+          
+          # Move binary to /usr/local/bin (which is natively on PATH)
+          sudo cp c3/c3c /usr/local/bin/c3c
+          sudo chmod +x /usr/local/bin/c3c
+          
+          # Clean up download files
+          rm -rf c3.tar.gz c3
+          
+          # Verify installation
           c3c --version
       - name: Build
         run: c3c build
