@@ -194,7 +194,7 @@ fn Node* parse_import_decl(ContextScope scope) => @pool()
 		node.attributes = parse_attributes(scope, node);
 	}
 
-	(void)expect(ctx, node, EOS);
+	expect(ctx, node, EOS);
 
 	return (Node*)node;
 }
