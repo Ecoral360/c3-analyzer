@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup c3c
+        run: |
+          echo "Installing c3c..."
+          curl -sL "https://github.com/c3lang/c3c/releases/download/v0.8.2/c3-linux.tar.gz" -o c3.tar.gz
+          
+          sudo mkdir -p /usr/local/c3
+          sudo tar -xzf c3.tar.gz -C /usr/local/c3 --strip-components=1
+          rm -f c3.tar.gz
+          
+          sudo ln -s /usr/local/c3/c3c /usr/local/bin/c3c
+          
+          c3c --version
+      - name: Build
+        run: c3c build
+
+      - name: Test
+        run: c3c test
