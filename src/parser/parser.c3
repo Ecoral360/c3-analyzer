@@ -23,7 +23,6 @@ fn void free(AnalyzerContext* main_ctx, ParseContext* ctx)
 	alloc::free(main_ctx.allocator, ctx);
 }
 
-
 struct ContextScope
 {
 	ParseContext* ctx;
@@ -421,7 +420,11 @@ fn Node* parse_top_level_statement(ParseContext* ctx)
 			if (ctx.contract)
 			{
 				diagnostics::error(ctx.context, ctx.current.range, "There are more than one doc comment in a row, that is not allowed.");
-				ctx.ast.error(ctx.current.range);
+				node = ctx.ast.error(ctx.current.range);
+				ctx.error_count++;
+				skip_until(ctx, { DOCS_END, EOF });
+				advance(ctx);
+				break;
 			}
 			node = parse_contract_decl(scope);
 			ctx.contract = node;
