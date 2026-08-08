@@ -1,4 +1,4 @@
-module analyzer::sema::lookup @if($feature(SEMA));
+module analyzer::sema::lookup @feat(SEMA);
 
 import analyzer::core;
 import analyzer::core::arch;
@@ -16,18 +16,18 @@ fn Lookup* create(AnalyzerContext* context, Allocator alloc)
 	return lookup;
 }
 
-fn void register_type(Lookup* lookup, Allocator alloc, String name, Node* node) 
+fn void register_type(Lookup* lookup, Allocator alloc, String name, Node* node)
 {
 	Type* type = alloc::new(alloc, Type);
 
 	type.name = name;
 	type.data.node = node;
-	type.status = UNRESOLVED; 
+	type.status = UNRESOLVED;
 
 	lookup.types.set(name, type);
-}	
+}
 
-fn void create_builtin(Lookup* lookup, String name, 
+fn void create_builtin(Lookup* lookup, String name,
 	TypeKind kind, BitSizes bits, char bytes)
 {
 	Type* type = alloc::new(lookup.alloc, Type);

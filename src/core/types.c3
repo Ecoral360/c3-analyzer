@@ -5,7 +5,7 @@ import std::collections;
 import analyzer::sema;
 import analyzer::lexer;
 
-attrdef @UseSema = @if($feature(SEMA));
+attrdef @UseSema = @if($feat(SEMA));
 
 struct SourceFile
 {

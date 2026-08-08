@@ -25,7 +25,7 @@ fn Module* create(AnalyzerContext* ctx, String name)
 
 	diagnostics::log_debug("Created module: %s", name);
 
-	mod.name = name;	
+	mod.name = name;
 	mod.nodes.init(ctx.allocator);
 	mod.module_decls.init(ctx.allocator);
 	mod.node_map.init(ctx.allocator);

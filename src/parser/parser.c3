@@ -288,7 +288,7 @@ macro Token expect(ParseContext* ctx, Node* node, TokenKind kind)
 
 	diagnostics::error(ctx.context, ctx.current.range,
 		"Expected '%s' got '%s'", kind.description, ctx.current.kind.description);
-	$if $feature(ANALYZER_PRINT):
+	$if $feat(ANALYZER_PRINT):
 		diagnostics::log_error("Happened here.");
 	$endif
 	node.flags.has_error = true;

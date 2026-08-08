@@ -35,7 +35,7 @@ fn AnalyzerContext* create(Allocator alloc, Target target = {})
 
 	ctx.target.layout = arch::get_platform_layout(target.os, target.arch);
 
-	$if $feature(SEMA):
+	$if $feat(SEMA):
 		ctx.lookup = lookup::create(ctx, alloc);
 		ctx.registry = registry::create(alloc);
 	$endif
@@ -51,7 +51,7 @@ fn void free(AnalyzerContext* ctx)
 	ctx.files.free();
 	ctx.modules.free();
 
-	$if $feature(SEMA):
+	$if $feat(SEMA):
 	$endif
 
 	alloc::free(ctx.allocator, ctx);
@@ -59,7 +59,7 @@ fn void free(AnalyzerContext* ctx)
 
 <*
  process from a buffer
- @param path : "uri/path to the file or virtual file"
+ @param path : "uri/path to the file or 'virtual' file"
  @require buffer.len > 0
 *>
 fn bool process(AnalyzerContext* context, String buffer, String path) => @pool()

@@ -32,7 +32,7 @@ fn void diagnose(
 		callback(sf, range, level, string::format(ctx.allocator, fmt, ...args));
 	}
 
-	$if $feature(ANALYZER_PRINT):
+	$if $feat(ANALYZER_PRINT):
 		String[] lines = sf.content.tsplit("\n");
 		String line_str = lines[range.start.line != 0 ? range.start.line - 1 : 0];
 
@@ -96,13 +96,16 @@ macro void warn(AnalyzerContext* ctx, Range range, String fmt, ...)
 
 macro void error(AnalyzerContext* ctx, Range range, String fmt, ...)
 {
+	$if $feat(ANALYZER_CLI):
+	log_error("Error happened here");
+	$endif
 	diagnose(ctx, range, ERROR, fmt, ...$vaarg);
 }
 
 
 macro void log(LogPriority priority, String fmt, ...)
 {
-	$if $feature(ANALYZER_PRINT):
+	$if $feat(ANALYZER_PRINT):
 		std::core::log::call_log(priority, std::core::log::default_category, fmt, ...$vaarg);
 	$endif
 }

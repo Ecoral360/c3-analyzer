@@ -203,6 +203,7 @@ fn Node* parse_import_decl(ContextScope scope) => @pool()
  alias_type_decl ::= 'alias' TYPE_IDENT generic_decl? attributes? '=' type_expr ';'
  module_alias_decl ::= 'alias' IDENT attributes? '=' 'module' module_path ';'
  alias_decl ::= 'alias' alias_name generic_decl? attributes? '=' alias_source ';'
+ alias_source   ::= (path? IDENTIFIER | path? CONST_IDENT | path? AT_IDENT) generic_parameters?
  @require scope.ctx.current.kind == ALIAS
 *>
 fn Node* parse_alias_decl(ContextScope scope)

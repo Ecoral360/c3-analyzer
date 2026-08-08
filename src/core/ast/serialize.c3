@@ -1,4 +1,4 @@
-module analyzer::core::ast::serialize @if($feature(ANALYZER_CLI));
+module analyzer::core::ast::serialize @feat(ANALYZER_CLI);
 
 import std::collections::nullable;
 import std::collections::maybe;
@@ -12,7 +12,7 @@ fn void push_indent(JsonOutput* output, int indent, int depth)
 }
 fn void push_newline(JsonOutput* output, int indent, String or = "")
 {
-	if (indent != -1) 
+	if (indent != -1)
 	{
 		output.append_char('\n');
 	}
@@ -162,7 +162,7 @@ fn void node_serialize(Node* self, JsonOutput* output, int indent, int depth) @l
 	output.end_obj(indent, depth);
 }
 
-<* 
+<*
 	@param indent : "if its value is -1, the output won't be prettified (all on one line). Else, it will be the indent size"
 *>
 fn String Node.serialize(&self, Allocator allocator = tmem, int indent = -1)

@@ -65,7 +65,7 @@ fn void register_and_dispatch(AnalyzerContext* context, Module* mod, Node* node)
 	}
 }
 
-fn void register_type(AnalyzerContext* context, Module* mod, Node* node)	
+fn void register_type(AnalyzerContext* context, Module* mod, Node* node)
 {
 	Ident* name;
 	switch (node.kind)

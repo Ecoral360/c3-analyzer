@@ -1,4 +1,4 @@
-module parser @if($feature(ANALYZER_CLI));
+module parser @feat(ANALYZER_CLI);
 import utils::ast;
 import std::io;
 import analyzer::parser;
@@ -50,6 +50,6 @@ fn int main(String[] args) => @pool()
 			};
 		};
 	}
-	
+
 	return 0;
 }
