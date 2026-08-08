@@ -545,33 +545,42 @@ fn Node* parse_path_expr(ContextScope scope, PathExprOptions options = { }) => @
 	defer node.range.end = ctx.peek(-1).range.end;
 	DString sb; sb.tinit();
 
-	while (true)
+	while (ctx.is(IDENT))
 	{
-		sb.append(ctx.current.value);
-		advance(ctx);
-
-		if (consume(ctx, SCOPE))
+		if (options.as_prefix)
 		{
-			sb.append("::");
-
-			// Check if another identifier follows
-			if (is_some_ident(ctx.current.kind))
+			if (ctx.peek(1).kind == SCOPE)
 			{
-				continue;
-			}
-			else if (options.as_prefix)
-			{
-				break;
+				sb.append(ctx.current.value);
+				sb.append("::");
+				advance(ctx, 2);
 			}
 			else
 			{
-				diagnostics::error(ctx.context, ctx.current.range, "Expected an identifier after '::'");
-				node.flags.has_error = true;
 				break;
 			}
 		}
+		else
+		{
+			sb.append(ctx.current.value);
+			advance(ctx);
 
-		break;
+			if (consume(ctx, SCOPE))
+			{
+				sb.append("::");
+				if (ctx.current.kind == IDENT)
+				{
+					continue;
+				}
+				else
+				{
+					diagnostics::error(ctx.context, ctx.current.range, "Expected an identifier after '::'");
+					node.flags.has_error = true;
+					break;
+				}
+			}
+			break;
+		}
 	}
 
 	node.path = ctx.ident_string(sb.str_view());
