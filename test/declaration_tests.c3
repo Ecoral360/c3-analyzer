@@ -16,7 +16,7 @@ fn void basic_module()
 	String source_code = `
 		<* doc *>
 		module hello <Type, Second> @local;
-		
+
 		fn void greet() {}
 	`;
 	AnalyzerContext* context = context::create(tmem);
@@ -34,7 +34,7 @@ fn void basic_module()
 fn void function_with_params()
 {
 	String source_code = `
-		module hello; 
+		module hello;
 		fn void greet(int foo, Bar baz) => @pool() {}
 		fn int get_int() => 10;
 		fn void foo(Type... name) {}
@@ -82,7 +82,7 @@ fn void method_with_params()
 fn void macro_with_params()
 {
 	String source_code = `
-		module hello; 
+		module hello;
 		macro void greet(int foo, Bar baz) <Foo> {}
 		macro foo(int foo, Bar baz) {}
 		macro bar(int foo, Bar baz) => 2;
@@ -113,7 +113,7 @@ fn void macro_with_params()
 fn void macro_method_with_params()
 {
 	String source_code = `
-		module hello; 
+		module hello;
 		macro void Foo.greet(&self, Bar baz) {}
 		macro Foo.wow(&self, Bar bar) {}
 		macro @expect_else_skip(ParseContext* ctx, TokenKind kind, TokenKind[] targets; @body(err)) {}
@@ -149,7 +149,7 @@ fn void alias_declarations_parse()
 	test::eq(success, true);
 
 	Module* mod = context.modules.get("hello")!!;
-	
+
 	test::eq(mod.nodes.len(), 10);
 
 	Node* type_node = mod.nodes[1];
@@ -181,7 +181,7 @@ fn void alias_declarations_parse()
 	test::eq(module_alias.name_kind, TokenKind.IDENT);
 	test::eq(module_alias.target.kind, NodeKind.PATH_EXPR);
 	PathExpr* module_path = module_alias.target.as(PathExpr);
-	test::eq(module_path.path.text, "my/collection");
+	test::eq(module_path.path.text, "my::collection");
 
 	Node* ident_node       = mod.nodes[4];
 	AliasDecl* ident_alias = ident_node.as(AliasDecl);
@@ -317,7 +317,7 @@ fn void global_var_const()
 {
 	String source_code = `
 		module hello;
-		
+
 		const int[4]* FOO = null;
 	`;
 
@@ -338,7 +338,7 @@ fn void global_var_multi_decl()
 {
 	String source_code = `
 		module hello;
-		
+
 		int foo, bar, z;
 	`;
 
@@ -374,7 +374,7 @@ fn void global_var()
 {
 	String source_code = `
 		module hello;
-		
+
 		int[4] foo;
 	`;
 
@@ -395,7 +395,7 @@ fn void global_var_tlocal()
 {
 	String source_code = `
 		module hello;
-		
+
 		tlocal int foo = 1;
 	`;
 
@@ -416,7 +416,7 @@ fn void global_var_extern()
 {
 	String source_code = `
 		module hello;
-		
+
 		extern int foo;
 	`;
 
@@ -437,7 +437,7 @@ fn void expand()
 {
 	String source_code = `
 		module hello;
-		
+
 		$expand("fn void foo();");
 	`;
 
@@ -457,7 +457,7 @@ fn void struct_decl()
 {
 	String source_code = `
 		module hello;
-		
+
 		<*
 		*>
 		struct Foo (Printable) <Type> @local
@@ -472,7 +472,7 @@ fn void struct_decl()
 			{
 				int sub_a;
 
-				union sub_union 
+				union sub_union
 				{
 					int faf;
 				}
@@ -483,11 +483,11 @@ fn void struct_decl()
 				int a;
 			}
 
-			union 
+			union
 			{
 				int a;
 			}
-			
+
 			bitstruct bits
 			{
 				bool a;
@@ -515,12 +515,12 @@ fn void bitstruct_decl()
 {
 	String source_code = `
 		module hello;
-		
+
 		<*
 		*>
-		bitstruct Foo : char[4] @bigendian 
-		{ 
-			ushort v : 0..15; 
+		bitstruct Foo : char[4] @bigendian
+		{
+			ushort v : 0..15;
 		}
 
 		bitstruct Bar : short
@@ -547,19 +547,19 @@ fn void union_decl()
 {
 	String source_code = `
 		module hello;
-		
+
 		union Foo
 		{
 			int a;
 			Foo b;
 
-			struct bar 
+			struct bar
 			{
 				int x;
 				int y;
 			}
 
-			struct baz 
+			struct baz
 			{
 				int z;
 				int w;
@@ -583,7 +583,7 @@ fn void faultdef_decl()
 {
 	String source_code = `
 		module hello;
-		
+
 		<*
 		 My Faultdef
 		*>
@@ -607,7 +607,7 @@ fn void interface_decl()
 {
 	String source_code = `
 		module hello;
-		
+
 		interface MyInterface : Foo, Bar @local
 		{
 			fn void foo() @optional;
@@ -631,7 +631,7 @@ fn void attrdef_decl()
 {
 	String source_code = `
 		module hello;
-		
+
 		attrdef @MyAttribute       = @noreturn, @inline;
 		attrdef @MyCname(x)        = @cname(x);
 		attrdef @TagFoo(value)     = @tag("foo", value);
@@ -654,7 +654,7 @@ fn void ct_assert_decl()
 {
 	String source_code = `
 		module hello;
-		
+
 		$assert 2 == 2;
 		$assert @bar() == MY_CONST;
 		$assert 98 == -2 : "no no";

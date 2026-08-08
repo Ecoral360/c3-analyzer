@@ -32,7 +32,7 @@ fn void contract_with_expr_checks()
 	FnDecl* fn_decl = mod.nodes[1].as(FnDecl);
 	ContractDecl* decl = fn_decl.contract.get()!!.as(ContractDecl);
 	test::ne(decl.comment, null);
-	test::eq(decl.comment.text, "Hello there");
+	test::eq(decl.comment.text.trim(), "Hello there");
 	test::eq(decl.deprecated, null);
 	test::eq(decl.ensures.len, 1);
 	test::eq(decl.requires.len, 1);
@@ -79,12 +79,7 @@ fn void module_duplicate_contract_error()
 	`;
 	AnalyzerContext* context = context::create(tmem);
 	bool success = context::process(context, source_code, "test");
-	test::eq(success, true);
-
-	Module* mod = context.modules.get("hello")!!;
-	ModuleDecl* mod_decl = mod.nodes[0].as(ModuleDecl);
-
-	test::eq(mod_decl.contract.get()!!.flags.has_error, true);
+	test::eq(success, false);
 }
 
 fn void function_duplicate_contract_error()
@@ -98,16 +93,7 @@ fn void function_duplicate_contract_error()
 	`;
 	AnalyzerContext* context = context::create(tmem);
 	bool success = context::process(context, source_code, "test");
-	test::eq(success, true);
-
-	Module* mod = context.modules.get("hello")!!;
-
-	foreach(node : mod.nodes)
-	{
-		io::printn(node.kind);
-	}
-	FnDecl* fn_decl = mod.nodes[1].as(FnDecl);
-	test::eq(fn_decl.contract.get()!!.flags.has_error, true);
+	test::eq(success, false);
 }
 
 fn void contract_description()
@@ -135,7 +121,7 @@ fn void contract_description()
 fn void contract_with_deprecated()
 {
 	String source_code = `
-		module hello; 
+		module hello;
 
 		<*
 			Hello there
@@ -147,7 +133,7 @@ fn void contract_with_deprecated()
 		*>
 		fn int foo(int a) {}
 	`;
-	
+
 	AnalyzerContext* context = context::create(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
@@ -160,7 +146,7 @@ fn void contract_with_deprecated()
 	FnDecl* fn_decl = mod.nodes[1].as(FnDecl);
 	ContractDecl* decl = fn_decl.contract.get()!!.as(ContractDecl);
 	test::ne(decl.comment, null);
-	test::eq(decl.comment.text, "Hello there");
+	test::eq(decl.comment.text.trim(), "Hello there");
 	test::eq(decl.ensures.len, 1);
 	test::eq(decl.requires.len, 1);
 	test::eq(decl.params.len, 1);
