@@ -2,7 +2,6 @@ module constdef_enum_tests @test;
 
 import parser_tests;
 
-import analyzer::workspace;
 import analyzer::parser;
 import analyzer::core;
 import std::io;
@@ -17,28 +16,23 @@ fn void basic_enum()
 	enum MyEnum { AAA, BBB }
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
-	StringPool* pool = &s.source_file.ast.string_pool;
+	Module* mod = context.modules.get("hello")!!;
 
-	test::eq(parser_tests::count_kind(s, ENUM_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, ENUM_DECL), 1);
 
-	Node* enum_node     = s.nodes[1];
-	EnumDecl* enum_decl = enum_node.as(ENUM_DECL);
-	test::eq(pool.get(enum_decl.name.id)!!, "MyEnum");
+	Node* enum_node     = mod.nodes[1];
+	EnumDecl* enum_decl = enum_node.as(EnumDecl);
+	test::eq(enum_decl.name.text, "MyEnum");
 	test::eq(enum_decl.variants.len, 2);
 
 	foreach (variant : enum_decl.variants)
 	{
-		VarDecl* var_decl          = variant.as(VAR_DECL);
-		String variant_description = pool.get(var_decl.name.id)!!;
+		VarDecl* var_decl          = variant.as(VarDecl);
+		String variant_description = var_decl.name.text;
 		assert(variant_description == "AAA" || variant_description == "BBB", "Failed to parse variant description");
 	}
 }
@@ -50,32 +44,27 @@ fn void values()
 	enum MyEnum { AAA = 1, BBB @if(true) = 2 }
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
-	StringPool* pool = &s.source_file.ast.string_pool;
+	Module* mod = context.modules.get("hello")!!;
 
-	test::eq(parser_tests::count_kind(s, ENUM_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, ENUM_DECL), 1);
 
-	Node* enum_node     = s.nodes[1];
-	EnumDecl* enum_decl = enum_node.as(ENUM_DECL);
-	test::eq(pool.get(enum_decl.name.id)!!, "MyEnum");
+	Node* enum_node     = mod.nodes[1];
+	EnumDecl* enum_decl = enum_node.as(EnumDecl);
+	test::eq(enum_decl.name.text, "MyEnum");
 	test::eq(enum_decl.variants.len, 2);
 
 	foreach (variant : enum_decl.variants)
 	{
-		VarDecl* var_decl          = variant.as(VAR_DECL);
-		String variant_description = pool.get(var_decl.name.id)!!;
+		VarDecl* var_decl          = variant.as(VarDecl);
+		String variant_description = var_decl.name.text;
 		assert(variant_description == "AAA" || variant_description == "BBB", "Failed to parse variant description");
 		test::ne(var_decl.init_expr, null);
-		LiteralExpr* enum_value = var_decl.init_expr.as(LITERAL_EXPR);
-		test::eq(enum_value.kind, LiteralKind.INT_LITERAL);
+		LiteralExpr* enum_value = var_decl.init_expr.as(LiteralExpr);
+		test::eq(enum_value.literal_kind, LiteralKind.INT_LITERAL);
 		assert(enum_value.integer == 1 || enum_value.integer == 2, "Failed to parse enum value");
 	}
 }
@@ -87,35 +76,30 @@ fn void char_backing_type()
 	enum MyEnum : char { AAA, BBB }
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
-	StringPool* pool = &s.source_file.ast.string_pool;
+	Module* mod = context.modules.get("hello")!!;
 
-	test::eq(parser_tests::count_kind(s, ENUM_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, ENUM_DECL), 1);
 
-	Node* enum_node     = s.nodes[1];
-	EnumDecl* enum_decl = enum_node.as(ENUM_DECL);
-	test::eq(pool.get(enum_decl.name.id)!!, "MyEnum");
+	Node* enum_node     = mod.nodes[1];
+	EnumDecl* enum_decl = enum_node.as(EnumDecl);
+	test::eq(enum_decl.name.text, "MyEnum");
 
-	TypeExpr* backing_type_expr = enum_decl.backing_type.as(TYPE_EXPR);
-	test::eq(backing_type_expr.kind, TypeKind.TYPE_IDENTIFIER);
+	TypeExpr* backing_type_expr = enum_decl.backing_type.as(TypeExpr);
+	test::eq(backing_type_expr.type_kind, TypeExprKind.TYPE_IDENTIFIER);
 
-	String type_name = pool.get(backing_type_expr.unresolved.name.id)!!;
+	String type_name = backing_type_expr.unresolved.name.text;
 	test::eq(type_name, "char");
 
 	test::eq(enum_decl.variants.len, 2);
 
 	foreach (variant : enum_decl.variants)
 	{
-		VarDecl* var_decl          = variant.as(VAR_DECL);
-		String variant_description = pool.get(var_decl.name.id)!!;
+		VarDecl* var_decl          = variant.as(VarDecl);
+		String variant_description = var_decl.name.text;
 		assert(variant_description == "AAA" || variant_description == "BBB", "Failed to parse variant description");
 	}
 }
@@ -127,56 +111,51 @@ fn void assoc_param_values()
 	enum MyEnum : (int a, String b) { AAA {0, "aaa"}, BBB {1, "bbb"} }
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
-	StringPool* pool = &s.source_file.ast.string_pool;
+	Module* mod = context.modules.get("hello")!!;
 
-	test::eq(parser_tests::count_kind(s, ENUM_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, ENUM_DECL), 1);
 
-	Node* enum_node     = s.nodes[1];
-	EnumDecl* enum_decl = enum_node.as(ENUM_DECL);
-	test::eq(pool.get(enum_decl.name.id)!!, "MyEnum");
+	Node* enum_node     = mod.nodes[1];
+	EnumDecl* enum_decl = enum_node.as(EnumDecl);
+	test::eq(enum_decl.name.text, "MyEnum");
 	test::eq(enum_decl.backing_type == null, true);
 
 	test::eq(enum_decl.assoc_params.len, 2);
 
-	VarDecl* a_param = enum_decl.assoc_params[0].as(VAR_DECL);
-	TypeExpr* a_type = a_param.type.as(TYPE_EXPR);
-	test::eq(pool.get(a_type.unresolved.name.id)!!, "int");
-	test::eq(pool.get(a_param.name.id)!!, "a");
+	VarDecl* a_param = enum_decl.assoc_params[0].as(VarDecl);
+	TypeExpr* a_type = a_param.type.as(TypeExpr);
+	test::eq(a_type.unresolved.name.text, "int");
+	test::eq(a_param.name.text, "a");
 
-	VarDecl* b_param = enum_decl.assoc_params[1].as(VAR_DECL);
-	TypeExpr* b_type = b_param.type.as(TYPE_EXPR);
-	test::eq(pool.get(b_type.unresolved.name.id)!!, "String");
-	test::eq(pool.get(b_param.name.id)!!, "b");
+	VarDecl* b_param = enum_decl.assoc_params[1].as(VarDecl);
+	TypeExpr* b_type = b_param.type.as(TypeExpr);
+	test::eq(b_type.unresolved.name.text, "String");
+	test::eq(b_param.name.text, "b");
 
 	test::eq(enum_decl.variants.len, 2);
 
 	foreach (variant : enum_decl.variants)
 	{
-		VarDecl* variant_decl      = variant.as(VAR_DECL);
-		String variant_description = pool.get(variant_decl.name.id)!!;
+		VarDecl* variant_decl      = variant.as(VarDecl);
+		String variant_description = variant_decl.name.text;
 		assert(variant_description == "AAA" || variant_description == "BBB", "Failed to parse variant description");
-		InitializerListExpr* assoc_values = variant_decl.assoc_values.as(INITIALIZER_LIST_EXPR);
+		InitializerListExpr* assoc_values = variant_decl.assoc_values.as(InitializerListExpr);
 		test::eq(assoc_values.exprs.len, 2);
 
 		foreach (expr : assoc_values.exprs)
 		{
-			LiteralExpr* lit_expr = expr.as(LITERAL_EXPR);
-			if (lit_expr.kind == LiteralKind.INT_LITERAL)
+			LiteralExpr* lit_expr = expr.as(LiteralExpr);
+			if (lit_expr.literal_kind == LiteralKind.INT_LITERAL)
 			{
 				assert(lit_expr.integer == 0 || lit_expr.integer == 1, "Failed to parse \"a\" assoc value");
 			}
-			if (lit_expr.kind == LiteralKind.STRING_LITERAL)
+			if (lit_expr.literal_kind == LiteralKind.STRING_LITERAL)
 			{
-				String string_value = pool.get(lit_expr.string)!!;
+				String string_value = lit_expr.string;
 				assert(string_value == "aaa" || string_value == "bbb", "Failed to parse \"b\" assoc value");
 			}
 		}
@@ -190,35 +169,30 @@ fn void interfaces()
 	enum MyEnum (Printable, OutStream) { AAA, BBB }
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
-	StringPool* pool = &s.source_file.ast.string_pool;
+	Module* mod = context.modules.get("hello")!!;
 
-	test::eq(parser_tests::count_kind(s, ENUM_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, ENUM_DECL), 1);
 
-	Node* enum_node     = s.nodes[1];
-	EnumDecl* enum_decl = enum_node.as(ENUM_DECL);
-	test::eq(pool.get(enum_decl.name.id)!!, "MyEnum");
+	Node* enum_node     = mod.nodes[1];
+	EnumDecl* enum_decl = enum_node.as(EnumDecl);
+	test::eq(enum_decl.name.text, "MyEnum");
 
 	test::eq(enum_decl.interfaces.len, 2);
-	TypeExpr* interface_type = enum_decl.interfaces[0].as(TYPE_EXPR);
-	test::eq(pool.get(interface_type.unresolved.name.id)!!, "Printable");
-	interface_type = enum_decl.interfaces[1].as(TYPE_EXPR);
-	test::eq(pool.get(interface_type.unresolved.name.id)!!, "OutStream");
+	TypeExpr* interface_type = enum_decl.interfaces[0].as(TypeExpr);
+	test::eq(interface_type.unresolved.name.text, "Printable");
+	interface_type = enum_decl.interfaces[1].as(TypeExpr);
+	test::eq(interface_type.unresolved.name.text, "OutStream");
 
 	test::eq(enum_decl.variants.len, 2);
 
 	foreach (variant : enum_decl.variants)
 	{
-		VarDecl* var_decl          = variant.as(VAR_DECL);
-		String variant_description = pool.get(var_decl.name.id)!!;
+		VarDecl* var_decl          = variant.as(VarDecl);
+		String variant_description = var_decl.name.text;
 		assert(variant_description == "AAA" || variant_description == "BBB", "Failed to parse variant description");
 	}
 }
@@ -232,41 +206,36 @@ fn void constdef_interfaces_inline_backing()
 	}
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
-	StringPool* pool = &s.source_file.ast.string_pool;
+	Module* mod = context.modules.get("hello")!!;
 
-	test::eq(parser_tests::count_kind(s, ENUM_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, ENUM_DECL), 1);
 
-	Node* enum_node     = s.nodes[1];
-	EnumDecl* enum_decl = enum_node.as(ENUM_DECL);
-	test::eq(pool.get(enum_decl.name.id)!!, "MyConstdef");
+	Node* enum_node     = mod.nodes[1];
+	EnumDecl* enum_decl = enum_node.as(EnumDecl);
+	test::eq(enum_decl.name.text, "MyConstdef");
 	test::eq(enum_decl.interfaces.len, 2);
 
-	TypeExpr* interface_type = enum_decl.interfaces[0].as(TYPE_EXPR);
-	test::eq(pool.get(interface_type.unresolved.name.id)!!, "Printable");
-	interface_type = enum_decl.interfaces[1].as(TYPE_EXPR);
-	test::eq(pool.get(interface_type.unresolved.name.id)!!, "OutStream");
+	TypeExpr* interface_type = enum_decl.interfaces[0].as(TypeExpr);
+	test::eq(interface_type.unresolved.name.text, "Printable");
+	interface_type = enum_decl.interfaces[1].as(TypeExpr);
+	test::eq(interface_type.unresolved.name.text, "OutStream");
 
-	TypeExpr* backing_type_expr = enum_decl.backing_type.as(TYPE_EXPR);
-	test::eq(pool.get(backing_type_expr.unresolved.name.id)!!, "uint");
+	TypeExpr* backing_type_expr = enum_decl.backing_type.as(TypeExpr);
+	test::eq(backing_type_expr.unresolved.name.text, "uint");
 	test::eq(enum_decl.is_inline_backing, true);
 
 	test::eq(enum_decl.variants.len, 1);
-	VarDecl* var_decl = enum_decl.variants[0].as(VAR_DECL);
-	test::eq(pool.get(var_decl.name.id)!!, "AAA");
+	VarDecl* var_decl = enum_decl.variants[0].as(VarDecl);
+	test::eq(var_decl.name.text, "AAA");
 	test::eq(var_decl.attributes.len, 1);
-	test::eq(parser_tests::@attr(var_decl, 0).kind, AttributeKind.TAG);
+	test::eq(parser_tests::@attr(var_decl, 0).attribute_kind, AttributeKind.TAG);
 	test::ne(var_decl.init_expr, null);
-	LiteralExpr* enum_value = var_decl.init_expr.as(LITERAL_EXPR);
-	test::eq(enum_value.kind, LiteralKind.INT_LITERAL);
+	LiteralExpr* enum_value = var_decl.init_expr.as(LiteralExpr);
+	test::eq(enum_value.literal_kind, LiteralKind.INT_LITERAL);
 	test::eq(enum_value.integer, 69u);
 }
 
@@ -281,35 +250,30 @@ fn void basic_constdef()
 	}
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
-	StringPool* pool = &s.source_file.ast.string_pool;
+	Module* mod = context.modules.get("hello")!!;
 
-	test::eq(parser_tests::count_kind(s, ENUM_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, ENUM_DECL), 1);
 
-	Node* enum_node     = s.nodes[1];
-	EnumDecl* enum_decl = enum_node.as(ENUM_DECL);
-	test::eq(pool.get(enum_decl.name.id)!!, "MyConstdef");
+	Node* enum_node     = mod.nodes[1];
+	EnumDecl* enum_decl = enum_node.as(EnumDecl);
+	test::eq(enum_decl.name.text, "MyConstdef");
 	test::eq(enum_decl.interfaces.len, 0);
 	test::eq(enum_decl.backing_type == null, true);
 	test::eq(enum_decl.is_inline_backing, false);
 	test::eq(enum_decl.variants.len, 3);
 
-	VarDecl* var_decl = enum_decl.variants[0].as(VAR_DECL);
-	test::eq(pool.get(var_decl.name.id)!!, "AAA");
+	VarDecl* var_decl = enum_decl.variants[0].as(VarDecl);
+	test::eq(var_decl.name.text, "AAA");
 	test::ne(var_decl.init_expr, null);
-	LiteralExpr* value = var_decl.init_expr.as(LITERAL_EXPR);
+	LiteralExpr* value = var_decl.init_expr.as(LiteralExpr);
 	test::eq(value.integer, 1u);
 
-	var_decl = enum_decl.variants[1].as(VAR_DECL);
-	test::eq(pool.get(var_decl.name.id)!!, "BBB");
+	var_decl = enum_decl.variants[1].as(VarDecl);
+	test::eq(var_decl.name.text, "BBB");
 	test::eq(var_decl.init_expr == null, true);
 }
 
@@ -322,36 +286,30 @@ fn void constdef_backing_type_and_attributes()
 	}
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
-	StringPool* pool = &s.source_file.ast.string_pool;
+	Module* mod = context.modules.get("hello")!!;
+	test::eq(parser_tests::count_kind(mod, ENUM_DECL), 1);
 
-	test::eq(parser_tests::count_kind(s, ENUM_DECL), 1);
-
-	Node* enum_node     = s.nodes[1];
-	EnumDecl* enum_decl = enum_node.as(ENUM_DECL);
-	test::eq(pool.get(enum_decl.name.id)!!, "MyConstdef");
+	Node* enum_node     = mod.nodes[1];
+	EnumDecl* enum_decl = enum_node.as(EnumDecl);
+	test::eq(enum_decl.name.text, "MyConstdef");
 	test::eq(enum_decl.is_inline_backing, false);
 
-	TypeExpr* backing_type_expr = enum_decl.backing_type.as(TYPE_EXPR);
-	test::eq(pool.get(backing_type_expr.unresolved.name.id)!!, "uint");
+	TypeExpr* backing_type_expr = enum_decl.backing_type.as(TypeExpr);
+	test::eq(backing_type_expr.unresolved.name.text, "uint");
 	test::eq(enum_decl.attributes.len, 2);
-	test::eq(parser_tests::@attr(enum_decl, 0).kind, AttributeKind.TAG);
-	test::eq(parser_tests::@attr(enum_decl, 1).kind, AttributeKind.IF);
+	test::eq(parser_tests::@attr(enum_decl, 0).attribute_kind, AttributeKind.TAG);
+	test::eq(parser_tests::@attr(enum_decl, 1).attribute_kind, AttributeKind.IF);
 
 	test::eq(enum_decl.variants.len, 1);
-	VarDecl* var_decl = enum_decl.variants[0].as(VAR_DECL);
-	test::eq(pool.get(var_decl.name.id)!!, "AAA");
+	VarDecl* var_decl = enum_decl.variants[0].as(VarDecl);
+	test::eq(var_decl.name.text, "AAA");
 	test::eq(var_decl.attributes.len, 1);
-	test::eq(parser_tests::@attr(var_decl, 0).kind, AttributeKind.TAG);
-	LiteralExpr* value = var_decl.init_expr.as(LITERAL_EXPR);
+	test::eq(parser_tests::@attr(var_decl, 0).attribute_kind, AttributeKind.TAG);
+	LiteralExpr* value = var_decl.init_expr.as(LiteralExpr);
 	test::eq(value.integer, 10u);
 }
 
@@ -364,38 +322,33 @@ fn void enum_interfaces_backing_type()
 	}
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
-	StringPool* pool = &s.source_file.ast.string_pool;
+	Module* mod = context.modules.get("hello")!!;
 
-	test::eq(parser_tests::count_kind(s, ENUM_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, ENUM_DECL), 1);
 
-	Node* enum_node     = s.nodes[1];
-	EnumDecl* enum_decl = enum_node.as(ENUM_DECL);
-	test::eq(pool.get(enum_decl.name.id)!!, "MyEnum");
+	Node* enum_node     = mod.nodes[1];
+	EnumDecl* enum_decl = enum_node.as(EnumDecl);
+	test::eq(enum_decl.name.text, "MyEnum");
 	test::eq(enum_decl.interfaces.len, 2);
 
-	TypeExpr* interface_type = enum_decl.interfaces[0].as(TYPE_EXPR);
-	test::eq(pool.get(interface_type.unresolved.name.id)!!, "Printable");
-	interface_type = enum_decl.interfaces[1].as(TYPE_EXPR);
-	test::eq(pool.get(interface_type.unresolved.name.id)!!, "OutStream");
+	TypeExpr* interface_type = enum_decl.interfaces[0].as(TypeExpr);
+	test::eq(interface_type.unresolved.name.text, "Printable");
+	interface_type = enum_decl.interfaces[1].as(TypeExpr);
+	test::eq(interface_type.unresolved.name.text, "OutStream");
 
-	TypeExpr* backing_type_expr = enum_decl.backing_type.as(TYPE_EXPR);
-	test::eq(pool.get(backing_type_expr.unresolved.name.id)!!, "uint");
+	TypeExpr* backing_type_expr = enum_decl.backing_type.as(TypeExpr);
+	test::eq(backing_type_expr.unresolved.name.text, "uint");
 	test::eq(enum_decl.is_inline_backing, false);
 
 	test::eq(enum_decl.variants.len, 1);
-	VarDecl* var_decl = enum_decl.variants[0].as(VAR_DECL);
-	test::eq(pool.get(var_decl.name.id)!!, "BBB");
+	VarDecl* var_decl = enum_decl.variants[0].as(VarDecl);
+	test::eq(var_decl.name.text, "BBB");
 	test::eq(var_decl.attributes.len, 1);
-	test::eq(parser_tests::@attr(var_decl, 0).kind, AttributeKind.TAG);
+	test::eq(parser_tests::@attr(var_decl, 0).attribute_kind, AttributeKind.TAG);
 	test::eq(var_decl.init_expr == null, true);
 }
 
@@ -406,34 +359,29 @@ fn void private_if_attributes()
 	enum MyEnum @private @if(true) { AAA, BBB }
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
-	StringPool* pool = &s.source_file.ast.string_pool;
+	Module* mod = context.modules.get("hello")!!;
 
-	test::eq(parser_tests::count_kind(s, ENUM_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, ENUM_DECL), 1);
 
-	Node* enum_node     = s.nodes[1];
-	EnumDecl* enum_decl = enum_node.as(ENUM_DECL);
+	Node* enum_node     = mod.nodes[1];
+	EnumDecl* enum_decl = enum_node.as(EnumDecl);
 	test::eq(enum_node.visibility, Visibility.PRIVATE);
 
 	test::eq(enum_decl.attributes.len, 2);
-	test::eq(parser_tests::@attr(enum_decl, 0).kind, AttributeKind.PRIVATE);
-	test::eq(parser_tests::@attr(enum_decl, 1).kind, AttributeKind.IF);
+	test::eq(parser_tests::@attr(enum_decl, 0).attribute_kind, AttributeKind.PRIVATE);
+	test::eq(parser_tests::@attr(enum_decl, 1).attribute_kind, AttributeKind.IF);
 
-	test::eq(pool.get(enum_decl.name.id)!!, "MyEnum");
+	test::eq(enum_decl.name.text, "MyEnum");
 	test::eq(enum_decl.variants.len, 2);
 
 	foreach (variant : enum_decl.variants)
 	{
-		VarDecl* var_decl          = variant.as(VAR_DECL);
-		String variant_description = pool.get(var_decl.name.id)!!;
+		VarDecl* var_decl          = variant.as(VarDecl);
+		String variant_description = var_decl.name.text;
 		assert(variant_description == "AAA" || variant_description == "BBB", "Failed to parse variant description");
 	}
 }
@@ -445,33 +393,28 @@ fn void values_if_attribute()
 	enum MyEnum { AAA @if(true), BBB @if(true) }
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
-	StringPool* pool = &s.source_file.ast.string_pool;
+	Module* mod = context.modules.get("hello")!!;
 
-	test::eq(parser_tests::count_kind(s, ENUM_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, ENUM_DECL), 1);
 
-	Node* enum_node     = s.nodes[1];
-	EnumDecl* enum_decl = enum_node.as(ENUM_DECL);
+	Node* enum_node     = mod.nodes[1];
+	EnumDecl* enum_decl = enum_node.as(EnumDecl);
 
-	test::eq(pool.get(enum_decl.name.id)!!, "MyEnum");
+	test::eq(enum_decl.name.text, "MyEnum");
 	test::eq(enum_decl.variants.len, 2);
 
 	foreach (variant : enum_decl.variants)
 	{
-		VarDecl* var_decl          = variant.as(VAR_DECL);
-		String variant_description = pool.get(var_decl.name.id)!!;
+		VarDecl* var_decl          = variant.as(VarDecl);
+		String variant_description = var_decl.name.text;
 		assert(variant_description == "AAA" || variant_description == "BBB", "Failed to parse variant description");
 
 		test::eq(var_decl.attributes.len, 1);
-		test::eq(parser_tests::@attr(var_decl, 0).kind, AttributeKind.IF);
+		test::eq(parser_tests::@attr(var_decl, 0).attribute_kind, AttributeKind.IF);
 	}
 }
 
@@ -485,57 +428,52 @@ fn void complex()
 	}
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
-	StringPool* pool = &s.source_file.ast.string_pool;
+	Module* mod = context.modules.get("hello")!!;
 
-	test::eq(parser_tests::count_kind(s, ENUM_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, ENUM_DECL), 1);
 
-	Node* enum_node     = s.nodes[1];
-	EnumDecl* enum_decl = enum_node.as(ENUM_DECL);
+	Node* enum_node     = mod.nodes[1];
+	EnumDecl* enum_decl = enum_node.as(EnumDecl);
 
-	test::eq(pool.get(enum_decl.name.id)!!, "MyEnum");
+	test::eq(enum_decl.name.text, "MyEnum");
 
 	test::eq(enum_decl.interfaces.len, 2);
-	TypeExpr* interface_type = enum_decl.interfaces[0].as(TYPE_EXPR);
-	test::eq(pool.get(interface_type.unresolved.name.id)!!, "Printable");
-	interface_type = enum_decl.interfaces[1].as(TYPE_EXPR);
-	test::eq(pool.get(interface_type.unresolved.name.id)!!, "OutStream");
+	TypeExpr* interface_type = enum_decl.interfaces[0].as(TypeExpr);
+	test::eq(interface_type.unresolved.name.text, "Printable");
+	interface_type = enum_decl.interfaces[1].as(TypeExpr);
+	test::eq(interface_type.unresolved.name.text, "OutStream");
 
 	test::eq(enum_decl.assoc_params.len, 2);
 
-	VarDecl* a_param = enum_decl.assoc_params[0].as(VAR_DECL);
-	TypeExpr* a_type = a_param.type.as(TYPE_EXPR);
-	test::eq(pool.get(a_type.unresolved.name.id)!!, "int");
-	test::eq(pool.get(a_param.name.id)!!, "a");
+	VarDecl* a_param = enum_decl.assoc_params[0].as(VarDecl);
+	TypeExpr* a_type = a_param.type.as(TypeExpr);
+	test::eq(a_type.unresolved.name.text, "int");
+	test::eq(a_param.name.text, "a");
 
-	VarDecl* b_param = enum_decl.assoc_params[1].as(VAR_DECL);
-	TypeExpr* b_type = b_param.type.as(TYPE_EXPR);
-	test::eq(pool.get(b_type.unresolved.name.id)!!, "String");
-	test::eq(pool.get(b_param.name.id)!!, "b");
+	VarDecl* b_param = enum_decl.assoc_params[1].as(VarDecl);
+	TypeExpr* b_type = b_param.type.as(TypeExpr);
+	test::eq(b_type.unresolved.name.text, "String");
+	test::eq(b_param.name.text, "b");
 
 	test::eq(enum_decl.attributes.len, 2);
-	test::eq(parser_tests::@attr(enum_decl, 0).kind, AttributeKind.TAG);
-	test::eq(parser_tests::@attr(enum_decl, 1).kind, AttributeKind.IF);
+	test::eq(parser_tests::@attr(enum_decl, 0).attribute_kind, AttributeKind.TAG);
+	test::eq(parser_tests::@attr(enum_decl, 1).attribute_kind, AttributeKind.IF);
 
 	test::eq(enum_decl.variants.len, 2);
 
 	foreach (variant : enum_decl.variants)
 	{
-		VarDecl* var_decl          = variant.as(VAR_DECL);
-		String variant_description = pool.get(var_decl.name.id)!!;
+		VarDecl* var_decl          = variant.as(VarDecl);
+		String variant_description = var_decl.name.text;
 		assert(variant_description == "AAA" || variant_description == "BBB", "Failed to parse variant description");
 
 		test::eq(var_decl.attributes.len, 2);
-		test::eq(parser_tests::@attr(var_decl, 0).kind, AttributeKind.TAG);
-		test::eq(parser_tests::@attr(var_decl, 1).kind, AttributeKind.IF);
+		test::eq(parser_tests::@attr(var_decl, 0).attribute_kind, AttributeKind.TAG);
+		test::eq(parser_tests::@attr(var_decl, 1).attribute_kind, AttributeKind.IF);
 	}
 }
 
@@ -546,20 +484,16 @@ fn void err_missing_name()
 	enum { AAA, BBB }
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, true);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
+	Module* mod = context.modules.get("hello")!!;
 
-	Node* enum_node     = s.nodes[1];
-	EnumDecl* enum_decl = enum_node.as(ENUM_DECL);
-	test::eq(enum_decl.name.id, string_pool::EMPTY_STR);
-	test::eq(enum_decl.variants.len, 2);
+	Node* enum_node     = mod.nodes[1];
+	EnumDecl* enum_decl = enum_node.as(EnumDecl);
+	test::eq(enum_decl.name, null);
+	test::eq(enum_decl.variants.len, 0);
 }
 
 fn void err_invalid_variant_name()
@@ -569,25 +503,20 @@ fn void err_invalid_variant_name()
 	enum MyEnum { bad_name, GOOD }
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, true);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
-	StringPool* pool = &s.source_file.ast.string_pool;
+	Module* mod = context.modules.get("hello")!!;
 
-	Node* enum_node     = s.nodes[1];
-	EnumDecl* enum_decl = enum_node.as(ENUM_DECL);
-	test::eq(enum_decl.variants.len, 2);
+	Node* enum_node     = mod.nodes[1];
+	EnumDecl* enum_decl = enum_node.as(EnumDecl);
+	test::eq(enum_decl.variants.len, 1);
 
-	test::eq(enum_decl.variants[0].kind, NodeKind.MISSING);
+	test::eq(enum_decl.variants[0].kind, NodeKind.VAR_DECL);
 
-	VarDecl* good = enum_decl.variants[1].as(VAR_DECL);
-	test::eq(pool.get(good.name.id)!!, "GOOD");
+	VarDecl* good = enum_decl.variants[0].as(VarDecl);
+	test::eq(good.name.text, "GOOD");
 }
 
 fn void err_missing_rbrace()
@@ -597,27 +526,22 @@ fn void err_missing_rbrace()
 	enum MyEnum { AAA, BBB
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	defer res.free();
-	test::eq(res.has_errors, true);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
-	StringPool* pool = &s.source_file.ast.string_pool;
+	Module* mod = context.modules.get("hello")!!;
 
 	// Node kind is set to MISSING when RBRACE is not found,
 	// but the EnumDecl data is still populated with what was parsed.
-	Node* enum_node = s.nodes[1];
+	Node* enum_node = mod.nodes[1];
 	test::eq(enum_node.kind, NodeKind.ENUM_DECL);
 
-	EnumDecl* enum_decl = (EnumDecl*)&enum_node.enum_decl;
+	EnumDecl* enum_decl = enum_node.as(EnumDecl);
 	test::eq(enum_decl.variants.len, 2);
 
-	VarDecl* aaa = enum_decl.variants[0].as(VAR_DECL);
-	test::eq(pool.get(aaa.name.id)!!, "AAA");
-	VarDecl* bbb = enum_decl.variants[1].as(VAR_DECL);
-	test::eq(pool.get(bbb.name.id)!!, "BBB");
+	VarDecl* aaa = enum_decl.variants[0].as(VarDecl);
+	test::eq(aaa.name.text, "AAA");
+	VarDecl* bbb = enum_decl.variants[1].as(VarDecl);
+	test::eq(bbb.name.text, "BBB");
 }

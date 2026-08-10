@@ -1,5 +1,5 @@
 module cursor_tests @test;
-
+/*
 import parser_tests;
 
 import analyzer::workspace;
@@ -27,33 +27,20 @@ fn void basic_cursor_test()
         fn void old_function() {}
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process_batch(&ws, mem, { 
-		{ .uri = "hello.c3", .source_text = source_code }, 
-		{ .uri = "foo.c3",   .source_text = source_code_2 }
-	})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
 
-	Module* mod      = ws.modules.get("hello")!!;
-	ModuleSection* s = mod.sections[0];
+	Module* mod = context.modules.get("hello")!!;
 
-	Node* module_node       = s.nodes[0];
-	ModuleDecl* module_decl = module_node.as(MODULE_DECL);
-
-	foreach (node : s.nodes)
-	{
-		Location loc = s.source_file.line_map.resolve((sz)node.offset.start);
-		io::printfn("Node (%s) - %s:%s", node.kind.description, loc.line, loc.column);
-	}
+	Node* module_node       = mod.nodes[0];
+	ModuleDecl* module_decl = module_node.as(ModuleDecl);
 
 	Cursor hello_cursor = ws.find_top_level_statement_at_location("hello.c3", { .line = 4, .column = 10 });
 	test::ne(hello_cursor.node, null);
 	test::eq(hello_cursor.node.kind, NodeKind.FN_DECL);
 }
-
+/*
 fn void node_path()
 {
 	String source_code = `

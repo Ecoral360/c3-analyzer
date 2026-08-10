@@ -1,7 +1,5 @@
 module analyzer::core::ast;
 
-import analyzer::core::string_pool;
-
 import std::collections::list;
 
 struct BinaryExpr
@@ -78,8 +76,6 @@ struct TypeExpr
 			NodeArray attributes;
 		}
 	}
-
-	Type* type;
 }
 
 struct CallExpr
@@ -284,7 +280,7 @@ struct DesignatorExpr
 	DesignatorKind designator_kind;
 	Node* path;
 
-	union
+	union data
 	{
 		Node* field;
 		Node* range;

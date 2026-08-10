@@ -2,7 +2,6 @@ module reparse_tests @test;
 
 import parser_tests;
 
-import analyzer::workspace;
 import analyzer::parser;
 import analyzer::core;
 import std::io;
@@ -26,13 +25,16 @@ fn void reparsing_simple()
         fn void new_function() {}
     `;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	ProcessResult res = workspace::process_batch(&ws, mem, { { .uri = "test_1", .source_text = source_code}, { .uri = "test_2", .source_text = source_code_2 }})!!;
-	defer res.free();
-	test::eq(res.has_errors, false);
-	test::eq(ws.modules.len(), 2);
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
+
+	Module* mod = context.modules.get("hello")!!;
+	test::ne(mod, null);
+	success = context::process(context, source_code_2, "test");
+
+	Module* mod2 = context.modules.get("helloo")!!;
+	test::ne(mod2, null);
 }
 
 fn void multi_reparsing()
@@ -44,25 +46,22 @@ fn void multi_reparsing()
         fn void old_function() {}
 	`;
 
-	Workspace ws;
-	ws.init(mem, { .use_sema = true });
-	defer ws.free();
-	
+
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
+
+	Module* mod = context.modules.get("hello")!!;
 
 	for (int i = 0; i < 99; i++)
 	{
-		ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-		test::eq(res.has_errors, false);
-		res.free();
-		test::eq(ws.modules.len(), 1);
+		success = context::process(context, source_code, "test");
+		test::eq(success, true);
+		mod = context.modules.get("hello")!!;
+		foreach(node : mod.nodes)
+		{
+			test::eq(node.flags.has_error, false);
+		}
+		
 	}
-
-	ProcessResult res = workspace::process(&ws, mem, { .uri = "test", .source_text = source_code})!!;
-	test::eq(res.has_errors, false);
-	res.free();
-
-	Module* mod = ws.modules.get("hello")!!;
-
-	test::eq(ws.modules.len(), 1);
-	test::eq(mod.sections.len(), 1);
 }

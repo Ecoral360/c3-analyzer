@@ -1,4 +1,4 @@
-module main @if($feature(SEALI_DEV));
+module main @feat(SEALI_DEV);
 import seali;
 
 enum LogLevel : (String name) {

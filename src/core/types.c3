@@ -1,45 +1,149 @@
 module analyzer::core;
 
-import std::collections::list;
-import std::collections::maybe;
-import std::collections::map;
+import std::collections;
 
 import analyzer::sema;
+import analyzer::lexer;
 
-alias ModuleSection @if(!$feature(SEMA))= ModSection;
-alias ModuleSection @if($feature(SEMA)) = SemaModSection;
+attrdef @UseSema = @if($feat(SEMA));
 
-alias Module @if(!$feature(SEMA)) = Mod;
-alias Module @if($feature(SEMA)) = SemaMod;
+struct SourceFile
+{
+	Lexer* lexer;
+	String path;
+	String content;
+	Allocator allocator;
+	Ast ast;
+}
 
-ulong next_source_file_id = 1;
-ulong next_section_id     = 1;
-ulong next_module_id      = 1;
+<*
+ -`node_map`: a fast lookup table
+ -`nodes`: all nodes in this module with order preserved
+ -`module_decls`: a index table for fast lookup of all modules/sections in this module
+*>
+struct Module
+{
+	String name;
+	HashMap{NodeID, Node*} node_map;
+	List{Node*} nodes;
+	List{ModuleDecl*} module_decls;
+}
 
-alias CanonicalType = Type;
+struct Lookup
+{
+	HashMap{String, Type*} types;
+	Allocator alloc;
+	Target target;
+}
 
-struct Type 
+struct AnalyzerContext
+{
+	HashMap{String, SourceFile*} files;
+	HashMap{String, Module*} modules;
+	Lookup* lookup;
+	Registry* registry;
+	Allocator allocator;
+	SourceFile* current_source_file;
+	Target target;
+}
+
+struct ParseContext
+{
+	AnalyzerContext* context;
+	SourceFile* sf;
+	Ast* ast;
+	Lexer* lexer;
+	Allocator allocator;
+	Node* contract;
+	Token current;
+	int pos;
+	int error_count;
+}
+
+struct FunctionInfo
+{
+	FunctionInfo* next;
+	String mod;
+	Node* node;
+}
+
+struct MacroInfo
+{
+	MacroInfo* next;
+	String mod;
+	Node* node;
+}
+
+enum TypeModifierKind : char
+{
+	NONE,
+	POINTER,
+	SLICE,
+	ARRAY,
+	CONST,
+}
+
+struct ImportInfo
+{
+	String path;
+	Node* node;
+}
+
+fn bool ImportInfo.eq(self, ImportInfo other) @operator(==)
+{
+	return self.path == other.path && self.node == other.node;
+}
+
+struct TypeInfo
+{
+	TypeInfo* next;
+	String name;
+	String mod;
+	Node* node;
+	Type* resolved;
+}
+
+struct VariableInfo
+{
+	String name;
+	String mod;
+	Node* node;
+}
+
+struct Registry
+{
+	HashMap{String, TypeInfo*} types;
+	HashMap{String, FunctionInfo*} functions;
+	HashMap{String, MacroInfo*} macros;
+}
+
+struct Scope
+{
+	Scope* parent;
+	Range range;
+	List{Scope*} children;
+	HashMap{String, FunctionInfo*} functions;
+	HashMap{String, VariableInfo*} variables;
+	HashMap{String, TypeInfo*} types;
+}
+
+enum ResolveStatus : char
+{
+	UNRESOLVED,
+	RESOLVING,
+	RESOLVED
+}
+
+struct Type
 {
 	TypeKind kind;
+	ResolveStatus status;
 	uint size;
 	String name;
 
 	union data
 	{
-		Type* pointer_base;
-
-		Node* decl;
-
-		struct array
-		{
-			Type* base;
-			ulong len;
-		}
-
-		struct func
-		{
-			Node* decl;
-		}
+		Node* node;
 
 		bitstruct builtin : uint
 		{
@@ -49,68 +153,23 @@ struct Type
 			char pref_alignment : 24..31;
 		}
 	}
-
-	CanonicalType* canonical;
 }
 
-struct SourceFile
+struct Target
 {
-	String file_path;
-	String source;
-	LineMap line_map;
-	List{ModuleSection*} sections;
-	Ast* ast;
-	ulong id;
+	OsType os;
+	ArchType arch;
+	TargetLayout layout;
 }
 
-struct ModSection
+struct AlignData
 {
-	List{Diagnostic} diagnostics;
-	NodeArray nodes;
-	SourceFile* source_file;
-	Module* parent_module;
-	Allocator allocator;
-	ulong id;
+	uint align;
+	uint pref_align;
 }
 
-fn void ModSection.init(&self, Module* mod, SourceFile* sf, Allocator alloc)
+struct TargetLayout
 {
-	self.id = next_section_id++;
-	self.allocator = alloc;
-	self.source_file = sf;
-	self.parent_module = mod;
-	self.diagnostics.init(alloc);
-}
-
-struct Mod
-{
-	String name;
-	List{ModuleSection*} sections;
-	ulong id;
-	ulong version;
-}
-
-fn void Mod.init(&self, String name, Allocator allocator)
-{
-	self.name = name.copy(allocator);
-	self.sections.init(allocator, 4);
-	self.id = next_module_id++;
-}
-
-fn void Mod.free(&self, Allocator allocator)
-{
-	self.name.free(allocator);
-	self.sections.free();
-}
-
-alias PathString = String;
-
-fn void ModSection.free(&self)
-{
-	foreach (diag : self.diagnostics)
-	{
-		alloc::free(self.allocator, diag.message);
-	}
-
-	self.diagnostics.free();
+    AlignData[BitSizes::len] integers;
+    AlignData[BitSizes::len] floats;
 }

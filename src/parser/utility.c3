@@ -3,52 +3,7 @@ module analyzer::parser;
 import std::io;
 import std::collections::list;
 import analyzer::core;
-
-// Colors for the terminal
-const String ANSI_RED    = "\x1b[31;1m";
-const String ANSI_YELLOW = "\x1b[33;1m";
-const String ANSI_CYAN   = "\x1b[36;1m";
-const String ANSI_RESET  = "\x1b[0m";
-const String ANSI_BOLD   = "\x1b[1m";
-
-macro void ParseContext.info(&self, String fmt, ...)
-{
-	self.report(self.current(), INFO, ANSI_CYAN, fmt, ...$vaarg);
-}
-
-macro void ParseContext.warn(&self, String fmt, ...)
-{
-	self.report(self.current(), WARN, ANSI_YELLOW, fmt, ...$vaarg);
-}
-
-macro void ParseContext.error(&self, String fmt, ...)
-{
-	self.report(self.current(), ERROR, ANSI_RED, fmt, ...$vaarg);
-}
-
-macro void ParseContext.error_at(&self, Token t, String fmt, ...)
-{
-	self.report(t, ERROR, ANSI_RED, fmt, ...$vaarg);
-}
-
-fn void ParseContext.report(ParseContext* self, Token token, LogPriority level, String color, String fmt, args...)
-{
-	if (!self.section)
-	{
-		log::error("Tried to report an error when parser has no module section set");
-		return;
-	}
-
-	diagnostics::diagnose(
-		self.allocator,
-		self.section,
-		token.pos,
-		token.pos + token.len,
-		level,
-		fmt,
-		...args
-	);
-}
+import analyzer::lexer;
 
 fn bool is_keyword_ident(TokenKind type)
 {
@@ -80,7 +35,7 @@ fn bool is_non_type_ident(TokenKind k)
 
 fn bool is_type(ParseContext* ctx)
 {
-	TokenKind kind = ctx.current().kind;
+	TokenKind kind = ctx.current.kind;
 
 	if (is_type_primitive(kind)) return true;
 	if (kind == TYPE_IDENT) return true;
@@ -152,61 +107,23 @@ fn void append_node_array(List{Node*}* list, NodeArray nodes)
  @param [&inout] parent_node : "Node receiving visibility and has-attributes side effects."
  @param [&inout] list : "Destination list for parsed ATTRIBUTE_DECL nodes."
 *>
-fn void? parse_attributes_into(ContextScope scope, Node* parent_node, List{Node*}* list)
+fn void parse_attributes_into(ContextScope scope, Node* parent_node, List{Node*}* list)
 {
 	ParseContext* ctx = scope.ctx;
 	if (ctx.is(AT_IDENT))
 	{
-		append_node_array(list, parse_attributes(scope, parent_node)!);
+		append_node_array(list, parse_attributes(scope, parent_node));
 	}
-}
-
-<*
- Parse an optional parenthesized list of interface type expressions.
-
- interface_type_list ::= '(' type_expr (',' type_expr)* ')' | empty
- @require(scope.ctx != null) : "Parser context positioned at '(' when present."
-*>
-fn NodeArray? parse_interface_type_list(ContextScope scope) => @pool()
-{
-	ParseContext* ctx = scope.ctx;
-	List{Node*} interfaces;
-	interfaces.init(tmem, 4);
-
-	if (!consume(ctx, LPAREN)!)
-	{
-		return alloc::clone_slice(ctx.arena, interfaces.array_view());
-	}
-
-	while (!ctx.eof() && !ctx.is(RPAREN))
-	{
-		Node* interface_type = parse_type_expr(scope, null)!;
-		interfaces.push(interface_type);
-
-		if (!consume(ctx, COMMA)!) break;
-		if (ctx.is(RPAREN))
-		{
-			interfaces.push(unexpected(ctx, "Expected interface name after ',' in interface type list")!);
-			break;
-		}
-	}
-
-	@expect_else(ctx, RPAREN ; err)
-	{
-		interfaces.push(err);
-	}!;
-
-	return alloc::clone_slice(ctx.arena, interfaces.array_view());
 }
 
 fn bool is_error_or_missing_node(Node* node)
 {
-	return node.kind == ERROR || node.kind == MISSING;
+	return node.kind == ERROR;
 }
 
 fn void? skip_balanced_group(ParseContext* ctx, TokenKind open, TokenKind close)
 {
-	expect(ctx, open)!;
+	advance(ctx);
 
 	int depth = 1;
 	while (!ctx.eof() && depth > 0)
@@ -220,7 +137,7 @@ fn void? skip_balanced_group(ParseContext* ctx, TokenKind open, TokenKind close)
 			depth--;
 		}
 
-		advance(ctx)!;
+		advance(ctx);
 	}
 }
 
@@ -261,11 +178,11 @@ fn bool is_type_primitive(TokenKind kind)
 	}
 }
 
-fn bool? is_declaration_followup(ParseContext* ctx)
+fn bool is_declaration_followup(ParseContext* ctx)
 {
 	int i;
 
-	while (ctx.peek(i)!.kind == IDENT && ctx.peek(i + 1)!.kind == SCOPE)
+	while (ctx.peek(i).kind == IDENT && ctx.peek(i + 1).kind == SCOPE)
 	{
 		i += 2;
 	}
@@ -278,16 +195,16 @@ fn bool? is_declaration_followup(ParseContext* ctx)
 		int depth = 1;
 		do
 		{
-			if (ctx.peek(i)!.kind == LPAREN) depth++;
-			if (ctx.peek(i)!.kind == RPAREN) depth--;
+			if (ctx.peek(i).kind == LPAREN) depth++;
+			if (ctx.peek(i).kind == RPAREN) depth--;
 
 			i++;
-		} while (depth != 0 && ctx.peek(i)!.kind != EOF);
+		} while (depth != 0 && ctx.peek(i).kind != EOF);
 	}
 
 	while (true)
 	{
-		TokenKind k = ctx.peek(i)!.kind;
+		TokenKind k = ctx.peek(i).kind;
 
 		// Skip over common type modifiers
 		if (k == ASTERISK || k == QUESTION)
@@ -298,20 +215,20 @@ fn bool? is_declaration_followup(ParseContext* ctx)
 		{
 			// Skip the entire [ ... ] block
 			i++;
-			while (ctx.peek(i)!.kind != RBRACKET && ctx.peek(i)!.kind != EOF) i++;
+			while (ctx.peek(i).kind != RBRACKET && ctx.peek(i).kind != EOF) i++;
 			i++;
 		}
 		else if (k == LVEC)
 		{
 			// Skip the entire <* ... > block
 			i++;
-			while (ctx.peek(i)!.kind != RVEC && ctx.peek(i)!.kind != EOF) i++;
+			while (ctx.peek(i).kind != RVEC && ctx.peek(i).kind != EOF) i++;
 			i++;
 		}
 		else if (k == LBRACE)
 		{
 			i++;
-			while (ctx.peek(i)!.kind != RBRACE && ctx.peek(i)!.kind != EOF) i++;
+			while (ctx.peek(i).kind != RBRACE && ctx.peek(i).kind != EOF) i++;
 			i++;
 		}
 		else
@@ -321,13 +238,13 @@ fn bool? is_declaration_followup(ParseContext* ctx)
 	}
 
 	// After skipping modifiers, do we see a variable name?
-	TokenKind final_k = ctx.peek(i)!.kind;
+	TokenKind final_k = ctx.peek(i).kind;
 	return final_k == IDENT || final_k == CONST_IDENT || final_k == CT_IDENT;
 }
 
 fn bool can_start_expression(TokenKind kind)
 {
-	plog::debug("can_start_expr: %s", kind.description);
+	diagnostics::log_debug("can_start_expr: %s", kind.description);
 
 	if (is_keyword_ident(kind) || is_base_type(kind))
 	{
@@ -374,7 +291,7 @@ fn bool token_type_ends_case(TokenKind kind)
 
 fn bool check_if_typed_parameter(ParseContext* ctx)
 {
-	TokenKind first  = ctx.current().kind;
+	TokenKind first  = ctx.current.kind;
 
 	if (is_type(ctx))
 	{
@@ -383,7 +300,7 @@ fn bool check_if_typed_parameter(ParseContext* ctx)
 
 	if (first == IDENT)
 	{
-		if (ctx.can_peek(1) && ctx.peek(1)!!.kind == SCOPE)
+		if (ctx.peek(1).kind == SCOPE)
 		{
 			return true;
 		}
@@ -394,36 +311,11 @@ fn bool check_if_typed_parameter(ParseContext* ctx)
 
 fn Node* alloc_any_type_expr(ParseContext* ctx)
 {
-	int pos = ctx.current().pos;
-
-	TypeExpr* type_node = ctx.ast.alloc_node(TypeExpr, pos, pos);
+	TypeExpr* type_node = ctx.ast.alloc_node(TypeExpr, ctx.current.range);
 
 	type_node.type_kind = TYPE_IDENTIFIER;
 	type_node.unresolved.name = ctx.ident_string("any");
-	type_node.unresolved.name.range = { pos, pos + 3 };
+	type_node.unresolved.name.range = ctx.current.range;
 
 	return type_node;
-}
-
-<*
- @return? OVERFLOW_PARSING : "if at top-level token"
-*>
-fn void? check_top_level_boundary(TokenKind kind)
-{
-	switch (kind)
-	{
-		case FN:
-		case MACRO:
-		case MODULE:
-		case IMPORT:
-		case ATTRDEF:
-		case TYPEDEF:
-		case ALIAS:
-		case CONSTDEF:
-		case ENUM:
-		case EXTERN:
-			return OVERFLOW_PARSING~;
-		default: 
-			break;
-	}
 }

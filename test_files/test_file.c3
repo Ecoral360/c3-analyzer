@@ -1,7 +1,23 @@
-module hello; 
+module foo;
 
-fn void foo()
-{    
-    String src = ctx.section.source_file.source;
-    Lexer lexer = { .buffer = src };
+import foo;
+import bar;
+
+struct Foo
+{
+	int a;
+}
+
+fn int bar()
+{
+	int c;
+
+	{
+		int a;
+	}
+
+	int a;
+
+
+    return 0;
 }

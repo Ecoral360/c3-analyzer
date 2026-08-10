@@ -5,7 +5,6 @@ import std::collections::list;
 enum NodeKind : char
 {
 	ERROR,
-	MISSING,
 
 	ATTRDEF_DECL,
 	ATTRIBUTE_DECL,
@@ -108,3 +107,7 @@ fn bool NodeKind.is_stmt(self) @inline
 	return self.ordinal >= NodeKind.COMPOUND_STMT.ordinal && self.ordinal <= NodeKind.ASM_BLOCK_STMT.ordinal;
 }
 
+fn bool NodeKind.is_expr(self) @inline
+{
+	return self.ordinal >= NodeKind.CALL_EXPR.ordinal && self.ordinal <= NodeKind.CT_REFLECT_EXPR.ordinal;
+}

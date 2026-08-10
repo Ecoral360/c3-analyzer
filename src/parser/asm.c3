@@ -4,17 +4,20 @@ import analyzer::core;
 
 import std::collections::list;
 
-fn Node*? parse_asm_block_stmt(ContextScope scope)
+<*
+ @require scope.ctx.current.kind == ASM
+*>
+fn Node* parse_asm_block_stmt(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
 	ParseFlags flags = scope.flags;
-	int start_pos = ctx.current().pos;
-	expect(ctx, ASM)!;
-	plog::debug("parse_macro");
-	AsmBlockStmt* node = ctx.ast.alloc_node(AsmBlockStmt, start_pos);
+	Range start = ctx.current.range;
+	advance(ctx);
+	diagnostics::log_debug("parse_macro");
+	AsmBlockStmt* node = ctx.ast.alloc_node(AsmBlockStmt, start);
 
-	ctx.skip_until({ RBRACE, EOF })!;
-	advance(ctx)!;
+	skip_until(ctx, { RBRACE, EOF });
+	advance(ctx);
 
 	return node;
 }

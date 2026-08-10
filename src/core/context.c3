@@ -1,0 +1,120 @@
+module analyzer::core::context;
+
+import analyzer::core::diagnostics;
+import analyzer::core::source_file;
+import analyzer::core::arch;
+import analyzer::core::os;
+
+import analyzer::lexer;
+import analyzer::parser;
+import analyzer::sema;
+
+import std::io;
+
+<*
+ If target.os or target.arch is `UNKNOWN` it will be inferred
+*>
+fn AnalyzerContext* create(Allocator alloc, Target target = {})
+{
+	AnalyzerContext* ctx = alloc::new(alloc, AnalyzerContext);
+
+	ctx.allocator = alloc;
+	ctx.files.init(alloc);
+	ctx.modules.init(alloc);
+	ctx.target = target;
+
+	if (target.arch == UNKNOWN)
+	{
+		target.arch = arch::current();
+	}
+
+	if (target.os == UNKNOWN)
+	{
+		target.os = os::current();
+	}
+
+	ctx.target.layout = arch::get_platform_layout(target.os, target.arch);
+
+	$if $feat(SEMA):
+		ctx.lookup = lookup::create(ctx, alloc);
+		ctx.registry = registry::create(alloc);
+	$endif
+
+	return ctx;
+}
+
+<*
+ @require ctx != null
+*>
+fn void free(AnalyzerContext* ctx)
+{
+	ctx.files.free();
+	ctx.modules.free();
+
+	$if $feat(SEMA):
+	$endif
+
+	alloc::free(ctx.allocator, ctx);
+}
+
+<*
+ process from a buffer
+ @param path : "uri/path to the file or 'virtual' file"
+ @require buffer.len > 0
+*>
+fn bool process(AnalyzerContext* context, String buffer, String path) => @pool()
+{
+	Lexer* lexer = lexer::create(context, buffer);
+	defer lexer::free(context, lexer);
+	lexer::tokenize(lexer);
+
+	SourceFile* source = source_file::create(context, lexer, path);
+	defer source_file::free(context, source);
+
+	ParseContext* parse_ctx = parser::create(context);
+	defer parser::free(context, parse_ctx);
+
+	if (!parser::parse(parse_ctx, source))
+	{
+		return false;
+	}
+
+	foreach (SourceFile* sf : context.files.value_iter())
+	{
+		registry::register(context, sf);
+	}
+
+	SemaContext* sema_ctx = sema::create(context);
+
+	foreach (SourceFile* sf : context.files.value_iter())
+	{
+	    sema::analyze_source_file(sema_ctx, sf);
+	}
+
+	return true;
+}
+
+fn bool process_file(AnalyzerContext* context, String path) => @pool()
+{
+	String? buffer = (String)file::load(tmem, path);
+	if (catch err = buffer)
+	{
+		diagnostics::log_error("core::process_file - failed to load file (&s) %s", err, path);
+		return false;
+	}
+
+	return process(context, buffer, path);
+}
+
+<*
+ @param [&in] context
+ @require $Typeof(item) == POINTER : "item must be a pointer"
+*>
+macro void free_item(AnalyzerContext* context, item)
+{
+	$if $defined(item.free):
+		item.free(context.allocator);
+	$else
+		alloc::free(context.allocator, item);
+	$endif
+}

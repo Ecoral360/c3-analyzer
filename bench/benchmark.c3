@@ -1,5 +1,4 @@
 module parser_benchmarks;
-import analyzer::workspace;
 import analyzer::parser;
 import analyzer::core;
 import std::io;

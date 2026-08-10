@@ -1,12 +1,13 @@
 <*
  Pratt parsing using Binding power
-	
+
 	Resources for Binding power pratt parsing:
 	- https://matklad.github.io/2020/04/13/simple-but-powerful-pratt-parsing.html
 *>
 module analyzer::parser;
 import std::collections;
 import analyzer::core;
+import analyzer::lexer;
 
 <*
  Should be aligned to C3C
@@ -150,21 +151,21 @@ fn void get_binding_power(TokenKind type, int* lbp, int* rbp)
 <*
  parse expressions recursively with Pratt parsing
 	using Binding power.
- @require(scope.ctx != null) 
+ @require(scope.ctx != null)
  @param min_bp : "Starting binding power"
 *>
-fn Node*? parse_expr(ContextScope scope, Precedence min_bp = LOWEST)
+fn Node* parse_expr(ContextScope scope, Precedence min_bp = LOWEST)
 {
 	ParseContext* ctx = scope.ctx;
-	Node* left = parse_prefix_expr(scope)!;
+	Node* left = parse_prefix_expr(scope);
 
 	while (true)
 	{
 		int lbp, rbp;
-		get_binding_power(ctx.current().kind, &lbp, &rbp);
+		get_binding_power(ctx.current.kind, &lbp, &rbp);
 
 		// debug purposes
-		plog::debug("Current Token: %s, LBP: %d, MinBP: %d", ctx.current().kind, lbp, min_bp);
+		diagnostics::log_debug("Current Token: %s, LBP: %d, MinBP: %d", ctx.current.kind, lbp, min_bp);
 
 		// BREAK if:
 		// 1. Token is not an infix operator (lbp is -1)
@@ -174,7 +175,7 @@ fn Node*? parse_expr(ContextScope scope, Precedence min_bp = LOWEST)
 			break;
 		}
 
-		left = parse_infix(scope, left, (Precedence)rbp)!;
+		left = parse_infix(scope, left, (Precedence)rbp);
 	}
 
 	return left;
@@ -185,45 +186,45 @@ fn Node*? parse_expr(ContextScope scope, Precedence min_bp = LOWEST)
 	Handles tokens that start an expression (e.g., -5, (expr), !true)
 	It has no "left" side to worry about.
 *>
-fn Node*? parse_prefix_expr(ContextScope scope)
+fn Node* parse_prefix_expr(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
-	Token t = ctx.current();
+	Token t = ctx.current;
 
 	if (is_type(ctx))
 	{
-		return parse_type_expr(scope, null)!;
+		return parse_type_expr(scope, null);
 	}
 
 	switch (t.kind)
 	{
 		case FN:
-			return parse_lambda_expr(scope)!;
+			return parse_lambda_expr(scope);
 		case CT_EVAL:
-			return parse_ct_eval_expr(scope)!;
+			return parse_ct_eval_expr(scope);
 		case ELLIPSIS:
-			return parse_splat_expr(scope)!;
+			return parse_splat_expr(scope);
 		case BUILTIN:
-			return parse_builtin_expr(scope)!;
+			return parse_builtin_expr(scope);
 		case CT_DEFINED:
-			return parse_ct_defined_expr(scope)!;
+			return parse_ct_defined_expr(scope);
 		case CT_FEATURE:
-			return parse_ct_feature(scope)!;
+			return parse_ct_feature(scope);
 		case LENGTHOF:
-			return parse_lengthof_expr(scope)!;
+			return parse_lengthof_expr(scope);
 		case CT_STRINGIFY:
-			return parse_ct_stringify_expr(scope)!;
+			return parse_ct_stringify_expr(scope);
 		case CT_VAARG:
-			return parse_vaarg_expr(scope)!;
+			return parse_vaarg_expr(scope);
 		case CT_REFLECT:
-			return parse_ct_reflect_expr(scope)!;
+			return parse_ct_reflect_expr(scope);
 		case IDENT:
 		case CONST_IDENT:
 		case AT_IDENT:
 		case CT_IDENT:
 		case HASH_IDENT:
 		case TYPE_IDENT:
-			return parse_ident_expr(scope)!;
+			return parse_ident_expr(scope);
 		case STRING_LITERAL:
 		case CHAR_LITERAL:
 		case TRUE:
@@ -236,7 +237,7 @@ fn Node*? parse_prefix_expr(ContextScope scope)
 		case INT_OCTAL_LITERAL:
 		case INT_BIN_LITERAL:
 		case BYTES_LITERAL:
-			return parse_literal_expr(scope)!;
+			return parse_literal_expr(scope);
 		case BANG:
 		case BANGBANG:
 		case MINUS:
@@ -246,20 +247,15 @@ fn Node*? parse_prefix_expr(ContextScope scope)
 		case ASTERISK:
 		case PLUSPLUS:
 		case MINUSMINUS:
-			return parse_unary_expr(scope)!;
+			return parse_unary_expr(scope);
 		case LBRACE:
-			return parse_initializer_list_expr(scope)!;
+			return parse_initializer_list_expr(scope);
 		case LPAREN:
-			return parse_group_expr(scope)!;
+			return parse_group_expr(scope);
 		default:
-			plog::error(
-				"parse_prefix_expr - Expected expression for token: ((%s) %s - %s)",
-				ctx.token_text(ctx.current()),
-				ctx.current()
-				.kind);
-
-			advance(ctx)!;
-			return unexpected_at(ctx, t, "Unexpected expression for token '%s'", t.kind.description);
+			diagnostics::error(ctx.context, ctx.current.range, "Expected expression, got: %s", ctx.current.kind.description);
+			advance(ctx);
+			return ctx.ast.error(ctx.current.range);
 	}
 }
 
@@ -268,15 +264,15 @@ fn Node*? parse_prefix_expr(ContextScope scope)
 	Handles tokens that connect expressions (e.g. 1 + 2, obj.prop, arr[0])
 	It takes a pre-parsed "left" node and attaches a "right" side to it.
 *>
-fn Node*? parse_infix(ContextScope scope, Node* left, Precedence rbp)
+	fn Node* parse_infix(ContextScope scope, Node* left, Precedence rbp)
 {
 	ParseContext* ctx = scope.ctx;
-	Token t = ctx.current();
+	Token t = ctx.current;
 
 	switch (t.kind)
 	{
 		case LPAREN:
-			return parse_call_expr(scope, left)!;
+			return parse_call_expr(scope, left);
 		case PLUS:
 		case PLUS_ASSIGN:
 		case MINUS:
@@ -312,67 +308,64 @@ fn Node*? parse_infix(ContextScope scope, Node* left, Precedence rbp)
 		case CT_CONCAT_ASSIGN:
 		case CT_AND_OP:
 		case CT_OR_OP:
-			return parse_binary_expr(scope, left, rbp)!;
+			return parse_binary_expr(scope, left, rbp);
 		case PLUSPLUS:
 		case MINUSMINUS:
 		case BANG:
 		case BANGBANG:
-			return parse_post_unary_expr(scope, left, rbp)!;
+			return parse_post_unary_expr(scope, left, rbp);
 		case QUESTION:
 		case CT_TERNARY:
-			return parse_ternary_expr(scope, left)!;
+			return parse_ternary_expr(scope, left);
 		case BIT_NOT:
-			return parse_raise_suffix_expr(scope, left, t)!;
+			return parse_raise_suffix_expr(scope, left, t);
 		case DOT:
 		case SCOPE:
-			return parse_access_expr(scope, left)!;
+			return parse_access_expr(scope, left);
 		case LBRACE:
 			NodeKind kind = left.kind;
 			if (kind == TYPE_EXPR)
 			{
-				int start_pos = left.offset.start;
-				Node* init    = parse_initializer_list_expr(scope)!;
-
-				CompoundLiteralExpr* node = ctx.ast.alloc_node(CompoundLiteralExpr, start_pos);
-				node.offset.end = ctx.current().pos;
-
+				Range start = left.range;
+				Node* init = parse_initializer_list_expr(scope);
+				CompoundLiteralExpr* node = ctx.ast.alloc_node(CompoundLiteralExpr, start);
 				node.type_expr = left;
 				node.initializer_expr = init;
 
 				return (Node*)node;
 			}
-			return parse_generic_expr(scope)!;
+			return parse_generic_expr(scope);
 		case LBRACKET:
-			int start_pos = t.pos;
-			advance(ctx)!; // Consume the '[' token
-			return parse_range_expr(scope, left, start_pos)!;
+			advance(ctx); // Consume the '[' token
+			return parse_range_expr(scope, left, ctx.peek(-1).range);
 		default:
-			advance(ctx)!;
-			return unexpected_at(ctx, t, "Unexpected infix token '%s'", t.kind);
+			diagnostics::error(ctx.context, ctx.current.range, "Expected expression");
+			advance(ctx);
+			return ctx.ast.error(ctx.current.range);
 	}
 }
 
 <*
  decl_or_expr ::= var_decl | expr
 *>
-fn Node*? parse_decl_or_expr(ContextScope scope)
+fn Node* parse_decl_or_expr(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
 	if (ctx.is(VAR))
 	{
-		return parse_var_decl(scope.with_flags({ .is_expr = true, .is_local = true, .skip_eos = true, .is_var = true }), null)!;
+		return parse_var_decl(scope.with_flags({ .is_expr = true, .is_local = true, .skip_eos = true, .is_var = true }), null);
 	}
 
-	Node* expr = parse_expr(scope)!;
+	Node* expr = parse_expr(scope);
 
-	plog::debug("parse_decl_or_expr - (%s)", expr.kind.description);
+	diagnostics::log_debug("parse_decl_or_expr - (%s)", expr.kind.description);
 
 	if (expr.kind != TYPE_EXPR && expr.kind != COMPOUND_LITERAL_EXPR)
 	{
 		return expr;
 	}
 
-	TokenKind next = ctx.current().kind;
+	TokenKind next = ctx.current.kind;
 	switch (next)
 	{
 		case RPAREN:
@@ -384,48 +377,48 @@ fn Node*? parse_decl_or_expr(ContextScope scope)
 			break;
 	}
 
-	return parse_var_decl(scope.with_flags({ .is_expr = true, .is_local = true, .skip_eos = true }), expr)!;
+	return parse_var_decl(scope.with_flags({ .is_expr = true, .is_local = true, .skip_eos = true }), expr);
 }
 
 <*
- "Shortcut" for when a left node has already been parsed (like an identifier) 
+ "Shortcut" for when a left node has already been parsed (like an identifier)
  and want to continue building an expression from that specific point without starting over
 *>
-fn Node*? parse_expr_resuming_with_left(ContextScope scope, Node* left, Precedence min_bp)
+fn Node* parse_expr_resuming_with_left(ContextScope scope, Node* left, Precedence min_bp)
 {
 	ParseContext* ctx = scope.ctx;
 	while (true)
 	{
 		int lbp, rbp;
-		get_binding_power(ctx.current().kind, &lbp, &rbp);
+		get_binding_power(ctx.current.kind, &lbp, &rbp);
 		if (lbp < min_bp) break;
 
-		left = parse_infix(scope, left, (Precedence)rbp)!;
+		left = parse_infix(scope, left, (Precedence)rbp);
 	}
 	return left;
 }
 
 <*
- Parses only the leading prefix/atom expression and returns immediately 
+ Parses only the leading prefix/atom expression and returns immediately
  without binding any trailing infix operators.
 *>
-fn Node*? parse_prefix_expr_only(ContextScope scope)
+fn Node* parse_prefix_expr_only(ContextScope scope)
 {
 	// Pass HIGHEST so the Pratt loop breaks immediately on any trailing infix token
-	return parse_expr(scope, Precedence.HIGHEST)!;
+	return parse_expr(scope, Precedence.HIGHEST);
 }
 
-fn Node*? parse_constant_expr(ContextScope scope)
+fn Node* parse_constant_expr(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
-	return parse_expr(scope, ASSIGNMENT + 1)!;
+	return parse_expr(scope, ASSIGNMENT + 1);
 }
 
 <*
  @ensure return != null
 *>
-fn Node*? parse_try_chain_expr(ContextScope scope)
+fn Node* parse_try_chain_expr(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
-	return parse_expr(scope, AND + 1)!;
+	return parse_expr(scope, AND + 1);
 }

@@ -1,7 +1,6 @@
 module analyzer::core::ast;
 
-import analyzer::core::string_pool;
-import analyzer::core::lexer;
+import analyzer::lexer;
 
 import std::collections::list;
 
@@ -132,7 +131,7 @@ struct VarDecl
 {
 	inline Node node;
 	VarDeclKind var_kind;
-	VarDeclFlags flags;
+	VarDeclFlags var_flags;
 	Ident* name;
 	NullableNode contract;
 	Node* type;
