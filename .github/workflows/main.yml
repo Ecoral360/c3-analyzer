@@ -18,7 +18,7 @@ jobs:
       - name: Setup c3c
         run: |
           echo "Installing c3c..."
-          curl -sL "https://github.com/c3lang/c3c/releases/download/v0.8.2/c3-linux.tar.gz" -o c3.tar.gz
+          curl -sL "https://github.com/c3lang/c3c/releases/download/latest-prerelease-tag/c3-linux.tar.gz" -o c3.tar.gz
           
           sudo mkdir -p /usr/local/c3
           sudo tar -xzf c3.tar.gz -C /usr/local/c3 --strip-components=1
