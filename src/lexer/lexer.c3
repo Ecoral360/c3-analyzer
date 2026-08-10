@@ -696,7 +696,7 @@ fn Token next(Lexer* lexer)
 					}
 					return lexer.emit(RSHIFT, ">>");
 				case '=': return lexer.emit(GREATER_EQ, ">=");
-				case ']': return lexer.emit(RVEC, "]");
+				case ']': return lexer.emit(RVEC, ">]");
 			}
 			return lexer.emit(GREATER, ">");
 		case '<':
