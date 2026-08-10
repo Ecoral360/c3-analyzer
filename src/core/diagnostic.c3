@@ -48,27 +48,61 @@ fn void diagnose(
  		io::eprintf("%s:%s:%s: %s%s%s:%s ", sf.path, range.start.line + 1, range.start.column + 1, color, Ansi.BOLD, level.description, Ansi.RESET);
 		io::eprintf(fmt, ...args);
 		io::eprintn("");
-		sz start_ctx = math::max(0, range.start.line - 3);
+
+		int line_num_width = 4;
+        sz max_line = (sz)range.start.line + 1;
+        int digits = 0;
+        while (max_line > 0)
+        {
+        	digits++;
+         	max_line /= 10;
+        }
+        if (digits > line_num_width) line_num_width = digits;
+
+        sz start_ctx = range.start.line > 3 ? (sz)range.start.line - 3 : 0;
+
 		for (sz i = start_ctx; i <= range.start.line; i++)
 		{
-			if (i < lines.len) 
+			if (i < lines.len)
 			{
-				io::eprintf(" %4d | %s\n", i + 1, lines[i]);
-				
+				String line = lines[i];
+                if (line.len > 0 && line[line.len - 1] == '\r')
+                {
+                    line = line[0 .. line.len - 1];
+                }
+
+                io::eprintf("%*d | %s\n", (int)line_num_width, (int)(i + 1), line);
+
 				// If this is the line with the error, print the carets
 				if (i == range.start.line)
 				{
-					// Gutter is " %4d | " -> 1 + 4 + 3 = 8 chars
-					sz gutter_width = 8;
-					
-					for (sz j = 0; j < gutter_width + range.start.column; j++) 
+					sz gutter_width = (sz)line_num_width + 3;
+
+					for (sz j = 0; j < gutter_width; j++)
 					{
 						io::eprint(" ");
 					}
 
+					sz max_col = math::min((sz)range.start.column, line.len);
+                    for (sz j = 0; j < max_col; j++)
+                    {
+                        if (line[j] == '\t')
+                        {
+                            io::eprint("\t");
+                        }
+                        else
+                        {
+                            io::eprint(" ");
+                        }
+                    }
+
 					io::eprint(Ansi.RED);
-					sz caret_len = (range.end.line == range.start.line) ? (sz)(range.end.column - range.start.column) : 1;
-					for (sz j = 0; j < caret_len; j++) 
+					sz caret_len = 1;
+                    if (range.end.line == range.start.line && range.end.column > range.start.column)
+                    {
+                        caret_len = (sz)range.end.column - (sz)range.start.column;
+                    }
+					for (sz j = 0; j < caret_len; j++)
 					{
 						io::eprint("^");
 					}

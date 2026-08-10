@@ -51,9 +51,20 @@ fn bool visit_children(Node* parent, VisitorHooks hooks, void* data)
 	if (!parent.is_valid()) return true;
 	Node* node = parent;
 
-	if (!visit_decls(node, parent, hooks, data)) return false;
-	if (!visit_stmts(node, parent, hooks, data)) return false;
-	if (!visit_exprs(node, parent, hooks, data)) return false;
+	switch
+	{
+		case node.kind.is_decl():
+			if (!visit_decls(node, parent, hooks, data)) return false;
+			break;
+		case node.kind.is_stmt():
+			if (!visit_stmts(node, parent, hooks, data)) return false;
+			break;
+		case node.kind.is_expr():
+			if (!visit_exprs(node, parent, hooks, data)) return false;
+			break;
+		default:
+			unreachable("Unknown Node type");
+	}
 
 	return true;
 }

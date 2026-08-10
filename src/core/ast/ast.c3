@@ -35,7 +35,7 @@ macro Node.as(&self, $Type) => ($Type*)self;
 
 fn bool Node.is_valid(&self) @inline
 {
-	return self.kind != ERROR && !self.flags.has_error; 
+	return self.kind != ERROR && !self.flags.has_error;
 }
 
 struct Ast
@@ -60,7 +60,7 @@ macro Node* Ast.error(&self, Range range)
 macro Ast.alloc_node(&self, $Type, Range range)
 {
 	$Type* node = alloc::new(self.allocator, $Type);
-	
+
 	node.kind = NodeKind.$eval(@typename_to_constname($Type::name));
 	node.range = range;
 	node.id = next_node_id++;

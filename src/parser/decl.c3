@@ -341,7 +341,7 @@ fn Node* parse_typedef_decl(ContextScope scope)
 	}
 
 	node.attributes = alloc::clone_slice(ctx.allocator, attributes.array_view());
-	(void)expect(ctx, node, EOS);
+	expect(ctx, node, EOS);
 	return node;
 }
 
@@ -541,7 +541,7 @@ fn Node* parse_param_decl(ContextScope scope, ParamParseFlags flags = {})
 			break;
 		case CT_TYPE_IDENT:
 			node.name = ctx.ident(t);
-			node.var_kind = (parsed_type && parsed_type.kind != MISSING) ? VAR_PARAM : VAR_PARAM_CT_TYPE;
+			node.var_kind = (parsed_type && parsed_type.kind != ERROR) ? VAR_PARAM : VAR_PARAM_CT_TYPE;
 			advance(ctx);
 			break;
 		default:

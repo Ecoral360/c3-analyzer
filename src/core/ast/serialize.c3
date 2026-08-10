@@ -3,6 +3,7 @@ module analyzer::core::ast::serialize @feat(ANALYZER_CLI);
 import std::collections::nullable;
 import std::collections::maybe;
 import std::io;
+import analyzer::core::diagnostics;
 
 alias JsonOutput @local = DString;
 
@@ -10,6 +11,7 @@ fn void push_indent(JsonOutput* output, int indent, int depth)
 {
 	if (indent != -1) output.append_char_repeat(' ', (sz) (indent * depth));
 }
+
 fn void push_newline(JsonOutput* output, int indent, String or = "")
 {
 	if (indent != -1)
@@ -67,28 +69,32 @@ macro void serialize(JsonOutput* output, item, int indent, int depth) @local
 		$case $Typeof(item) == Location:
 			output.appendf("{ line = %s, column = %s }", item.line, item.column);
 
+		$case $Typeof(item) == Ident:
+			output.appendf("%s", item.text);
+
 		$case $defined(item[0]) &&& $defined(lengthof(item)):
 			sz l_len = lengthof(item);
-      	if (l_len == 0)
+	      	if (l_len == 0)
 			{
 				output.append("[]");
 				return;
 			}
-		output.append("[");
-		push_newline(output, indent);
+			output.append("[");
+			push_newline(output, indent);
 
-      	foreach (i, el : item) {
+	      	foreach (i, el : item)
+			{
 				push_indent(output, indent, depth + 1);
 				$if $Typeof(el) == Node*:
 					node_serialize(el, output,   indent, depth);
 				$else
 					serialize(output, el,   indent, depth + 1);
 				$endif
-        if (i < l_len - 1) output.append_char(',');
-        push_newline(output, indent, or: " ");
-      	}
-		push_indent(output, indent, depth);
-      	output.append("]");
+		        if (i < l_len - 1) output.append_char(',');
+		        push_newline(output, indent, or: " ");
+	      	}
+			push_indent(output, indent, depth);
+      		output.append("]");
 
 		$case $defined(item.get()) &&& $defined(item.get()!) &&& $defined(Maybe{$Typeof(item.get()!!)} x = item):
 			if (try v = item.get())
@@ -109,8 +115,9 @@ macro void serialize(JsonOutput* output, item, int indent, int depth) @local
 macro void JsonOutput.ser_entry(&self, String key, item, int indent, int depth)
 {
 	push_indent(self, indent, depth);
+	log::error("%s", $Typeof(item));
 	self.appendf("\"%s\": ", key.treplace("\"", "\\\""));
-	serialize(self, item,   indent, depth);
+	serialize(self, item, indent, depth);
 	self.append(",");
 	push_newline(self, indent, or: " ");
 }
@@ -120,6 +127,7 @@ fn void JsonOutput.start_obj(&self, int indent)
 	self.append_char('{');
 	push_newline(self, indent);
 }
+
 fn void JsonOutput.end_obj(&self, int indent, int depth)
 {
 	if (self.char_at(self.len() - 2) != ',')
@@ -153,9 +161,9 @@ fn void node_serialize(Node* self, JsonOutput* output, int indent, int depth) @l
 	output.ser_entry("range.end", self.range.end, indent, depth + 1);
 
 	var $sw = "switch (self.kind) {";
-	//$foreach $m : Node::members[^1].members:
-	//	$sw +++= @sprintf(`case %s: output.ser_entry("%s", self.$eval("%s"),  indent, depth + 1);`, @str_upper($m.name), $m.name, $m.name);
-	//$endforeach
+	$foreach $m : NodeKind::values:
+		$sw +++= @sprintf(`case %s: output.ser_entry("%s", %s, indent, depth + 1);`, $m.description, $m.description, @str_pascalcase($m.description));
+	$endforeach
 	$sw +++= "default: }";
 	$expand($sw);
 

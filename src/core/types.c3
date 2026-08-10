@@ -67,6 +67,13 @@ struct FunctionInfo
 	Node* node;
 }
 
+struct MacroInfo
+{
+	MacroInfo* next;
+	String mod;
+	Node* node;
+}
+
 enum TypeModifierKind : char
 {
 	NONE,
@@ -107,6 +114,7 @@ struct Registry
 {
 	HashMap{String, TypeInfo*} types;
 	HashMap{String, FunctionInfo*} functions;
+	HashMap{String, MacroInfo*} macros;
 }
 
 struct Scope
