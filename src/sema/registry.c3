@@ -11,6 +11,7 @@ fn Registry* create(Allocator alloc)
 
 	registry.functions.init(alloc);
 	registry.types.init(alloc);
+	registry.macros.init(alloc);
 
 	return registry;
 }
@@ -59,6 +60,9 @@ fn void register_and_dispatch(AnalyzerContext* context, Module* mod, Node* node)
 			break;
 		case FN_DECL:
 			register_function(context, mod, node);
+			break;
+		case MACRO_DECL:
+			register_macro(context, mod, node);
 			break;
 		default:
 			break;
@@ -141,6 +145,29 @@ fn void register_function(AnalyzerContext* context, Module* mod, Node* node)
 	diagnostics::log_debug("[Registry]: registered fn: %s", qname);
 
 	context.registry.functions.set(qname, function_info);
+}
+
+fn void register_macro(AnalyzerContext* context, Module* mod, Node* node)
+{
+	MacroDecl* decl = node.as(MacroDecl);
+	if (!decl.name)
+	{
+		diagnostics::log_error("registry::register_macro - macro name is null");
+		return;
+	}
+
+	String qname = string::format(context.allocator, "%s::%s", mod.name, decl.name.text);
+
+	MacroInfo* macros_info = alloc::new(context.allocator, MacroInfo);
+	macros_info.mod = mod.name;
+	macros_info.node = node;
+
+	MacroInfo* existing_head = context.registry.macros.get(qname) ?? null;
+	macros_info.next = existing_head;
+
+	diagnostics::log_debug("[Registry]: registered macro: %s", qname);
+
+	context.registry.macros.set(qname, macros_info);
 }
 
 <*

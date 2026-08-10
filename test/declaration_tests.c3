@@ -93,16 +93,19 @@ fn void macro_with_params()
 
 	Module* mod = context.modules.get("hello")!!;
 
-	// TODO macro registry?
-	FunctionInfo* macro_info = context.registry.functions.get("hello::greet")!!;
+	assert(context.registry.macros.has_key("hello::greet"));
+	assert(context.registry.macros.has_key("hello::foo"));
+	assert(context.registry.macros.has_key("hello::bar"));
+
+	MacroInfo* macro_info = context.registry.macros.get("hello::greet")!!;
 	MacroDecl* macro_decl = macro_info.node.as(MacroDecl);
 	test::eq(macro_decl.name.text, "greet");
 
-	macro_info = context.registry.functions.get("hello::foo")!!;
+	macro_info = context.registry.macros.get("hello::foo")!!;
 	macro_decl = macro_info.node.as(MacroDecl);
 	test::eq(macro_decl.name.text, "foo");
 
-	macro_info = context.registry.functions.get("hello::bar")!!;
+	macro_info = context.registry.macros.get("hello::bar")!!;
 	macro_decl = macro_info.node.as(MacroDecl);
 	test::eq(macro_decl.name.text, "bar");
 
