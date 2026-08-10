@@ -9,7 +9,7 @@ import std::collections::list;
 <*
  @param [&in] ctx : "main context"
 *>
-fn Lexer* create(AnalyzerContext* ctx, String buffer)
+fn Lexer* create(AnalyzerContext* ctx, String buffer, bool emit_comments = false)
 {
 	Lexer* lexer = alloc::new(ctx.allocator, Lexer);
 
@@ -17,6 +17,7 @@ fn Lexer* create(AnalyzerContext* ctx, String buffer)
 	lexer.tokens.init(ctx.allocator);
 	lexer.buffer = buffer;
 	lexer.current = buffer.len > 0 ? buffer[0] : 0;
+	lexer.emit_comments = emit_comments;
 
 	return lexer;
 }
@@ -42,7 +43,7 @@ struct Lexer
 	Location location;
 	char current;
 	int index;
-	bool contract_mode;
+	bool emit_comments;
 }
 
 fn bool Token.is_eof(&self) @inline => self.kind == EOF;
@@ -627,6 +628,10 @@ fn void tokenize(Lexer* lexer)
 	while (true)
 	{
 		Token t = next(lexer);
+		if (!lexer.emit_comments && (t.kind == LINE_COMMENT || t.kind == BLOCK_COMMENT))
+		{
+			continue;
+		}
 		diagnostics::log_debug("Added token: %s - %s", t.kind.description, t.value);
 		lexer.tokens.push(t);
 		if (t.kind == EOF) break;
