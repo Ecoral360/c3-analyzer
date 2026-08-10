@@ -12,13 +12,13 @@ import std::io::path;
 fn void test_literals()
 {
 	String source_code = `
-		module test_module; 
-		
+		module test_module;
+
 		tlocal bool blocal = true;
-		
+
 		int [*] arr = {};
 		int [*] arr2 = {1};
-		
+
 		// Primitives & Numbers
 		void* ax = {};
 		void* a = null;
@@ -29,7 +29,7 @@ fn void test_literals()
 		uint e = 0xFF_AAu;
 		int f = 0b1011_0101;
 		int g = 0o755;
-		
+
 		// Floats & Real Exponents
 		float h = 3.14159f32;
 		double i = 2e+10f64;
@@ -55,11 +55,11 @@ fn void test_literals()
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
-	Module* mod = context.modules.get("hello")!!;
+	test::eq(context.modules.len(), 1);
+	Module* mod = context.modules.get("test_module")!!;
 
-	test::ne(mod, null);
-	io::printfn("%s", mod.name);
 	test::eq(mod.name, "test_module");
+
 
 	foreach (node : mod.nodes)
 	{
@@ -323,7 +323,7 @@ fn void lambda()
 		fn void apply(int[] arr, IntTransform t)
 		{
 		}
-		
+
 		fn void main()
 		{
 			int[] x = { 1, 2, 5 };
@@ -346,7 +346,7 @@ fn void group_and_cast()
 {
 	String source_code = `
 		module hello;
-		
+
 		fn void foo(char[] value)
 		{
 			String cast = (String)value;
@@ -384,7 +384,7 @@ fn void initializers()
 {
 	String source_code = `
 		module hello;
-		
+
 		fn void foo()
 		{
 			String[*] strings = { "Foo", "Bar" };
@@ -410,7 +410,7 @@ fn void access()
 {
 	String source_code = `
 		module hello;
-		
+
 		fn void foo(Bar bar)
 		{
 			int type = bar.type;
@@ -446,7 +446,7 @@ fn void range()
 {
 	String source_code = `
 		module hello;
-		
+
 		fn void foo()
 		{
 			int[5] a = { 1, 20, 50, 100, 200 };
@@ -480,7 +480,7 @@ fn void optional_expr()
 {
 	String source_code = `
 		module hello;
-		
+
 		faultdef FOO;
 
 		fn void foo()
@@ -506,7 +506,7 @@ fn void ct_defined()
 {
 	String source_code = `
 		module hello;
-	
+
 		fn void foo()
 		{
 			$if $defined(Option{Node} x = item):
@@ -532,7 +532,7 @@ fn void lengthof_expr()
 {
 	String source_code = `
 		module hello;
-	
+
 		fn void foo()
 		{
 			sz len = lengthof(foo);
@@ -556,7 +556,7 @@ fn void ct_stringify_expr()
 {
 	String source_code = `
 		module hello;
-	
+
 		macro void foo()
 		{
 			var $out = "";
@@ -578,7 +578,7 @@ fn void vaarg_expr()
 {
 	String source_code = `
 		module hello;
-	
+
 		macro compile_time_sum(...)
 		{
 			var $x = 0;
@@ -603,11 +603,11 @@ fn void ct_reflect_expr()
 {
 	String source_code = `
 		module hello;
-	
+
 		macro compile_time_sum(x)
 		{
 			$if $defined($reflect(x).some_property):
-		
+
 			$endif
 		}
 	`;
