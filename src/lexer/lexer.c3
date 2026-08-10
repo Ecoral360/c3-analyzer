@@ -196,20 +196,28 @@ fn Token lex_raw_string(Lexer* self)
 {
 	Location start = self.location;
 	int start_index = self.index;
-	advance(self); // Skip the opening `
 
+	// Count the number of opening backticks
+	int delim_len = 0;
+    while (self.current == '`')
+    {
+        delim_len++;
+        advance(self);
+    }
+
+    // Scan until finding matching number of backticks
 	while (self.current != 0)
 	{
 		if (self.current == '`')
 		{
-			if (self.peek() == '`')
-			{
-				advance(self, 2);
-				continue;
-			}
-			else
-			{
-				advance(self);
+			int count = 0;
+            while (self.current == '`')
+            {
+                count++;
+                advance(self);
+            }
+            if (count == delim_len)
+            {
 				return {
 					.kind = STRING_LITERAL,
 					.value = self.get_string(start_index, self.index - start_index),
@@ -219,6 +227,7 @@ fn Token lex_raw_string(Lexer* self)
 					}
 				};
 			}
+			continue;
 		}
 		advance(self);
 	}
@@ -387,7 +396,7 @@ fn Token lex_number(Lexer* self)
 	{
 		kind = INT_OCTAL_LITERAL;
 		advance(self, 2);
-		while (self.current != 0 && (ascii::is_odigit(self.peek()) || self.peek() == '_'))
+		while (self.current != 0 && (ascii::is_odigit(self.current) || self.peek() == '_'))
 		{
 			advance(self);
 		}
@@ -448,7 +457,7 @@ fn Token lex_hex_array(Lexer* self)
 	Location start = self.location;
 	int start_index = self.index;
 	char start_quote = self.peek();
-	advance(self);
+	advance(self, 2);
 
 	int digit_count = 0;
 
