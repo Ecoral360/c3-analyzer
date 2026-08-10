@@ -656,8 +656,6 @@ fn Node* parse_var_decl(ContextScope scope, Node* type = null)
 			var_node.attributes = parse_attributes(scope, (Node*)var_node, { .allow_type_ident = true });
 		}
 
-		Node* init_expr = null;
-
 		if (consume(ctx, EQ))
 		{
 			if (head_node != null)
@@ -679,7 +677,6 @@ fn Node* parse_var_decl(ContextScope scope, Node* type = null)
 
 		var_node.name = name;
 		var_node.type = type_node; // Reused across the entire chain segment
-		var_node.init_expr = init_expr;
 		var_node.next = null;
 
 		var_node.var_flags.is_extern = flags.is_extern;
@@ -722,10 +719,7 @@ fn Node* parse_var_decl(ContextScope scope, Node* type = null)
 
 	if (!flags.skip_eos)
 	{
-		if (!consume(ctx, EOS))
-		{
-			diagnostics::error(ctx.context, ctx.current.range, "Expected ';'");
-		}
+		expect(ctx, head_node, EOS);
 	}
 
 	return head_node;
