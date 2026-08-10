@@ -18,12 +18,15 @@ fn void run_variable_pass(SemaContext* ctx) => @pool()
 		},
 	};
 
+	ctx.scope.range = range;
+
 	foreach (root_node : sf.ast.statements)
 	{
 		if (!root_node) continue;
 
 		switch (root_node.kind)
 		{
+			case VAR_DECL:
 			case FN_DECL:
 			case MACRO_DECL:
 				break;
