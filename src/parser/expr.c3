@@ -823,25 +823,29 @@ fn Node* parse_catch_expr(ContextScope scope) => @pool()
 			diagnostics::error(ctx.context, node.variable.range, "Expected variable name");
 			node.flags.has_error = true;
 		}
-
-		if (!consume(ctx, EQ))
-		{
-			diagnostics::error(ctx.context, ctx.current.range, "Expected '=' in catch-unwrap");
-			node.flags.has_error = true;
-		}
-		else
-		{
-			while (!ctx.eof())
-			{
-				exprs.push(parse_try_chain_expr(scope));
-				if (!consume(ctx, COMMA)) break;
-			}
-			node.exprs = alloc::clone_slice(ctx.allocator, exprs.array_view());
-		}
 	}
 	else
 	{
 		node.variable = sub_expr;
+	}
+
+	if (!consume(ctx, EQ))
+	{
+		if (node.type)
+		{
+			diagnostics::error(ctx.context, ctx.current.range, "Expected '=' in catch-unwrap");
+			node.flags.has_error = true;
+		}
+
+		exprs.push(node.variable);
+		node.variable = null;
+		return node;
+	}
+
+	while (!ctx.eof())
+	{
+		exprs.push(parse_try_chain_expr(scope));
+		if (!consume(ctx, COMMA)) break;
 	}
 
 	node.exprs = alloc::clone_slice(ctx.allocator, exprs.array_view());
