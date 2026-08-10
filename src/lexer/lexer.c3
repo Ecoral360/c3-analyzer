@@ -747,7 +747,9 @@ fn Token next(Lexer* lexer)
 			switch (lexer.peek())
 			{
 				case '=': return lexer.emit(MULT_ASSIGN, "*=");
-				case '>': return lexer.emit(DOCS_END, "*>");
+				case '>':
+					if (lexer.peek(2) == ']') break;
+					return lexer.emit(DOCS_END, "*>");
 			}
 			return lexer.emit(ASTERISK, "*");
 		case '?':
