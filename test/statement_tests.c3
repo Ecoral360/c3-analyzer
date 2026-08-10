@@ -13,8 +13,8 @@ import std::io::path;
 fn void switch_stmt()
 {
 	String source_code = `
-		module hello; 
-		fn void foo() 
+		module hello;
+		fn void foo()
 		{
 			int a = 5;
 			switch LABEL: (a)
@@ -66,8 +66,8 @@ fn void ct_switch_stmt()
 {
 	// uses a function just to get a compound
 	String source_code = `
-		module hello; 
-		fn void foo() 
+		module hello;
+		fn void foo()
 		{
 			$switch $x:
 				$case 1:
@@ -102,8 +102,8 @@ fn void if_elseif_else()
 {
 	// uses a function just to get a compound
 	String source_code = `
-		module hello; 
-		fn void foo(int a) 
+		module hello;
+		fn void foo(int a)
 		{
 			if LABEL: (a > 0 && a < 10)
 			{
@@ -142,8 +142,8 @@ fn void ct_if_else()
 {
 	// uses a function just to get a compound
 	String source_code = `
-		module hello; 
-		fn void foo(int a) 
+		module hello;
+		fn void foo(int a)
 		{
 			$if $x > 3:
 				#y += $x * $x;
@@ -175,8 +175,8 @@ fn void for_stmt()
 {
 	// uses a function just to get a compound
 	String source_code = `
-		module hello; 
-		fn void foo(int a) 
+		module hello;
+		fn void foo(int a)
 		{
 			for (;;)
 			{
@@ -212,8 +212,8 @@ fn void while_stmt()
 {
 	// uses a function just to get a compound
 	String source_code = `
-		module hello; 
-		fn void foo(int a) 
+		module hello;
+		fn void foo(int a)
 		{
 			while FOO: (true)
 			{
@@ -251,8 +251,8 @@ fn void ct_assert_stmt()
 {
 	// uses a function just to get a compound
 	String source_code = `
-		module hello; 
-		fn void foo(int a) 
+		module hello;
+		fn void foo(int a)
 		{
 			$assert 2 == 2;
 			$assert @bar() == MY_CONST;
@@ -279,8 +279,8 @@ fn void ct_error_stmt()
 {
 	// uses a function just to get a compound
 	String source_code = `
-		module hello; 
-		fn void foo(int a) 
+		module hello;
+		fn void foo(int a)
 		{
 			$error @sprintf("no %s", @bar());
 			$error "no no";
@@ -305,8 +305,8 @@ fn void var_decl_stmt()
 {
 	// uses a function just to get a compound
 	String source_code = `
-		module hello; 
-		fn void foo(int a) 
+		module hello;
+		fn void foo(int a)
 		{
 			static bool boolean = true;
 			const String MY_STRING = "foo";
@@ -558,8 +558,8 @@ fn void err_foreach_missing_colon()
 fn void defer_stmt()
 {
 	String source_code = `
-		module hello; 
-		fn void foo() 
+		module hello;
+		fn void foo()
 		{
 			defer io::printn("");
 			defer io::print("A");
@@ -718,7 +718,7 @@ fn void ct_foreach_stmt()
 	test::eq(parser_tests::count_kind(mod, MACRO_DECL), 2);
 	test::eq(parser_tests::count_kind(mod, FN_DECL), 1);
 
-	FunctionInfo* macro_info = context.registry.functions.get("hello::@create_set")!!;
+	MacroInfo* macro_info = context.registry.macros.get("hello::@create_set")!!;
 
 	// TODO Macro definitions in registry?
 	MacroDecl* macro_decl = macro_info.node.as(MacroDecl);
@@ -732,19 +732,16 @@ fn void ct_foreach_stmt()
 	test::eq(foreach_body.statements.len, 1);
 	test::eq(foreach_body.statements[0].kind, NodeKind.EXPR_STMT);
 
-	macro_info = context.registry.functions.get("hello::@create_set")!!;
+	macro_info = context.registry.macros.get("hello::@create_set")!!;
 	macro_decl = macro_info.node.as(MacroDecl);
 	macro_body = macro_decl.body.as(CompoundStmt);
 	foreach_stmt = macro_body.statements[0].as(CtForeachStmt);
-	VarDecl* foreach_index_decl = foreach_stmt.index.as(VarDecl);
+	VarDecl* foreach_index_decl = foreach_stmt.value.as(VarDecl);
 	foreach_value_decl = foreach_stmt.value.as(VarDecl);
-	test::eq(foreach_index_decl.name.text, "$i");
-	test::eq(foreach_value_decl.name.text, "$member");
-	test::eq(foreach_stmt.expr.kind, NodeKind.ACCESS_EXPR);
+	test::eq(foreach_index_decl.name.text, "$c");
 	foreach_body = foreach_stmt.body.as(CompoundStmt);
-	test::eq(foreach_body.statements.len, 2);
-	test::eq(foreach_body.statements[0].kind, NodeKind.CT_IF_STMT);
-	test::eq(foreach_body.statements[1].kind, NodeKind.EXPR_STMT);
+	test::eq(foreach_body.statements.len, 1);
+	test::eq(foreach_body.statements[0].kind, NodeKind.EXPR_STMT);
 
 	FunctionInfo* func_info = context.registry.functions.get("hello::inline_foreach")!!;
 	FnDecl* fn_decl = func_info.node.as(FnDecl);

@@ -264,7 +264,7 @@ fn Node* parse_prefix_expr(ContextScope scope)
 	Handles tokens that connect expressions (e.g. 1 + 2, obj.prop, arr[0])
 	It takes a pre-parsed "left" node and attaches a "right" side to it.
 *>
-fn Node* parse_infix(ContextScope scope, Node* left, Precedence rbp)
+	fn Node* parse_infix(ContextScope scope, Node* left, Precedence rbp)
 {
 	ParseContext* ctx = scope.ctx;
 	Token t = ctx.current;

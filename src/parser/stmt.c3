@@ -154,8 +154,6 @@ fn Node* parse_decl_or_expr_stmt(ContextScope scope)
 	node.expr_stmt = expr;
 	node.range.end = ctx.current.range.end;
 
-	expect(ctx, node, EOS);
-
 	if (!consume(ctx, EOS))
 	{
 		diagnostics::error(ctx.context, ctx.current.range, "Expected ';' to terminate expr_stmt");
