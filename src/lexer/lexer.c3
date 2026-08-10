@@ -90,11 +90,10 @@ fn Token lex_line_comment(Lexer* self)
 {
 	int start_index = self.index;
 	advance(self, 2);
-	while (self.current != 0)
-	{
-		if (self.peek() == '\n') break;
-		advance(self);
-	}
+	while (self.current != 0 && self.current != '\n' && self.current != '\r')
+    {
+        advance(self);
+    }
 
 	return self.emit_range(LINE_COMMENT, start_index);
 }
