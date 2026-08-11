@@ -612,7 +612,7 @@ fn Location Lexer.location_at(Lexer* self, int target_index)
 		if (self.buffer[i] == '\n')
 		{
 			line++;
-			column = 1; // Reset column on new line
+			column = 0; // Reset column on new line
 		}
 		else
 		{
