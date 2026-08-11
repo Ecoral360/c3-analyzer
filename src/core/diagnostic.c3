@@ -27,8 +27,6 @@ fn void diagnose(
 {
 	SourceFile* sf = ctx.current_source_file;
 
-	io::eprintfn("Range: %s", range);
-
 	if (callback)
 	{
 		callback(sf, range, level, string::format(ctx.allocator, fmt, ...args));
