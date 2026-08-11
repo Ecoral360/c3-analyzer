@@ -27,6 +27,8 @@ fn void diagnose(
 {
 	SourceFile* sf = ctx.current_source_file;
 
+	io::eprintfn("Range: %s", range);
+
 	if (callback)
 	{
 		callback(sf, range, level, string::format(ctx.allocator, fmt, ...args));
@@ -71,7 +73,21 @@ fn void diagnose(
 					line = line[0 .. line.len - 1];
 				}
 
-				io::eprintf("%*d | %s\n", (int)line_num_width, (int)(i + 1), line);
+				// replaced \t with just 4 spaces, i couldnt get it working
+
+				io::eprintf("%*d | ", (int)line_num_width, (int)(i + 1));
+				for (sz j = 0; j < line.len; j++)
+				{
+					if (line[j] == '\t')
+					{
+						io::eprint("    ");
+					}
+					else
+					{
+						io::eprintf("%c", line[j]);
+					}
+				}
+				io::eprintn("");
 
 				// If this is the line with the error, print the carets
 				if (i == range.start.line)
@@ -88,7 +104,7 @@ fn void diagnose(
 					{
 						if (line[j] == '\t')
 						{
-							io::eprint("\t");
+							io::eprint("    ");
 						}
 						else
 						{
