@@ -43,9 +43,9 @@ macro void serialize(JsonOutput* output, item, int indent, int depth) @local
 			output.end_obj(indent, depth);
 
 		$case $Typeof(item) == TypeExpr:
-			$if TypeExpr::members.len != 3:
-				$error "UPDATE THIS CODE HERE";
-			$endif
+			// $if TypeExpr::members.len != 3:
+			// 	$error "UPDATE THIS CODE HERE";
+			// $endif
 			output.start_obj(indent);
 
 			output.ser_entry("kind", item.kind,   indent, depth + 1);
@@ -115,7 +115,6 @@ macro void serialize(JsonOutput* output, item, int indent, int depth) @local
 macro void JsonOutput.ser_entry(&self, String key, item, int indent, int depth)
 {
 	push_indent(self, indent, depth);
-	log::error("%s", $Typeof(item));
 	self.appendf("\"%s\": ", key.treplace("\"", "\\\""));
 	serialize(self, item, indent, depth);
 	self.append(",");
@@ -162,7 +161,7 @@ fn void node_serialize(Node* self, JsonOutput* output, int indent, int depth) @l
 
 	var $sw = "switch (self.kind) {";
 	$foreach $m : NodeKind::values:
-		$sw +++= @sprintf(`case %s: output.ser_entry("%s", %s, indent, depth + 1);`, $m.description, $m.description, @str_pascalcase($m.description));
+		$sw +++= @sprintf(`case %s: output.ser_entry("%s", *((%s*) self), indent, depth + 1);`, $m.description, $m.description, @str_pascalcase($m.description));
 	$endforeach
 	$sw +++= "default: }";
 	$expand($sw);
