@@ -713,6 +713,8 @@ fn Node* parse_var_decl(ContextScope scope, Node* type = null)
 		}
 		tail_node = var_node;
 
+		tail_node.range.end = ctx.peek(-1).range.end;
+
 		if (flags.is_expr) break;
 		if (!consume(ctx, COMMA)) break;
 	}
