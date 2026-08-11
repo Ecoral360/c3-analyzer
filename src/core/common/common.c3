@@ -66,7 +66,7 @@ struct Location (Printable)
 
 fn sz? Location.to_format(Location* self, Formatter* fmt) @dynamic
 {
-    return fmt.printf("(Line: %d, Column: %d)", self.line, self.column);
+    return fmt.printf("(Line: %d, Column: %d)", self.line + 1, self.column + 1);
 }
 
 fn bool Location.eq(self, Location other) @operator(==)
