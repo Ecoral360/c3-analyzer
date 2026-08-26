@@ -66,10 +66,15 @@ fn bool process(AnalyzerContext* context, String buffer, String path) => @pool()
 {
 	Lexer* lexer = lexer::create(context, buffer);
 	defer lexer::free(context, lexer);
-	lexer::tokenize(lexer);
 
+	// Create the SourceFile before tokenizing: the lexer reports its
+	// diagnostics against context.current_source_file, so anything it
+	// finds is lost if that is still unset.
 	SourceFile* source = source_file::create(context, lexer, path);
 	defer source_file::free(context, source);
+	context.current_source_file = source;
+
+	lexer::tokenize(lexer);
 
 	ParseContext* parse_ctx = parser::create(context);
 	defer parser::free(context, parse_ctx);

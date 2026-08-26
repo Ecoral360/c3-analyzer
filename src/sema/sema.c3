@@ -47,6 +47,7 @@ fn void analyze_imports(SemaContext* ctx)
 {
 	foreach (Node* node : ctx.context.current_source_file.ast.statements)
 	{
+		if (!node) continue;
 		if (node.kind != IMPORT_DECL) continue;
 
 		ImportDecl* imp = node.as(ImportDecl);

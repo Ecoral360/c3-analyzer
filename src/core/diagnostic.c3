@@ -33,6 +33,10 @@ fn void diagnose(
 	}
 
 	$if $feat(ANALYZER_PRINT):
+		// The lexer reports diagnostics before the SourceFile exists, so
+		// there is nothing to quote the offending line from.
+		if (!sf) return;
+
 		String[] lines = sf.content.tsplit("\n");
 		String line_str = lines[range.start.line != 0 ? range.start.line - 1 : 0];
 

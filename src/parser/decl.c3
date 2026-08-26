@@ -719,6 +719,22 @@ fn Node* parse_var_decl(ContextScope scope, Node* type = null)
 		if (!consume(ctx, COMMA)) break;
 	}
 
+	if (head_node == null)
+	{
+		// Every name in the chain was rejected, so there is no VarDecl to
+		// return or to flag. Hand back an error node instead of null:
+		// callers push the result straight into ast.statements and expect
+		// a valid Node there.
+		Node* recovery = ctx.ast.error({ start.start, ctx.peek(-1).range.end });
+
+		if (!flags.skip_eos)
+		{
+			expect(ctx, recovery, EOS);
+		}
+
+		return recovery;
+	}
+
 	if (!flags.skip_eos)
 	{
 		expect(ctx, head_node, EOS);
