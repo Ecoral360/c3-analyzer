@@ -17,7 +17,7 @@ struct Range (Printable)
 
 fn sz? Range.to_format(Range* self, Formatter* fmt) @dynamic
 {
-    return fmt.printf("start: %s, end: %s", self.start, self.end);
+	return fmt.printf("start: %s, end: %s", self.start, self.end);
 }
 
 fn bool Range.eq(self, Range other) @operator(==)
@@ -27,33 +27,31 @@ fn bool Range.eq(self, Range other) @operator(==)
 
 fn bool Range.contains(self, Location loc)
 {
-    if (loc.line < self.start.line || loc.line > self.end.line)
+	if (loc.line < self.start.line || loc.line > self.end.line)
 	{
-        return false;
+		return false;
 	}
 
-    if (loc.line == self.start.line && loc.column < self.start.column)
+	if (loc.line == self.start.line && loc.column < self.start.column)
 	{
-        return false;
+		return false;
 	}
 
-    if (loc.line == self.end.line && loc.column >= self.end.column)
+	if (loc.line == self.end.line && loc.column >= self.end.column)
 	{
-        return false;
+		return false;
 	}
 
-    return true;
+	return true;
 }
 
 fn bool Range.contains_range(self, Range other)
 {
-	bool start_le = (self.start.line < other.start.line) ||
-						(self.start.line == other.start.line &&
-						self.start.column <= other.start.column);
+	bool start_le = (self.start.line < other.start.line)
+		|| (self.start.line == other.start.line && self.start.column <= other.start.column);
 
-	bool end_ge = (self.end.line > other.end.line) ||
-					(self.end.line == other.end.line &&
-					self.end.column >= other.end.column);
+	bool end_ge = (self.end.line > other.end.line)
+		|| (self.end.line == other.end.line && self.end.column >= other.end.column);
 
 	return start_le && end_ge;
 }
@@ -66,12 +64,34 @@ struct Location (Printable)
 
 fn sz? Location.to_format(Location* self, Formatter* fmt) @dynamic
 {
-    return fmt.printf("(Line: %d, Column: %d)", self.line + 1, self.column + 1);
+	return fmt.printf("(Line: %d, Column: %d)", self.line + 1, self.column + 1);
 }
 
 fn bool Location.eq(self, Location other) @operator(==)
 {
 	return self.line == other.line && self.column == other.column;
+}
+
+typedef NodePath = inline sz[];
+struct NodePoint
+{
+	NodePath path;
+	int offset;
+}
+
+fn void? NodePoint.free(&self, Allocator allocator)
+{
+	alloc::free(allocator, self.path);
+}
+
+fn sz? NodePoint.to_format(&self, Formatter* fmt) @dynamic
+{
+	return fmt.printf("(Path: %s, Offset: %d)", self.path, self.offset);
+}
+
+fn bool NodePoint.eq(self, NodePoint other) @operator(==)
+{
+	return self.path == other.path && self.offset == other.offset;
 }
 
 enum AttributeKind : char
@@ -252,26 +272,26 @@ bitstruct AsmFlags : char
 
 enum AsmArgKind : char
 {
-	ARG_REG,     // A register
-	ARG_ADDR,    // [...]
-	ARG_REGVAR,  // foo - variable in a register, r/=r/+r
+	ARG_REG, // A register
+	ARG_ADDR, // [...]
+	ARG_REGVAR, // foo - variable in a register, r/=r/+r
 	ARG_MEMADDR, // &foo - address to a variable
-	ARG_MEMVAR,  // [&foo]
-	ARG_VALUE,   // -1, (expr), 1, 3.0
-	ARG_INT,     // Converted from VALUE
+	ARG_MEMVAR, // [&foo]
+	ARG_VALUE, // -1, (expr), 1, 3.0
+	ARG_INT, // Converted from VALUE
 }
 
 enum AsmOffsetKind : char
 {
-	SCALE_1,    // *
+	SCALE_1, // *
 	SCALE_2,
 	SCALE_4,
 	SCALE_8,
-	SCALE_SHR,  // >>
-	SCALE_SHL,  // <<
+	SCALE_SHR, // >>
+	SCALE_SHL, // <<
 	SCALE_ASHL, // >>>
-	SCALE_ROR,  // ror
-	SCALE_RRX,  // rrx
+	SCALE_ROR, // ror
+	SCALE_RRX, // rrx
 }
 
 bitstruct AsmArgBits : uint
@@ -334,28 +354,28 @@ fn OverloadKind get_overload_kind(TokenKind kind)
 {
 	switch (kind)
 	{
-		case PLUS:           return OV_PLUS;
-		case PLUS_ASSIGN:    return OV_PLUS_ASSIGN;
-		case MINUS:          return OV_MINUS;
-		case MINUS_ASSIGN:   return OV_MINUS_ASSIGN;
-		case ASTERISK:       return OV_MULTIPLY;
-		case MULT_ASSIGN:    return OV_MULTIPLY_ASSIGN;
-		case DIV:            return OV_DIVIDE;
-		case MOD:            return OV_REMINDER;
-		case MOD_ASSIGN:     return OV_REMINDER_ASSIGN;
-		case AMP:            return OV_AND;
+		case PLUS: return OV_PLUS;
+		case PLUS_ASSIGN: return OV_PLUS_ASSIGN;
+		case MINUS: return OV_MINUS;
+		case MINUS_ASSIGN: return OV_MINUS_ASSIGN;
+		case ASTERISK: return OV_MULTIPLY;
+		case MULT_ASSIGN: return OV_MULTIPLY_ASSIGN;
+		case DIV: return OV_DIVIDE;
+		case MOD: return OV_REMINDER;
+		case MOD_ASSIGN: return OV_REMINDER_ASSIGN;
+		case AMP: return OV_AND;
 		case BIT_AND_ASSIGN: return OV_AND_ASSIGN;
-		case BIT_OR:         return OV_OR;
-		case BIT_OR_ASSIGN:  return OV_OR_ASSIGN;
-		case BIT_XOR:        return OV_XOR;
+		case BIT_OR: return OV_OR;
+		case BIT_OR_ASSIGN: return OV_OR_ASSIGN;
+		case BIT_XOR: return OV_XOR;
 		case BIT_XOR_ASSIGN: return OV_XOR_ASSIGN;
-		case LSHIFT:         return OV_SHL;
-		case LSHIFT_ASSIGN:  return OV_SHL_ASSIGN;
-		case RSHIFT:         return OV_SHR;
-		case RSHIFT_ASSIGN:  return OV_SHR_ASSIGN;
-		case BIT_NOT:        return OV_NEGATE;
-		case EQEQ:           return OV_EQUAL;
-		case LESS:           return OV_LESS_THAN;
+		case LSHIFT: return OV_SHL;
+		case LSHIFT_ASSIGN: return OV_SHL_ASSIGN;
+		case RSHIFT: return OV_SHR;
+		case RSHIFT_ASSIGN: return OV_SHR_ASSIGN;
+		case BIT_NOT: return OV_NEGATE;
+		case EQEQ: return OV_EQUAL;
+		case LESS: return OV_LESS_THAN;
 		default:
 			return UNKNOWN;
 	}
@@ -380,11 +400,11 @@ enum Visibility : char
  Type expression variants.
 
  Payload mapping:
-- TYPE_IDENTIFIER: TypeExpr.unresolved
-- TYPE_POINTER and TYPE_SLICE: TypeExpr.modify
-- TYPE_ARRAY and TYPE_VECTOR: TypeExpr.array
-- TYPE_GENERIC: TypeExpr.generic
-- TYPE_FUNCTION: TypeExpr.func
+ - TYPE_IDENTIFIER: TypeExpr.unresolved
+ - TYPE_POINTER and TYPE_SLICE: TypeExpr.modify
+ - TYPE_ARRAY and TYPE_VECTOR: TypeExpr.array
+ - TYPE_GENERIC: TypeExpr.generic
+ - TYPE_FUNCTION: TypeExpr.func
 *>
 enum TypeExprKind : char
 {
@@ -409,5 +429,5 @@ enum DesignatorKind : char
 enum AccessKind : char
 {
 	INSTANCE, // field.
-	STATIC    // Type::
+	STATIC // Type::
 }

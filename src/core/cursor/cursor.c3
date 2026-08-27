@@ -1,8 +1,8 @@
 <*
  Cursor is basically a pointer to a specific node
-	with the ability to walk and get out data from it.
+ with the ability to walk and get out data from it.
 
-	represents some Node in the abstract syntax tree for a module
+ represents some Node in the abstract syntax tree for a module
 *>
 module analyzer::cursor;
 import analyzer::core;
@@ -13,10 +13,7 @@ import std::collections::list;
 import std::io;
 
 faultdef
-	INVALID_NODE,
-	UNEXPECTED_KIND,
-	NOT_FOUND
-;
+	INVALID_NODE, UNEXPECTED_KIND, NOT_FOUND;
 
 <*
  Get the spelling/text for the current node.
@@ -25,7 +22,7 @@ faultdef
  - named declarations, which answer with their own identifier,
  - expressions that carry or point at a name,
  - wrappers such as groups, casts and splats, which are transparent and
-   answer with the spelling of what they wrap.
+ answer with the spelling of what they wrap.
 
  Anything without a name, statements included, answers with the empty
  string rather than an error, so callers can use the result directly.
@@ -253,7 +250,8 @@ macro Node* find_innermost_from_nodes(SourceFile* sf, int offset, ...) @local
 
 fn List{Node*} get_node_path(Node* node, Range range, SourceFile* sf)
 {
-	List{Node*} node_path; node_path.tinit();
+	List{Node*} node_path;
+	node_path.tinit();
 	get_node_path_impl(node, range, sf, &node_path);
 	return node_path;
 }
@@ -284,14 +282,14 @@ fn bool get_node_path_impl(Node* node, Range range, SourceFile* sf, List{Node*}*
 
 	var $impl_switch = "switch (node.kind) {";
 
-	//$foreach $node_kind : NodeKind::values :
-	//	$if $node_kind != MISSING &&& $node_kind != NOP_STMT:
-	//		$impl_switch +++= @sprintf("case %s: ", $node_kind.description);
-	//		$impl_switch +++= @sprintf("var %s @safeinfer = node.as(%s);", @str_lower($node_kind.description), $node_kind.description);
-	//		$impl_switch +++= @sprintf("get_node_path_from_nodes(sf, offset, node_path, *%s);", @str_lower($node_kind.description));
-	//	$endif
-//
-	//$endforeach
+	// $foreach $node_kind : NodeKind::values :
+	// 	$if $node_kind != MISSING &&& $node_kind != NOP_STMT:
+	// 		$impl_switch +++= @sprintf("case %s: ", $node_kind.description);
+	// 		$impl_switch +++= @sprintf("var %s @safeinfer = node.as(%s);", @str_lower($node_kind.description), $node_kind.description);
+	// 		$impl_switch +++= @sprintf("get_node_path_from_nodes(sf, offset, node_path, *%s);", @str_lower($node_kind.description));
+	// 	$endif
+	// 
+	// $endforeach
 
 	$impl_switch +++= "default: }";
 	$expand($impl_switch);
@@ -316,10 +314,11 @@ fn String? raw_type_identifier(Node* node)
 		switch (data.type_kind)
 		{
 			case TYPE_IDENTIFIER:
-			{
-				if (!data.unresolved.name) return "";
-				return data.unresolved.name.text;
-			}
+
+				{
+					if (!data.unresolved.name) return "";
+					return data.unresolved.name.text;
+				}
 			case TYPE_POINTER:
 			case TYPE_SLICE:
 				current = data.modify.base;
@@ -350,12 +349,12 @@ fn ChildVisitResult find_at_callback(Node* cursor, Node* parent, void* user_data
 	if (!cursor.is_valid()) return CONTINUE;
 
 	FindAtContext* ctx = (FindAtContext*)user_data;
-	Node* node = cursor;
+	Node* node         = cursor;
 
 	if (node.range.contains_range(ctx.target))
 	{
-		int current_span = (node.range.end.line - node.range.start.line) * 1000 +
-							(node.range.end.column - node.range.start.column);
+		int current_span = (node.range.end.line - node.range.start.line) * 1000
+			+ (node.range.end.column - node.range.start.column);
 
 		if (ctx.best_match == null || current_span <= ctx.best_span)
 		{
@@ -373,7 +372,7 @@ fn Node* find_at(Node*[] slice, Range range)
 {
 	FindAtContext ctx = {
 		.target = range,
-		.best_match = {},
+		.best_match = { },
 		.best_span = 99999999 // Start with a massive fallback span
 	};
 
@@ -381,7 +380,7 @@ fn Node* find_at(Node*[] slice, Range range)
 	{
 		Node* root_cursor = node;
 
-		if (!visit(root_cursor, {}, { .on_enter = &find_at_callback }, &ctx))
+		if (!visit(root_cursor, { }, { .on_enter = &find_at_callback }, &ctx))
 		{
 			break;
 		}
@@ -390,109 +389,28 @@ fn Node* find_at(Node*[] slice, Range range)
 	return ctx.best_match;
 }
 
-/*
-<*
- Get the raw source code fragment corresponding exactly to this node.
- @param [&in] sf : "Which file to acquire the source from"
-*>
-fn String? Cursor.source_text(&node, SourceFile* sf)
-{
-	if (!node.is_valid()) return NOT_FOUND~;
-
-	String full_source = sf.source;
-
-
-
-	if (start > full_source.len || end > full_source.len || start > end)
-	{
-		return INVALID_NODE~;
-	}
-
-	return full_source[start..end];
-}
-
-<*
- Extracts just the signature part of a declaration node
- @param [&in] sf
-*>
-fn String? Cursor.signature_text(&node, SourceFile* sf)
-{
-	String text = node.source_text(sf)!;
-
-	switch (node.kind)
-	{
-		case FN_DECL:
-			FnDecl* fn_decl = node.as(FnDecl);
-			if (fn_decl.body)
-			{
-				return sf.source[node.offset.start..fn_decl.body.offset.start - 1]
-					.trim()
-					.strip_suffix("{")
-					.strip_suffix("=>")
-					.trim();
-			}
-			else
-			{
-				return sf.source[node.offset.start..node.offset.end - 1].trim();
-			}
-
-
-		case MACRO_DECL:
-			MacroDecl* mac_decl = node.as(MacroDecl);
-			return sf.source[node.offset.start..mac_decl.body.offset.start - 1]
-				.trim()
-				.strip_suffix("{")
-				.strip_suffix("=>")
-				.trim();
-
-		case ATTRDEF_DECL:
-		case ATTRIBUTE_DECL:
-		case CONTRACT_DECL:
-		case STRUCT_DECL:
-		case ENUM_DECL:
-		case VAR_DECL:
-		case MODULE_DECL:
-		case IMPORT_DECL:
-		case ALIAS_DECL:
-		case TYPEDEF_DECL:
-		case FAULT_DECL:
-		case FAULTDEF_DECL:
-		case GENERIC_DECL:
-		case INTERFACE_DECL:
-		case CT_EXPAND_DECL:
-		case CT_ASSERT_DECL:
-			break;
-
-		default:
-			return UNEXPECTED_KIND~;
-	}
-
-
-	return text.trim();
-}
-
-*/
-
 fn Node*? contract(Node* node)
 {
 	switch (node.kind)
 	{
 		case FN_DECL:
-		{
-			FnDecl* decl = node.as(FnDecl);
-			if (try val = decl.contract.get())
+
 			{
-				return val;
+				FnDecl* decl = node.as(FnDecl);
+				if (try val = decl.contract.get())
+				{
+					return val;
+				}
 			}
-		}
 		case MACRO_DECL:
-		{
-			MacroDecl* decl = node.as(MacroDecl);
-			if (try val = decl.contract.get())
+
 			{
-				return val;
+				MacroDecl* decl = node.as(MacroDecl);
+				if (try val = decl.contract.get())
+				{
+					return val;
+				}
 			}
-		}
 		default:
 			break;
 	}
@@ -501,6 +419,7 @@ fn Node*? contract(Node* node)
 }
 
 <*
+
 *>
 fn String? docs(Node* node)
 {
@@ -519,18 +438,19 @@ fn Node* find_member_in_type(Node* node, String name)
 	switch (node.kind)
 	{
 		case STRUCT_DECL:
-		{
-			StructDecl* decl = node.as(StructDecl);
-			foreach (field : decl.fields)
+
 			{
-				String field_name = cursor::spelling(field, tmem) ?? "";
-				if (field_name == name)
+				StructDecl* decl = node.as(StructDecl);
+				foreach (field : decl.fields)
 				{
-					return field;
+					String field_name = cursor::spelling(field, tmem) ?? "";
+					if (field_name == name)
+					{
+						return field;
+					}
 				}
+				return null;
 			}
-			return null;
-		}
 		default:
 			return null;
 	}

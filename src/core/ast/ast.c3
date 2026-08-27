@@ -29,7 +29,7 @@ struct Node
 }
 
 <*
- @require self.kind == NodeKind.$eval(@typename_to_constname($Type::name)) : "Invalid kind to cast"
+ @require self.kind == NodeKind.$eval(@str_constantcase($Type::name)) : "Invalid kind to cast"
 *>
 macro Node.as(&self, $Type) => ($Type*)self;
 
@@ -61,7 +61,7 @@ macro Ast.alloc_node(&self, $Type, Range range)
 {
 	$Type* node = alloc::new(self.allocator, $Type);
 
-	node.kind = NodeKind.$eval(@typename_to_constname($Type::name));
+	node.kind = NodeKind.$eval(@str_constantcase($Type::name));
 	node.range = range;
 	node.id = next_node_id++;
 	self.nodes.push(node);
@@ -69,15 +69,15 @@ macro Ast.alloc_node(&self, $Type, Range range)
 	return node;
 }
 
-macro String @typename_to_constname(String $typename) @const
-{
-	var $name = "";
-	$foreach $i, $c : $typename:
-		$if $i != 0 &&& $c >= 'A' &&& $c <= 'Z':
-			$name +++= "_";
-		$endif
-		$name +++= @str_upper("" +++ $c);
-	$endforeach
-
-	return $name;
-}
+// macro String @typename_to_constname(String $typename) @const @local
+// {
+// 	var $name = "";
+// 	$foreach $i, $c : $typename:
+// 		$if $i != 0 &&& $c >= 'A' &&& $c <= 'Z':
+// 			$name +++= "_";
+// 		$endif
+// 		$name +++= @str_upper("" +++ $c);
+// 	$endforeach
+//
+// 	return $name;
+// }
