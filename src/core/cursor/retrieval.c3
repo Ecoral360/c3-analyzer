@@ -75,7 +75,7 @@ fn ChildVisitResult find_path_callback(Node* cursor, Node* parent, void* user_da
 {
 	FindPathContext* ctx = (FindPathContext*)user_data;
 
-	if (!cursor.is_valid())
+	if (!cursor || !cursor.is_valid())
 	{
 		ctx.current_idx += 1;
 		return CONTINUE;

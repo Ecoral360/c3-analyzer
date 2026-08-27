@@ -29,7 +29,7 @@ struct Node
 }
 
 <*
- @require self.kind == NodeKind.$eval(@str_constantcase($Type::name)) : "Invalid kind to cast"
+ @require self.kind == NodeKind.$eval(@str_constantcase($Type::name))) : "Invalid kind to cast"
 *>
 macro Node.as(&self, $Type) => ($Type*)self;
 

@@ -346,7 +346,7 @@ struct FindAtContext
 
 fn ChildVisitResult find_at_callback(Node* cursor, Node* parent, void* user_data)
 {
-	if (!cursor.is_valid()) return CONTINUE;
+	if (!cursor || !cursor.is_valid()) return CONTINUE;
 
 	FindAtContext* ctx = (FindAtContext*)user_data;
 	Node* node         = cursor;
