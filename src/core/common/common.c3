@@ -94,6 +94,12 @@ fn bool NodePoint.eq(self, NodePoint other) @operator(==)
 	return self.path == other.path && self.offset == other.offset;
 }
 
+struct NodeEntry
+{
+	Node* node;
+	NodePath path;
+}
+
 enum AttributeKind : char
 {
 	ALIGN,

@@ -389,30 +389,23 @@ fn Node* find_at(Node*[] slice, Range range)
 	return ctx.best_match;
 }
 
-fn Node*? contract(Node* node)
+fn ContractDecl*? contract(Node* node)
 {
 	switch (node.kind)
 	{
 		case FN_DECL:
-
+			FnDecl* decl = node.as(FnDecl);
+			if (try val = decl.contract.get())
 			{
-				FnDecl* decl = node.as(FnDecl);
-				if (try val = decl.contract.get())
-				{
-					return val;
-				}
+				return val.as(ContractDecl);
 			}
 		case MACRO_DECL:
-
+			MacroDecl* decl = node.as(MacroDecl);
+			if (try val = decl.contract.get())
 			{
-				MacroDecl* decl = node.as(MacroDecl);
-				if (try val = decl.contract.get())
-				{
-					return val;
-				}
+				return val.as(ContractDecl);
 			}
 		default:
-			break;
 	}
 
 	return null;
