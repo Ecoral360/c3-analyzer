@@ -19,10 +19,21 @@ faultdef
 ;
 
 <*
- Get the spelling/text for the current node
+ Get the spelling/text for the current node.
+
+ Three groups are handled:
+ - named declarations, which answer with their own identifier,
+ - expressions that carry or point at a name,
+ - wrappers such as groups, casts and splats, which are transparent and
+   answer with the spelling of what they wrap.
+
+ Anything without a name, statements included, answers with the empty
+ string rather than an error, so callers can use the result directly.
 *>
 fn String? spelling(Node* node, Allocator allocator) => @pool()
 {
+	if (!node) return "";
+
 	switch (node.kind)
 	{
 		case STRUCT_DECL:
@@ -57,6 +68,31 @@ fn String? spelling(Node* node, Allocator allocator) => @pool()
 			InterfaceDecl* id = node.as(InterfaceDecl);
 			if (!id.name) return "";
 			return id.name.text;
+		case FAULT_DECL:
+			FaultDecl* fault_decl = node.as(FaultDecl);
+			if (!fault_decl.name) return "";
+			return fault_decl.name.text;
+		case ATTRDEF_DECL:
+			AttrdefDecl* attr_def = node.as(AttrdefDecl);
+			if (!attr_def.name) return "";
+			return attr_def.name.text;
+		case ATTRIBUTE_DECL:
+			AttributeDecl* attr = node.as(AttributeDecl);
+			if (!attr.name) return "";
+			return attr.name.text;
+		case MODULE_DECL:
+			ModuleDecl* mod_decl = node.as(ModuleDecl);
+			return spelling(mod_decl.path, allocator);
+		case IMPORT_DECL:
+			// An import can name several modules at once; the first one is
+			// what the declaration is taken to spell.
+			ImportDecl* imp = node.as(ImportDecl);
+			if (!imp.paths.len) return "";
+			return spelling(imp.paths[0], allocator);
+		case CONTRACT_PARAM:
+			ContractParam* contract_param = node.as(ContractParam);
+			if (!contract_param.ident) return "";
+			return contract_param.ident.text;
 		case TYPE_EXPR:
 			TypeExpr* type_data = node.as(TypeExpr);
 			if (type_data.type_kind == TYPE_IDENTIFIER)
@@ -76,7 +112,82 @@ fn String? spelling(Node* node, Allocator allocator) => @pool()
 			IdentExpr* ident = node.as(IdentExpr);
 			if (!ident.ident) return "";
 			return ident.ident.text;
+		case PATH_EXPR:
+			PathExpr* path_expr = node.as(PathExpr);
+			if (!path_expr.path) return "";
+			return path_expr.path.text;
+		case NAMED_ARG_EXPR:
+			NamedArgExpr* named = node.as(NamedArgExpr);
+			if (!named.name) return "";
+			return named.name.text;
+		case BUILTIN_EXPR:
+			BuiltinExpr* builtin_expr = node.as(BuiltinExpr);
+			if (!builtin_expr.name) return "";
+			return builtin_expr.name.text;
+		case COMPILER_CONST_EXPR:
+			// CompilerConstExpr inlines BuiltinExpr, but `as` checks the exact
+			// kind, so the two cannot share a cast.
+			CompilerConstExpr* const_expr = node.as(CompilerConstExpr);
+			if (!const_expr.name) return "";
+			return const_expr.name.text;
+		case LITERAL_EXPR:
+			return literal_spelling(node.as(LiteralExpr), allocator);
+		case CALL_EXPR:
+			CallExpr* call = node.as(CallExpr);
+			return spelling(call.callee, allocator);
+		case ACCESS_EXPR:
+			// 'x.field' and 'Type::member' both spell as the member.
+			AccessExpr* access_expr = node.as(AccessExpr);
+			return spelling(access_expr.member, allocator);
+		case DESIGNATOR_EXPR:
+			DesignatorExpr* designator = node.as(DesignatorExpr);
+			if (designator.designator_kind != PERIOD) return "";
+			return spelling(designator.data.field, allocator);
+		case DESIGNATED_INITIALIZER_EXPR:
+			DesignatedInitializerExpr* designated = node.as(DesignatedInitializerExpr);
+			return spelling(designated.path, allocator);
+		case CAST_EXPR:
+			// 'inner' is the target type, 'operand' is the value being cast,
+			// and the value is what the expression is named after.
+			CastExpr* cast_expr = node.as(CastExpr);
+			return spelling(cast_expr.operand, allocator);
+		case GROUP_EXPR:
+			GroupExpr* group_expr = node.as(GroupExpr);
+			return spelling(group_expr.inner, allocator);
+		case OPTIONAL_EXPR:
+			OptionalExpr* optional_expr = node.as(OptionalExpr);
+			return spelling(optional_expr.inner_expr, allocator);
+		case MAYBE_DEREF_EXPR:
+			MaybeDerefExpr* deref_expr = node.as(MaybeDerefExpr);
+			return spelling(deref_expr.left, allocator);
+		case SPLAT_EXPR:
+			SplatExpr* splat_expr = node.as(SplatExpr);
+			return spelling(splat_expr.inner, allocator);
 		default:
+			return "";
+	}
+}
+
+<*
+ Text of a literal, as it would be written in source.
+
+ Byte literals are left empty: they have no readable spelling.
+*>
+fn String literal_spelling(LiteralExpr* literal, Allocator allocator) @local
+{
+	switch (literal.literal_kind)
+	{
+		case INT_LITERAL:
+			return string::format(allocator, "%d", literal.integer);
+		case REAL_LITERAL:
+			return string::format(allocator, "%f", literal.real);
+		case BOOL_LITERAL:
+			return literal.boolean ? "true" : "false";
+		case NULL_LITERAL:
+			return "null";
+		case STRING_LITERAL:
+			return literal.string;
+		case BYTES_LITERAL:
 			return "";
 	}
 }
