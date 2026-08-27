@@ -29,6 +29,10 @@ fn String? spelling(Node* node, Allocator allocator) => @pool()
 			StructDecl* s = node.as(StructDecl);
 			if (!s.name) return "";
 			return s.name.text;
+		case ENUM_DECL:
+			EnumDecl* e = node.as(EnumDecl);
+			if (!e.name) return "";
+			return e.name.text;
 		case VAR_DECL:
 			VarDecl* v = node.as(VarDecl);
 			if (!v.name) return "";

@@ -60,7 +60,11 @@ fn ChildVisitResult sema_on_enter(Node* node, Node* parent, void* user_data) @lo
 {
 	SemaContext* ctx = (SemaContext*)user_data;
 
-	while (ctx.scope.parent && !ctx.scope.range.contains(node.range.end))
+	// contains() treats the end location as exclusive, so a block that ends
+	// exactly where its declaration ends would look like it escaped the
+	// enclosing scope and get reparented to the root. contains_range is the
+	// inclusive comparison this needs.
+	while (ctx.scope.parent && !ctx.scope.range.contains_range(node.range))
 	{
 		ctx.scope = ctx.scope.parent;
 	}

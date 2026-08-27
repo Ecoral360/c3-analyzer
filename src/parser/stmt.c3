@@ -202,7 +202,6 @@ fn Node* parse_compound_stmt(ContextScope scope) => @pool()
 {
 	ParseContext* ctx = scope.ctx;
 	CompoundStmt* node = ctx.ast.alloc_node(CompoundStmt, ctx.current.range);
-	defer node.range.end = ctx.current.range.end;
 	advance(ctx);
 
 	List{Node*} temp_stmts;
@@ -226,12 +225,19 @@ fn Node* parse_compound_stmt(ContextScope scope) => @pool()
 		}
 	}
 
+	// Take the closing brace's end before consuming it. Reading
+	// ctx.current afterwards would put the block's range end on the first
+	// token of whatever follows, which pushes the body outside its own
+	// declaration and breaks scope nesting.
+	Range closing = ctx.current.range;
+
 	if (!consume(ctx, RBRACE))
 	{
 		diagnostics::error(ctx.context, ctx.current.range, "Expected '}' to terminate compound");
 		node.flags.has_error = true;
 	}
 
+	node.range.end = closing.end;
 	node.statements = alloc::clone_slice(ctx.allocator, temp_stmts.array_view());
 
 	return (Node*)node;
