@@ -16,6 +16,56 @@ fn Registry* create(Allocator alloc)
 	return registry;
 }
 
+<*
+ Release a registry and every entry it owns.
+
+ Each map value is the head of a `next` linked chain of overloads, so
+ the chains have to be walked; the maps own their keys. `alloc` must be
+ the allocator the registry was created with.
+*>
+fn void free(Allocator alloc, Registry* registry)
+{
+	if (!registry) return;
+
+	registry.types.@each(; String name, TypeInfo* head)
+	{
+		TypeInfo* current = head;
+		while (current)
+		{
+			TypeInfo* next = current.next;
+			alloc::free(alloc, current);
+			current = next;
+		}
+	};
+	registry.types.free();
+
+	registry.functions.@each(; String name, FunctionInfo* head)
+	{
+		FunctionInfo* current = head;
+		while (current)
+		{
+			FunctionInfo* next = current.next;
+			alloc::free(alloc, current);
+			current = next;
+		}
+	};
+	registry.functions.free();
+
+	registry.macros.@each(; String name, MacroInfo* head)
+	{
+		MacroInfo* current = head;
+		while (current)
+		{
+			MacroInfo* next = current.next;
+			alloc::free(alloc, current);
+			current = next;
+		}
+	};
+	registry.macros.free();
+
+	alloc::free(alloc, registry);
+}
+
 fn void register(AnalyzerContext* context, SourceFile* sf) => @pool()
 {
 	Module* current_mod;

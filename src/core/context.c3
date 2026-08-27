@@ -52,6 +52,11 @@ fn void free(AnalyzerContext* ctx)
 	ctx.modules.free();
 
 	$if $feat(SEMA):
+		// Both are created in `create` from ctx.allocator. A consumer that
+		// swapped in its own pair is expected to null these first, so both
+		// frees tolerate a null argument.
+		registry::free(ctx.allocator, ctx.registry);
+		lookup::free(ctx.lookup);
 	$endif
 
 	alloc::free(ctx.allocator, ctx);

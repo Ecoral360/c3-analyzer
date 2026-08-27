@@ -16,6 +16,25 @@ fn Lookup* create(AnalyzerContext* context, Allocator alloc)
 	return lookup;
 }
 
+<*
+ Release a lookup and every Type it owns.
+
+ The builtins from init_builtin_types are allocated one at a time, so
+ freeing the map alone would strand all of them. The map owns its keys.
+*>
+fn void free(Lookup* lookup)
+{
+	if (!lookup) return;
+
+	lookup.types.@each(; String name, Type* type)
+	{
+		alloc::free(lookup.alloc, type);
+	};
+	lookup.types.free();
+
+	alloc::free(lookup.alloc, lookup);
+}
+
 fn void register_type(Lookup* lookup, Allocator alloc, String name, Node* node)
 {
 	Type* type = alloc::new(alloc, Type);
