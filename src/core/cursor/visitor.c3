@@ -33,18 +33,23 @@ fn bool visit_inner(Node* child, Node* parent, VisitorHooks hooks, void* data, i
 	if (max_depth <= depth) return false;
 
 	ChildVisitResult res = hooks.on_enter(child, parent, data);
-	if (res == ChildVisitResult.BREAK) return false; // Stop the whole walk
-
-	if (res == ChildVisitResult.RECURSE)
+	if (res == RECURSE)
 	{
 		// Recursively visit the children of this child
-		if (!visit_children(child, hooks, data, max_depth, depth + 1)) return false;
+		if (!visit_children(child, hooks, data, max_depth, depth + 1))
+		{
+			// if it is false, we still need to run the on_exit before we
+			// stop, this ensures that
+			res = BREAK;
+		}
 	}
 
 	if (hooks.on_exit)
 	{
 		hooks.on_exit(child, parent, data);
 	}
+
+	if (res == BREAK) return false; // Stop the whole walk
 
 	return true; // Continue to next sibling
 }
