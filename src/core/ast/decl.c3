@@ -63,6 +63,7 @@ Fields:
 struct AliasDecl
 {
 	inline Node node;
+	NullableNode contract;
 	Ident* name;
 	TokenKind name_kind;
 	AliasDeclKind alias_kind;
@@ -85,6 +86,7 @@ struct AliasDecl
 struct TypedefDecl
 {
 	inline Node node;
+	NullableNode contract;
 	Ident* name;
 	Node* base_type;
 	Node* generics;
@@ -145,6 +147,7 @@ struct VarDecl
 struct EnumDecl
 {
 	inline Node node;
+	NullableNode contract;
 	Ident* name;
 	NodeArray interfaces; // optional implemented interfaces: "(" type ("," type)* ")"
 	bool is_inline_backing;
@@ -224,6 +227,7 @@ struct InterfaceDecl
 struct AttrdefDecl
 {
 	inline Node node;
+	NullableNode contract;
 	Ident* name;
 	NodeArray params;
 	NodeArray attributes;

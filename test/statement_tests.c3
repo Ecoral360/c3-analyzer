@@ -791,3 +791,84 @@ fn void decl_stmt_ambiguity()
 	test::eq(parser_tests::count_kind(mod, MODULE_DECL), 1);
 	test::eq(parser_tests::count_kind(mod, FN_DECL), 1);
 }
+
+fn void assert_stmt_children()
+{
+	String source_code = `
+		module hello;
+		fn void foo()
+		{
+			int a = 5;
+			assert(a > 0);
+			assert(a > 0, "boom %d %d", a, a);
+		}
+	`;
+	parser_tests::start_counting_diags();
+	defer parser_tests::stop_counting_diags();
+
+	AnalyzerContext* context = context::create(tmem);
+	context::process(context, source_code, "test");
+	test::eq(parser_tests::error_diag_count, 0);
+
+	Module* mod = context.modules.get("hello")!!;
+	FnDecl* func = mod.nodes[1].as(FnDecl);
+	CompoundStmt* body = func.body.as(CompoundStmt);
+
+	AssertStmt* bare = body.statements[1].as(AssertStmt);
+	test::eq(bare.expr.kind, NodeKind.BINARY_EXPR);
+	test::eq(bare.message, null);
+	test::eq(bare.args.len, 0);
+
+	AssertStmt* with_msg = body.statements[2].as(AssertStmt);
+	test::eq(with_msg.expr.kind, NodeKind.BINARY_EXPR);
+	test::ne(with_msg.message, null);
+	test::eq(with_msg.args.len, 2);
+}
+
+fn void nextcase_stmt()
+{
+	String source_code = `
+		module hello;
+		fn void foo()
+		{
+			int a = 5;
+			switch (a)
+			{
+				case 1:
+					nextcase 2;
+				case 2:
+					nextcase;
+				case 3:
+					nextcase default;
+				default:
+					break;
+			}
+		}
+	`;
+	parser_tests::start_counting_diags();
+	defer parser_tests::stop_counting_diags();
+
+	AnalyzerContext* context = context::create(tmem);
+	context::process(context, source_code, "test");
+	test::eq(parser_tests::error_diag_count, 0);
+
+	Module* mod = context.modules.get("hello")!!;
+	FnDecl* func = mod.nodes[1].as(FnDecl);
+	CompoundStmt* body = func.body.as(CompoundStmt);
+	SwitchStmt* swi = body.statements[1].as(SwitchStmt);
+
+	// 'nextcase' does not end a case, so it lands in that case's own body.
+	test::eq(swi.cases.len, 4);
+
+	NextcaseStmt* with_expr = parser_tests::case_body(swi.cases[0]).as(NextcaseStmt);
+	test::ne(with_expr.expr, null);
+	test::eq(with_expr.expr.kind, NodeKind.LITERAL_EXPR);
+	test::eq(with_expr.is_default, false);
+
+	NextcaseStmt* bare = parser_tests::case_body(swi.cases[1]).as(NextcaseStmt);
+	test::eq(bare.expr, null);
+	test::eq(bare.is_default, false);
+
+	NextcaseStmt* to_default = parser_tests::case_body(swi.cases[2]).as(NextcaseStmt);
+	test::eq(to_default.is_default, true);
+}

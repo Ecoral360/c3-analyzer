@@ -68,6 +68,11 @@ fn NodeArray parse_parameter_list(ContextScope scope) => @pool()
 				break;
 			}
 		}
+		else if (flags.is_macro && ctx.is(EOS))
+		{
+			// ';' ends the macro parameter list and starts the body parameter.
+			break;
+		}
 		else if (!ctx.is(RPAREN))
 		{
 			diagnostics::error(ctx.context, ctx.current.range, "Expected ',' or ')' in parameter list");
@@ -100,11 +105,14 @@ fn void parse_macro_params(ContextScope scope, Node* macro_node)
 		expect(ctx, mac, AT_IDENT);
 
 		BodyParamDecl* body_param_node = ctx.ast.alloc_node(BodyParamDecl, at_tok.range);
-		
+
 		if (ctx.is(LPAREN))
 		{
 			body_param_node.params = parse_parameter_list(scope);
 		}
+
+		body_param_node.range.end = ctx.peek(-1).range.end;
+		mac.body_params = (Node*)body_param_node;
 	}
 
 	expect(ctx, mac, RPAREN);

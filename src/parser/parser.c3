@@ -496,6 +496,27 @@ fn void attach_contract(ParseContext* ctx, Node* node, Node* contract)
 		case VAR_DECL:
 			VarDecl* vd = node.as(VarDecl);
 			vd.contract.set(contract);
+		case MACRO_DECL:
+			MacroDecl* mac = node.as(MacroDecl);
+			mac.contract.set(contract);
+		case STRUCT_DECL:
+			StructDecl* sd = node.as(StructDecl);
+			sd.contract.set(contract);
+		case INTERFACE_DECL:
+			InterfaceDecl* id = node.as(InterfaceDecl);
+			id.contract.set(contract);
+		case ENUM_DECL:
+			EnumDecl* ed = node.as(EnumDecl);
+			ed.contract.set(contract);
+		case ALIAS_DECL:
+			AliasDecl* ad = node.as(AliasDecl);
+			ad.contract.set(contract);
+		case TYPEDEF_DECL:
+			TypedefDecl* td = node.as(TypedefDecl);
+			td.contract.set(contract);
+		case ATTRDEF_DECL:
+			AttrdefDecl* attr_def = node.as(AttrdefDecl);
+			attr_def.contract.set(contract);
 		default:
 			break;
 	}

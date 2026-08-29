@@ -3,6 +3,7 @@ module contract_tests @test;
 import parser_tests;
 
 import analyzer::parser;
+import analyzer::cursor;
 import analyzer::core;
 import std::io;
 import std::collections::list;
@@ -186,5 +187,93 @@ fn void contract_with_deprecated()
 		test::eq(expr.ident.text, "a");
 		test::eq(expr.modifier, InOutModifier.IN);
 		test::eq(expr.description.text, "\"my param\"");
+	}
+}
+
+fn void contract_on_every_decl_kind()
+{
+	String source_code = `
+		module hello;
+
+		<* doc module *>
+		module hello::sub;
+
+		<* doc enum *>
+		enum Color { RED, GREEN }
+
+		<* doc alias *>
+		alias Ints = int[4];
+
+		<* doc typedef *>
+		typedef Meters = int;
+
+		<* doc attrdef *>
+		attrdef @Packed = { @packed };
+
+		<* doc struct *>
+		struct Point { int x; }
+
+		<* doc interface *>
+		interface Printable { fn void print(); }
+
+		<* doc faultdef *>
+		faultdef OOPS;
+
+		<* doc global *>
+		int counter;
+
+		<* doc macro *>
+		macro one() { return 1; }
+
+		<* doc fn *>
+		fn void go() {}
+	`;
+	AnalyzerContext* context = context::create(tmem);
+	bool success = context::process(context, source_code, "test");
+	test::eq(success, true);
+
+	NodeKind[] kinds = {
+		NodeKind.ENUM_DECL,
+		NodeKind.ALIAS_DECL,
+		NodeKind.TYPEDEF_DECL,
+		NodeKind.ATTRDEF_DECL,
+		NodeKind.STRUCT_DECL,
+		NodeKind.INTERFACE_DECL,
+		NodeKind.FAULTDEF_DECL,
+		NodeKind.VAR_DECL,
+		NodeKind.MACRO_DECL,
+		NodeKind.FN_DECL,
+		NodeKind.MODULE_DECL,
+	};
+
+	foreach (kind : kinds)
+	{
+		Node* found;
+
+		Module*[2] mods = { context.modules.get("hello")!!, context.modules.get("hello::sub")!! };
+
+		foreach (mod_entry : mods)
+		{
+			foreach (node : mod_entry.nodes)
+			{
+				if (node != null && node.kind == kind && cursor::contract(node) ?? null)
+				{
+					found = node;
+					break;
+				}
+			}
+			if (found) break;
+		}
+
+		if (!found)
+		{
+			io::printfn("no contract found for %s", kind);
+			test::@check(false, "missing contract for %s", kind);
+			continue;
+		}
+
+		ContractDecl* decl = cursor::contract(found)!!;
+		test::ne(decl, null);
+		test::ne(decl.comment, null);
 	}
 }

@@ -675,3 +675,34 @@ fn void ct_assert_decl()
 	test::eq(parser_tests::count_kind(mod, MODULE_DECL), 1);
 	test::eq(parser_tests::count_kind(mod, CT_ASSERT_DECL), 4);
 }
+
+fn void macro_body_params()
+{
+	String source_code = `
+		module hello;
+		macro @each(int a; @body(int x)) {}
+		macro @twice(int a; @body) {}
+		macro @plain(int a) {}
+	`;
+	parser_tests::start_counting_diags();
+	defer parser_tests::stop_counting_diags();
+
+	AnalyzerContext* context = context::create(tmem);
+	context::process(context, source_code, "test");
+	test::eq(parser_tests::error_diag_count, 0);
+
+	Module* mod = context.modules.get("hello")!!;
+
+	MacroDecl* each = mod.nodes[1].as(MacroDecl);
+	test::eq(each.params.len, 1);
+	test::ne(each.body_params, null);
+	BodyParamDecl* body_params = each.body_params.as(BodyParamDecl);
+	test::eq(body_params.params.len, 1);
+
+	MacroDecl* twice = mod.nodes[2].as(MacroDecl);
+	test::ne(twice.body_params, null);
+	test::eq(twice.body_params.as(BodyParamDecl).params.len, 0);
+
+	MacroDecl* plain = mod.nodes[3].as(MacroDecl);
+	test::eq(plain.body_params, null);
+}

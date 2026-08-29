@@ -431,7 +431,9 @@ fn Node* parse_nextcase_stmt(ContextScope scope)
 	Range start = ctx.current.range;
 
 	NextcaseStmt* node = ctx.ast.alloc_node(NextcaseStmt, start);
-	defer node.range.end = ctx.current.range.end;
+	defer node.range.end = ctx.peek(-1).range.end;
+
+	advance(ctx); // Consume 'nextcase'
 
 	if (consume(ctx, EOS))
 	{
@@ -449,6 +451,12 @@ fn Node* parse_nextcase_stmt(ContextScope scope)
 	else
 	{
 		node.expr = parse_expr(scope);
+	}
+
+	if (!consume(ctx, EOS))
+	{
+		diagnostics::error(ctx.context, ctx.current.range, "Expected ';' to terminate 'nextcase'");
+		error_node(ctx, node);
 	}
 
 	return (Node*)node;
@@ -1343,8 +1351,6 @@ fn Node* parse_assert_stmt(ContextScope scope)
 	Range start = ctx.current.range;
 	advance(ctx);
 	AssertStmt* node = ctx.ast.alloc_node(AssertStmt, start);
-
-	expect(ctx, node, LPAREN);
 
 	if (!consume(ctx, LPAREN))
 	{

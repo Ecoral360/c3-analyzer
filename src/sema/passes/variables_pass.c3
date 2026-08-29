@@ -7,15 +7,12 @@ import std::collections::list;
 
 fn void run_variable_pass(SemaContext* ctx) => @pool()
 {
-    SourceFile* sf = ctx.context.current_source_file;
-    String[] lines = sf.content.tsplit("\n");
+	SourceFile* sf = ctx.context.current_source_file;
+	String[] lines = sf.content.tsplit("\n");
 
 	Range range = {
-		.start = {},
-		.end = {
-		    .line = lines.len - 1,
-			.column = lines[^1].len - 1
-		},
+		.start = { },
+		.end = { .line = lines.len - 1, .column = lines[^1].len - 1 },
 	};
 
 	ctx.scope.range = range;
@@ -72,7 +69,6 @@ fn ChildVisitResult sema_on_enter(Node* node, Node* parent, void* user_data) @lo
 	switch (node.kind)
 	{
 		case IF_STMT:
-		{
 			IfStmt* if_stmt = node.as(IfStmt);
 			if (if_stmt.then_body.kind != COMPOUND_STMT)
 			{
@@ -100,9 +96,8 @@ fn ChildVisitResult sema_on_enter(Node* node, Node* parent, void* user_data) @lo
 			}
 
 			return CONTINUE;
-		}
+
 		case CT_IF_STMT:
-		{
 			CtIfStmt* if_stmt = node.as(CtIfStmt);
 			push_scope(ctx, node);
 			foreach (child : if_stmt.then_stmts)
@@ -120,7 +115,7 @@ fn ChildVisitResult sema_on_enter(Node* node, Node* parent, void* user_data) @lo
 				pop_scope(ctx);
 			}
 			return CONTINUE;
-		}
+
 		case MACRO_DECL:
 		case FN_DECL:
 		case FOR_STMT:
@@ -136,21 +131,26 @@ fn ChildVisitResult sema_on_enter(Node* node, Node* parent, void* user_data) @lo
 
 	if VAR: (node.kind == VAR_DECL)
 	{
-        VarDecl* decl = node.as(VarDecl);
+		VarDecl* decl = node.as(VarDecl);
 
-        if (!decl.name) break VAR;
+		if (!decl.name) break VAR;
 
-        VariableInfo* info = scope::get_variable(ctx.scope, decl.name.text);
-        if (info)
-        {
+		VariableInfo* info = scope::get_variable(ctx.scope, decl.name.text);
+		if (info)
+		{
 			diagnostics::note(ctx.context, info.node.range, "Previous definition of '%s' was here", info.name);
-			diagnostics::error(ctx.context, decl.range, "Variable '%s' is being redefined in the same scope", decl.name.text);
+			diagnostics::error(
+				ctx.context,
+				decl.range,
+				"Variable '%s' is being redefined in the same scope",
+				decl.name.text
+			);
 			break VAR;
-        }
+		}
 
-        diagnostics::log_debug("[VariablePass]: Added local variable: %s", decl.name.text);
+		diagnostics::log_debug("[VariablePass]: Added local variable: %s", decl.name.text);
 
-        scope::add_variable(ctx.scope, ctx.allocator, decl.name.text, node);
+		scope::add_variable(ctx.scope, ctx.allocator, decl.name.text, node);
 	}
 
 	return RECURSE;

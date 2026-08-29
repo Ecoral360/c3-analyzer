@@ -30,3 +30,40 @@ fn int count_kind(Module* mod, NodeKind kind)
 	}
 	return n;
 }
+
+int error_diag_count;
+
+<*
+ Count ERROR diagnostics instead of printing them, so a test can assert that
+ a source parses cleanly. 'context::process' only reports the errors raised
+ through 'expect', which is why counting the diagnostics is the reliable check.
+*>
+fn void count_error_diags(SourceFile* file, Range range, DiagnosticLevel level, String message)
+{
+	if (level == DiagnosticLevel.ERROR) error_diag_count++;
+}
+
+<*
+ Install the counting callback and reset the counter.
+*>
+fn void start_counting_diags()
+{
+	error_diag_count = 0;
+	diagnostics::callback = &count_error_diags;
+}
+
+fn void stop_counting_diags()
+{
+	diagnostics::callback = null;
+}
+
+<*
+ The single statement inside a case body.
+*>
+fn Node* case_body(Node* case_node)
+{
+	CaseStmt* cs = case_node.as(CaseStmt);
+	CompoundStmt* body = cs.body.as(CompoundStmt);
+	test::eq(body.statements.len, 1);
+	return body.statements[0];
+}

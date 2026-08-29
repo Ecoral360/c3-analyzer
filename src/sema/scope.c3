@@ -42,72 +42,72 @@ fn void add_variable(Scope* scope, Allocator alloc, String name, Node* node)
 
 fn bool has_variable(Scope* scope, String name)
 {
-    if (scope.variables.has_key(name))
+	if (scope.variables.has_key(name))
 	{
-        return true;
-    }
+		return true;
+	}
 
-    if (scope.parent)
+	if (scope.parent)
 	{
-        return has_variable(scope.parent, name);
-    }
+		return has_variable(scope.parent, name);
+	}
 
-    return false;
+	return false;
 }
 
 fn VariableInfo* get_variable(Scope* scope, String name)
 {
-    if (scope.variables.has_key(name))
+	if (scope.variables.has_key(name))
 	{
-        return scope.variables.get(name)!!;
-    }
+		return scope.variables.get(name)!!;
+	}
 
-    if (scope.parent)
+	if (scope.parent)
 	{
-        return get_variable(scope.parent, name);
-    }
+		return get_variable(scope.parent, name);
+	}
 
-    return null;
+	return null;
 }
 
 fn FunctionInfo* add_function(Scope* scope, Allocator alloc, String name, String mod, Node* node)
 {
-    FunctionInfo* function = alloc::new(alloc, FunctionInfo);
+	FunctionInfo* function = alloc::new(alloc, FunctionInfo);
 
-    function.mod  = mod;
-    function.node = node;
+	function.mod = mod;
+	function.node = node;
 
-    scope.functions.set(name, function);
+	scope.functions.set(name, function);
 
-    return function;
+	return function;
 }
 
 fn bool has_function(Scope* scope, String name)
 {
-    if (scope.functions.has_key(name))
+	if (scope.functions.has_key(name))
 	{
-        return true;
-    }
+		return true;
+	}
 
-    if (scope.parent)
+	if (scope.parent)
 	{
-        return has_function(scope.parent, name);
-    }
+		return has_function(scope.parent, name);
+	}
 
-    return false;
+	return false;
 }
 
 fn FunctionInfo* get_function(Scope* scope, String name)
 {
-    if (scope.functions.has_key(name))
+	if (scope.functions.has_key(name))
 	{
-        return scope.functions.get(name)!!;
-    }
+		return scope.functions.get(name)!!;
+	}
 
-    if (scope.parent)
+	if (scope.parent)
 	{
-        return get_function(scope.parent, name);
-    }
+		return get_function(scope.parent, name);
+	}
 
-    return null;
+	return null;
 }
