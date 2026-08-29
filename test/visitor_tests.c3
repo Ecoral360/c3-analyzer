@@ -17,6 +17,40 @@ fn ChildVisitResult collect(Node* cursor, Node* parent, void* user_data)
 	return RECURSE;
 }
 
+struct BalanceProbe
+{
+	int enters;
+	int exits;
+	int open;      // enters not yet matched by an exit
+	int max_open;
+	NodeKind break_on;
+	bool has_broken;
+}
+
+fn ChildVisitResult balance_enter(Node* cursor, Node* parent, void* user_data)
+{
+	BalanceProbe* probe = (BalanceProbe*)user_data;
+	probe.enters++;
+	probe.open++;
+	if (probe.open > probe.max_open) probe.max_open = probe.open;
+
+	if (!probe.has_broken && cursor.kind == probe.break_on)
+	{
+		probe.has_broken = true;
+		return BREAK;
+	}
+
+	return RECURSE;
+}
+
+fn ChildVisitResult balance_exit(Node* cursor, Node* parent, void* user_data)
+{
+	BalanceProbe* probe = (BalanceProbe*)user_data;
+	probe.exits++;
+	probe.open--;
+	return CONTINUE;
+}
+
 module visitor_tests @test;
 
 import parser_tests;
@@ -198,5 +232,72 @@ fn void visit_reaches_every_child()
 		{
 			test::@check(false, "visitor never reached %s", kind);
 		}
+	}
+}
+
+<*
+ Once on_enter has run for a node, on_exit must run for it too - whatever a
+ descendant returns, and whatever the depth limit cuts off.
+*>
+fn void enter_and_exit_stay_balanced()
+{
+	String source_code = `
+		module hello;
+
+		<* @require a > 0 *>
+		fn int foo(int a)
+		{
+			int[4] arr = { 1, 2, 3, 4 };
+			if (a > 0)
+			{
+				foreach (e : arr) { a += e; }
+			}
+			var f = fn int(int z) => z + 1;
+			return a + f(1);
+		}
+	`;
+
+	AnalyzerContext* context = context::new(tmem);
+	context::process(context, source_code, "test");
+	Module* mod = context.modules.get("hello")!!;
+
+	// A full walk.
+	visitor_test_helpers::BalanceProbe full;
+	foreach (node : mod.nodes)
+	{
+		if (node == null) continue;
+		cursor::visit(node, null, { &visitor_test_helpers::balance_enter, &visitor_test_helpers::balance_exit }, &full);
+	}
+	test::eq(full.open, 0);
+	test::eq(full.enters, full.exits);
+	test::ne(full.enters, 0);
+	test::ne(full.max_open, 0);
+
+	// A walk cut short by a BREAK deep inside the tree. The node that breaks
+	// gets its own on_exit, and so does every ancestor above it.
+	visitor_test_helpers::BalanceProbe broken;
+	broken.break_on = NodeKind.LITERAL_EXPR;
+	foreach (node : mod.nodes)
+	{
+		if (node == null) continue;
+		cursor::visit(node, null, { &visitor_test_helpers::balance_enter, &visitor_test_helpers::balance_exit }, &broken);
+	}
+	test::eq(broken.has_broken, true);
+	test::eq(broken.open, 0);
+	test::eq(broken.enters, broken.exits);
+	test::ne(broken.enters, full.enters);
+
+	// A walk truncated by max_depth: the cut happens before on_enter, so the
+	// counts stay level there too.
+	for (int limit = 1; limit < 12; limit++)
+	{
+		visitor_test_helpers::BalanceProbe capped;
+		foreach (node : mod.nodes)
+		{
+			if (node == null) continue;
+			cursor::visit(node, null, { &visitor_test_helpers::balance_enter, &visitor_test_helpers::balance_exit }, &capped, limit);
+		}
+		test::eq(capped.open, 0);
+		test::eq(capped.enters, capped.exits);
 	}
 }

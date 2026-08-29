@@ -2,12 +2,16 @@ module analyzer::sema::scope @feat(SEMA);
 
 import analyzer::core;
 
-fn Scope* new(Allocator alloc, Range range, Scope* parent = null)
+<*
+ @param is_barrier : "true for a function-like scope, which lookup does not climb out of"
+*>
+fn Scope* new(Allocator alloc, Range range, Scope* parent = null, bool is_barrier = false)
 {
 	Scope* scope = alloc::new(alloc, Scope);
 
 	scope.parent = parent;
 	scope.range = range;
+	scope.is_barrier = is_barrier;
 	scope.children.init(alloc);
 	scope.functions.init(alloc);
 	scope.variables.init(alloc);
@@ -20,9 +24,12 @@ fn void free(Scope* scope)
 {
 	if (!scope) return;
 
-	free(scope.parent);
-
+	foreach (child : scope.children)
+	{
+		free(child);
+	}
 	scope.children.free();
+
 	scope.functions.free();
 	scope.variables.free();
 	scope.types.free();
@@ -40,6 +47,11 @@ fn void add_variable(Scope* scope, Allocator alloc, String name, Node* node)
 	scope.variables.set(name, variable);
 }
 
+<*
+ Look for a variable in this scope and the ones enclosing it, stopping at the
+ first function-like scope: C3 lets a local shadow a global, and a lambda
+ cannot see the locals of the function it is written in.
+*>
 fn bool has_variable(Scope* scope, String name)
 {
 	if (scope.variables.has_key(name))
@@ -47,7 +59,7 @@ fn bool has_variable(Scope* scope, String name)
 		return true;
 	}
 
-	if (scope.parent)
+	if (scope.parent && !scope.is_barrier)
 	{
 		return has_variable(scope.parent, name);
 	}
@@ -55,6 +67,9 @@ fn bool has_variable(Scope* scope, String name)
 	return false;
 }
 
+<*
+ Stops at a function-like scope, the same way 'has_variable' does.
+*>
 fn VariableInfo* get_variable(Scope* scope, String name)
 {
 	if (scope.variables.has_key(name))
@@ -62,7 +77,7 @@ fn VariableInfo* get_variable(Scope* scope, String name)
 		return scope.variables.get(name)!!;
 	}
 
-	if (scope.parent)
+	if (scope.parent && !scope.is_barrier)
 	{
 		return get_variable(scope.parent, name);
 	}

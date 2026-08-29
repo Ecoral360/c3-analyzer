@@ -5,8 +5,6 @@ import std::collections;
 import analyzer::sema;
 import analyzer::lexer;
 
-attrdef @UseSema = @if($feat(SEMA));
-
 struct SourceFile
 {
 	Lexer* lexer;
@@ -121,6 +119,9 @@ struct Scope
 {
 	Scope* parent;
 	Range range;
+	// A function-like scope: variable lookup stops here instead of climbing
+	// into the enclosing function or the file scope.
+	bool is_barrier;
 	List{Scope*} children;
 	HashMap{String, FunctionInfo*} functions;
 	HashMap{String, VariableInfo*} variables;

@@ -38,11 +38,11 @@ fn void run_variable_pass(SemaContext* ctx) => @pool()
 	}
 }
 
-fn void push_scope(SemaContext* ctx, Node* node)
+fn void push_scope(SemaContext* ctx, Node* node, bool is_barrier = false)
 {
 	diagnostics::log_debug("[VariablePass]: Pushed new scope for %s at %s", node.kind.description, node.range);
 
-	Scope* new_scope = scope::new(ctx.allocator, node.range, ctx.scope);
+	Scope* new_scope = scope::new(ctx.allocator, node.range, ctx.scope, is_barrier);
 
 	ctx.scope.children.push(new_scope);
 	ctx.scope = new_scope;
@@ -60,23 +60,9 @@ fn ChildVisitResult sema_on_enter(Node* node, Node* parent, void* user_data) @lo
 {
 	SemaContext* ctx = (SemaContext*)user_data;
 
-	// A contract is written above the declaration it documents, so its range
-	// lies outside the scope that declaration opened. Walking into it would
-	// make the loop below climb back out to the file scope, and every sibling
-	// visited afterwards - the parameters among them - would land there. A
-	// contract declares no runtime variables, so skip the subtree untouched.
-	// if (node.kind == CONTRACT_DECL) return CONTINUE;
-
-	// contains() treats the end location as exclusive, so a block that ends
-	// exactly where its declaration ends would look like it escaped the
-	// enclosing scope and get reparented to the root. contains_range is the
-	// inclusive comparison this needs.
-	// while (ctx.scope.parent && !ctx.scope.range.contains_range(node.range))
-	// {
-	// 	ctx.scope = ctx.scope.parent;
-	// }
-	// ctx.scope = ctx.top_scope;
-
+	// LAMBDA_EXPR and ATTRDEF_DECL carry parameters of their own; without a
+	// scope each, those parameters land in the enclosing scope and collide
+	// with a sibling lambda's or with the surrounding declarations.
 	switch (node.kind)
 	{
 		case IF_STMT:
@@ -129,6 +115,10 @@ fn ChildVisitResult sema_on_enter(Node* node, Node* parent, void* user_data) @lo
 
 		case MACRO_DECL:
 		case FN_DECL:
+		case LAMBDA_EXPR:
+		case ATTRDEF_DECL:
+			push_scope(ctx, node, true);
+			break;
 		case FOR_STMT:
 		case CT_FOR_STMT:
 		case FOREACH_STMT:
@@ -174,6 +164,8 @@ fn ChildVisitResult sema_on_exit(Node* node, Node* parent, void* user_data) @loc
 	{
 		case MACRO_DECL:
 		case FN_DECL:
+		case LAMBDA_EXPR:
+		case ATTRDEF_DECL:
 		case FOR_STMT:
 		case CT_FOR_STMT:
 		case FOREACH_STMT:
