@@ -31,7 +31,9 @@ fn void run_variable_pass(SemaContext* ctx) => @pool()
 				continue;
 		}
 
-		cursor::visit(root_node, null, { &sema_on_enter, &sema_on_exit }, ctx);
+		SemaScopeContext scope_ctx = {*ctx, null};
+
+		cursor::visit(root_node, null, { &sema_on_enter, &sema_on_exit }, &scope_ctx);
 	}
 }
 
@@ -39,7 +41,7 @@ fn void push_scope(SemaContext* ctx, Node* node)
 {
 	diagnostics::log_debug("[VariablePass]: Pushed new scope for %s at %s", node.kind.description, node.range);
 
-	Scope* new_scope = scope::create(ctx.allocator, node.range, ctx.scope);
+	Scope* new_scope = scope::new(ctx.allocator, node.range, ctx.scope);
 
 	ctx.scope.children.push(new_scope);
 	ctx.scope = new_scope;
@@ -53,9 +55,22 @@ fn void pop_scope(SemaContext* ctx)
 	}
 }
 
+struct SemaScopeContext
+{
+	inline SemaContext ctx;
+	Scope* top_scope;
+}
+
 fn ChildVisitResult sema_on_enter(Node* node, Node* parent, void* user_data) @local
 {
-	SemaContext* ctx = (SemaContext*)user_data;
+	SemaScopeContext* ctx = (SemaScopeContext*)user_data;
+
+	// A contract is written above the declaration it documents, so its range
+	// lies outside the scope that declaration opened. Walking into it would
+	// make the loop below climb back out to the file scope, and every sibling
+	// visited afterwards - the parameters among them - would land there. A
+	// contract declares no runtime variables, so skip the subtree untouched.
+	if (node.kind == CONTRACT_DECL) return CONTINUE;
 
 	// contains() treats the end location as exclusive, so a block that ends
 	// exactly where its declaration ends would look like it escaped the

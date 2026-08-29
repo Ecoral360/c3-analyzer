@@ -33,7 +33,7 @@ fn int main(String[] args) => @pool()
 	diagnostics::log_debug("Init...");
 	diagnostics::log_debug("args: %s", args);
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 
 	if (try file_path = cli.file.get())
 	{

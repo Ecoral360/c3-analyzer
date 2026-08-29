@@ -102,10 +102,10 @@ fn void visit_reaches_every_child()
 		}
 
 		<* doc macro *>
-		macro @each(int v; @body(int x))
+		macro @each(int a; @body(int x))
 		{
 			@body(1);
-			return v * 2;
+			return a * 2;
 		}
 
 		macro compile_time()
@@ -137,7 +137,7 @@ fn void visit_reaches_every_child()
 	parser_tests::start_counting_diags();
 	defer parser_tests::stop_counting_diags();
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	context::process(context, source_code, "test");
 	test::eq(parser_tests::error_diag_count, 0);
 

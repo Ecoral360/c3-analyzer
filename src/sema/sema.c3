@@ -17,13 +17,13 @@ struct SemaContext
 	HashMap{String, ImportInfo} imports;
 }
 
-fn SemaContext* create(AnalyzerContext* context)
+fn SemaContext* new(AnalyzerContext* context)
 {
 	SemaContext* ctx = alloc::new(context.allocator, SemaContext);
 
 	ctx.context = context;
 	ctx.allocator = context.allocator;
-	ctx.scope = scope::create(ctx.allocator, {});
+	ctx.scope = scope::new(ctx.allocator, {});
 	ctx.imports.init(context.allocator);
 
 	return ctx;
@@ -36,7 +36,7 @@ fn void analyze_source_file(SemaContext* ctx, SourceFile* sf)
 {
 	ctx.context.current_source_file = sf;
 
-	ctx.scope = scope::create(ctx.allocator, {});
+	ctx.scope = scope::new(ctx.allocator, {});
 
 	analyze_imports(ctx);
 

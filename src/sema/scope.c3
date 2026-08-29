@@ -2,7 +2,7 @@ module analyzer::sema::scope @feat(SEMA);
 
 import analyzer::core;
 
-fn Scope* create(Allocator alloc, Range range, Scope* parent = null)
+fn Scope* new(Allocator alloc, Range range, Scope* parent = null)
 {
 	Scope* scope = alloc::new(alloc, Scope);
 

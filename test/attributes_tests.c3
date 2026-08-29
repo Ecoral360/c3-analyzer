@@ -15,7 +15,7 @@ fn void module_private_test_weak_if()
 	String source_code = `
 		module hello @private @test @weak @if(1 == 1 && 2 == 2);
 	`;
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -59,7 +59,7 @@ fn void module_tag_if()
 	String source_code = `
 		module hello @tag("my_tag", "my_value") @if($feature(MY_FEATURE));
 	`;
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -99,7 +99,7 @@ fn void function_if()
 		module hello;
 		fn void greet() @private @if($feature(MY_FEATURE)) {}
 	`;
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -139,7 +139,7 @@ fn void const_var_private_if()
 		const MY_CONST @private @if($feature(MY_FEATURE)) = 1;
 		void* my_var @private @if($feature(MY_FEATURE)) = null;
 	`;
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -219,7 +219,7 @@ fn void op_overloads()
 		}
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 

@@ -5,7 +5,7 @@ import analyzer::sema::lookup;
 import std::collections;
 import std::io;
 
-fn Registry* create(Allocator alloc)
+fn Registry* new(Allocator alloc)
 {
 	Registry* registry = alloc::new(alloc, Registry);
 
@@ -79,7 +79,7 @@ fn void register(AnalyzerContext* context, SourceFile* sf) => @pool()
 		{
 			ModuleDecl* mod_decl = statement.as(ModuleDecl);
 			PathExpr* path = mod_decl.path.as(PathExpr);
-			current_mod = mod::create(context, path.path.text);
+			current_mod = mod::new(context, path.path.text);
 		}
 
 		if (current_mod == null)
@@ -90,7 +90,7 @@ fn void register(AnalyzerContext* context, SourceFile* sf) => @pool()
 				diagnostics::log_error("Failed to infer module name: %s", err);
 				return;
 			}
-			current_mod = mod::create(context, path.basename());
+			current_mod = mod::new(context, path.basename());
 		}
 
 		register_and_dispatch(context, current_mod, statement);

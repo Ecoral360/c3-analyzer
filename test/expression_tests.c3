@@ -51,7 +51,7 @@ fn void test_literals()
 		char char_c = '\\';
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -211,7 +211,7 @@ fn void unary()
         void* f = &&foo;
         int g = *foo;
 	`;
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -251,7 +251,7 @@ fn void try_catch()
 		}
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -283,7 +283,7 @@ fn void call()
 		}
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -304,7 +304,7 @@ fn void builtin()
 		}
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -332,7 +332,7 @@ fn void lambda()
 		}
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -354,7 +354,7 @@ fn void group_and_cast()
 		}
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -393,7 +393,7 @@ fn void initializers()
 		}
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -418,7 +418,7 @@ fn void access()
 		}
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -463,7 +463,7 @@ fn void range()
 		}
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -489,7 +489,7 @@ fn void optional_expr()
 		}
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -515,7 +515,7 @@ fn void ct_defined()
 		}
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -539,7 +539,7 @@ fn void lengthof_expr()
 		}
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -564,7 +564,7 @@ fn void ct_stringify_expr()
 		}
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -589,7 +589,7 @@ fn void vaarg_expr()
 		}
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -612,7 +612,7 @@ fn void ct_reflect_expr()
 		}
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 

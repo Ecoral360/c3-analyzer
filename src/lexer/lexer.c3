@@ -9,7 +9,7 @@ import std::collections::list;
 <*
  @param [&in] ctx : "main context"
 *>
-fn Lexer* create(AnalyzerContext* ctx, String buffer, bool emit_comments = false)
+fn Lexer* new(AnalyzerContext* ctx, String buffer, bool emit_comments = false)
 {
 	Lexer* lexer = alloc::new(ctx.allocator, Lexer);
 
@@ -1055,9 +1055,9 @@ fn void test_lexer() @test
 
 		}
 	`;
-	AnalyzerContext* context = context::create(tmem);
-	Lexer* lexer = create(context, src);
-	SourceFile* sf = source_file::create(context, lexer, "test");
+	AnalyzerContext* context = context::new(tmem);
+	Lexer* lexer = new(context, src);
+	SourceFile* sf = source_file::new(context, lexer, "test");
 	context.current_source_file = sf;
 
 	tokenize(lexer);
@@ -1091,9 +1091,9 @@ fn void test_idents() @test
 		foo Foo FOO @Foo
 		@foo
 	`;
-	AnalyzerContext* context = context::create(tmem);
-	Lexer* lexer = create(context, src);
-	SourceFile* sf = source_file::create(context, lexer, "test");
+	AnalyzerContext* context = context::new(tmem);
+	Lexer* lexer = new(context, src);
+	SourceFile* sf = source_file::new(context, lexer, "test");
 	context.current_source_file = sf;
 
 	tokenize(lexer);

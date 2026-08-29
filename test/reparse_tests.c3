@@ -25,7 +25,7 @@ fn void reparsing_simple()
         fn void new_function() {}
     `;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -47,7 +47,7 @@ fn void multi_reparsing()
 	`;
 
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 

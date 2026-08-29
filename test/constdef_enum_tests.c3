@@ -16,7 +16,7 @@ fn void basic_enum()
 	enum MyEnum { AAA, BBB }
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -44,7 +44,7 @@ fn void values()
 	enum MyEnum { AAA = 1, BBB @if(true) = 2 }
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -76,7 +76,7 @@ fn void char_backing_type()
 	enum MyEnum : char { AAA, BBB }
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -111,7 +111,7 @@ fn void assoc_param_values()
 	enum MyEnum : (int a, String b) { AAA {0, "aaa"}, BBB {1, "bbb"} }
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -169,7 +169,7 @@ fn void interfaces()
 	enum MyEnum (Printable, OutStream) { AAA, BBB }
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -206,7 +206,7 @@ fn void constdef_interfaces_inline_backing()
 	}
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -250,7 +250,7 @@ fn void basic_constdef()
 	}
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -286,7 +286,7 @@ fn void constdef_backing_type_and_attributes()
 	}
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -322,7 +322,7 @@ fn void enum_interfaces_backing_type()
 	}
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -359,7 +359,7 @@ fn void private_if_attributes()
 	enum MyEnum @private @if(true) { AAA, BBB }
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -393,7 +393,7 @@ fn void values_if_attribute()
 	enum MyEnum { AAA @if(true), BBB @if(true) }
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -428,7 +428,7 @@ fn void complex()
 	}
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -484,7 +484,7 @@ fn void err_missing_name()
 	enum { AAA, BBB }
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -503,7 +503,7 @@ fn void err_invalid_variant_name()
 	enum MyEnum { bad_name, GOOD }
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -526,7 +526,7 @@ fn void err_missing_rbrace()
 	enum MyEnum { AAA, BBB
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 

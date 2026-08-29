@@ -24,7 +24,7 @@ fn void contract_with_expr_checks()
 		*>
 		fn int foo(int a) {}
 	`;
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -78,7 +78,7 @@ fn void module_duplicate_contract_error()
 
 		fn void foo() {}
 	`;
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, false);
 }
@@ -92,7 +92,7 @@ fn void function_duplicate_contract_error()
 		<* second doc *>
 		fn void foo() {}
 	`;
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, false);
 }
@@ -108,7 +108,7 @@ fn void contract_description()
 		fn void foo() {}
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -135,7 +135,7 @@ fn void contract_with_deprecated()
 		fn int foo(int a) {}
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -228,7 +228,7 @@ fn void contract_on_every_decl_kind()
 		<* doc fn *>
 		fn void go() {}
 	`;
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 

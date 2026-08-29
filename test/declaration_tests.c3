@@ -19,7 +19,7 @@ fn void basic_module()
 
 		fn void greet() {}
 	`;
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -44,7 +44,7 @@ fn void function_with_params()
 		fn void untyped(args...) {}
 		fn void path_prefixed(bar::Foo* foo) {}
 	`;
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -61,7 +61,7 @@ fn void method_with_params()
 		fn void Foo.greet(&self, Bar baz) {}
 		fn void Foo.greet_2(self, Bar baz) {}
 	`;
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -87,7 +87,7 @@ fn void macro_with_params()
 		macro foo(int foo, Bar baz) {}
 		macro bar(int foo, Bar baz) => 2;
 	`;
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -121,7 +121,7 @@ fn void macro_method_with_params()
 		macro Foo.wow(&self, Bar bar) {}
 		macro @expect_else_skip(ParseContext* ctx, TokenKind kind, TokenKind[] targets; @body(err)) {}
 	`;
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -147,7 +147,7 @@ fn void alias_declarations_parse()
 		alias NamedList @private @AliasAttr = List{int};
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -240,7 +240,7 @@ fn void typedef_declarations_parse()
 		typedef Option<Type> = Type*;
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -302,7 +302,7 @@ fn void function_pointer_types_are_alias_only()
 		alias CallbackDefault = fn void(int value = 0);
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -324,7 +324,7 @@ fn void global_var_const()
 		const int[4]* FOO = null;
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -345,7 +345,7 @@ fn void global_var_multi_decl()
 		int foo, bar, z;
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -381,7 +381,7 @@ fn void global_var()
 		int[4] foo;
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -402,7 +402,7 @@ fn void global_var_tlocal()
 		tlocal int foo = 1;
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -423,7 +423,7 @@ fn void global_var_extern()
 		extern int foo;
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -444,7 +444,7 @@ fn void expand()
 		$expand("fn void foo();");
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -500,7 +500,7 @@ fn void struct_decl()
 		}
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -534,7 +534,7 @@ fn void bitstruct_decl()
 		}
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -570,7 +570,7 @@ fn void union_decl()
 		}
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -593,7 +593,7 @@ fn void faultdef_decl()
 		faultdef ERROR, FOO, BAR;
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -618,7 +618,7 @@ fn void interface_decl()
 		}
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -641,7 +641,7 @@ fn void attrdef_decl()
 		attrdef @MyAttributeEmpty;
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -664,7 +664,7 @@ fn void ct_assert_decl()
 		$assert 98 == -2 : @sprintf("no %s", @bar());
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -687,7 +687,7 @@ fn void macro_body_params()
 	parser_tests::start_counting_diags();
 	defer parser_tests::stop_counting_diags();
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	context::process(context, source_code, "test");
 	test::eq(parser_tests::error_diag_count, 0);
 

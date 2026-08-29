@@ -36,7 +36,7 @@ fn void switch_stmt()
 			}
 		}
 	`;
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -81,7 +81,7 @@ fn void ct_switch_stmt()
 			$endswitch
 		}
 	`;
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -117,7 +117,7 @@ fn void if_elseif_else()
 		}
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -157,7 +157,7 @@ fn void ct_if_else()
 		}
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -192,7 +192,7 @@ fn void for_stmt()
 		}
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -227,7 +227,7 @@ fn void while_stmt()
 		}
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -261,7 +261,7 @@ fn void ct_assert_stmt()
 		}
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -287,7 +287,7 @@ fn void ct_error_stmt()
 		}
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -314,7 +314,7 @@ fn void var_decl_stmt()
 		}
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -352,7 +352,7 @@ fn void foreach_stmt()
 		}
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -483,7 +483,7 @@ fn void err_foreach_missing_name_after_type()
 		}
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -511,7 +511,7 @@ fn void err_foreach_missing_name_no_type()
 		}
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -541,7 +541,7 @@ fn void err_foreach_missing_colon()
 		}
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -572,7 +572,7 @@ fn void defer_stmt()
 		}
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -605,7 +605,7 @@ fn void do_while_stmt()
 		}
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -646,7 +646,7 @@ fn void assert_stmt()
 		}
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -666,7 +666,7 @@ fn void ct_expand_stmt()
 		}
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -681,9 +681,9 @@ fn void ct_foreach_stmt()
 	String source_code = `
 		module hello;
 
-		macro AsciiCharset @create_set(String $string) @const
+		macro AsciiCharset @new_set(String $string) @const
 		{
-			// std/core/ascii.c3 create_set
+			// std/core/ascii.c3 new_set
 			$foreach $c : $string:
 				$set |= 1ULL << $c;
 			$endforeach
@@ -708,7 +708,7 @@ fn void ct_foreach_stmt()
 		}
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -718,7 +718,7 @@ fn void ct_foreach_stmt()
 	test::eq(parser_tests::count_kind(mod, MACRO_DECL), 2);
 	test::eq(parser_tests::count_kind(mod, FN_DECL), 1);
 
-	MacroInfo* macro_info = context.registry.macros.get("hello::@create_set")!!;
+	MacroInfo* macro_info = context.registry.macros.get("hello::@new_set")!!;
 
 	// TODO Macro definitions in registry?
 	MacroDecl* macro_decl = macro_info.node.as(MacroDecl);
@@ -732,7 +732,7 @@ fn void ct_foreach_stmt()
 	test::eq(foreach_body.statements.len, 1);
 	test::eq(foreach_body.statements[0].kind, NodeKind.EXPR_STMT);
 
-	macro_info = context.registry.macros.get("hello::@create_set")!!;
+	macro_info = context.registry.macros.get("hello::@new_set")!!;
 	macro_decl = macro_info.node.as(MacroDecl);
 	macro_body = macro_decl.body.as(CompoundStmt);
 	foreach_stmt = macro_body.statements[0].as(CtForeachStmt);
@@ -771,7 +771,7 @@ fn void decl_stmt_ambiguity()
 		}
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -806,7 +806,7 @@ fn void assert_stmt_children()
 	parser_tests::start_counting_diags();
 	defer parser_tests::stop_counting_diags();
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	context::process(context, source_code, "test");
 	test::eq(parser_tests::error_diag_count, 0);
 
@@ -848,7 +848,7 @@ fn void nextcase_stmt()
 	parser_tests::start_counting_diags();
 	defer parser_tests::stop_counting_diags();
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	context::process(context, source_code, "test");
 	test::eq(parser_tests::error_diag_count, 0);
 

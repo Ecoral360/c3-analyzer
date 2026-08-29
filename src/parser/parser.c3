@@ -10,7 +10,7 @@ import analyzer::lexer;
 <*
  @param [&in] context : "The main context"
 *>
-fn ParseContext* create(AnalyzerContext* context)
+fn ParseContext* new(AnalyzerContext* context)
 {
 	ParseContext* ctx = alloc::new(context.allocator, ParseContext);
 	ctx.allocator = context.allocator;

@@ -17,7 +17,7 @@ fn void type_ident()
 		module hello; 
 		fn void greet(int foo, Bar baz) {}
 	`;
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -38,7 +38,7 @@ fn void global_array_pointer()
 		const int[4]* FOO = null;
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -87,7 +87,7 @@ fn void optional()
 		int[4]? foooo = bar();
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -123,7 +123,7 @@ fn void global_inferred_array_pointer()
 		const int[*]* FOO = null;
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -167,7 +167,7 @@ fn void global_generic()
 		const List{String} CHANNELS = null;
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -214,7 +214,7 @@ fn void global_vec()
 		const float[<*>] CHANNELS = { 1.0, 2.0 };
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 
@@ -248,7 +248,7 @@ fn void typeof_typefrom()
 		}
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 

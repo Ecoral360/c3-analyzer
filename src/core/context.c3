@@ -14,7 +14,7 @@ import std::io;
 <*
  If target.os or target.arch is `UNKNOWN` it will be inferred
 *>
-fn AnalyzerContext* create(Allocator alloc, Target target = {})
+fn AnalyzerContext* new(Allocator alloc, Target target = {})
 {
 	AnalyzerContext* ctx = alloc::new(alloc, AnalyzerContext);
 
@@ -36,8 +36,8 @@ fn AnalyzerContext* create(Allocator alloc, Target target = {})
 	ctx.target.layout = arch::get_platform_layout(target.os, target.arch);
 
 	$if $feat(SEMA):
-		ctx.lookup = lookup::create(ctx, alloc);
-		ctx.registry = registry::create(alloc);
+		ctx.lookup = lookup::new(ctx, alloc);
+		ctx.registry = registry::new(alloc);
 	$endif
 
 	return ctx;
@@ -52,7 +52,7 @@ fn void free(AnalyzerContext* ctx)
 	ctx.modules.free();
 
 	$if $feat(SEMA):
-		// Both are created in `create` from ctx.allocator. A consumer that
+		// Both are created in `new` from ctx.allocator. A consumer that
 		// swapped in its own pair is expected to null these first, so both
 		// frees tolerate a null argument.
 		registry::free(ctx.allocator, ctx.registry);
@@ -69,19 +69,19 @@ fn void free(AnalyzerContext* ctx)
 *>
 fn bool process(AnalyzerContext* context, String buffer, String path) => @pool()
 {
-	Lexer* lexer = lexer::create(context, buffer);
+	Lexer* lexer = lexer::new(context, buffer);
 	defer lexer::free(context, lexer);
 
-	// Create the SourceFile before tokenizing: the lexer reports its
+	// new the SourceFile before tokenizing: the lexer reports its
 	// diagnostics against context.current_source_file, so anything it
 	// finds is lost if that is still unset.
-	SourceFile* source = source_file::create(context, lexer, path);
+	SourceFile* source = source_file::new(context, lexer, path);
 	defer source_file::free(context, source);
 	context.current_source_file = source;
 
 	lexer::tokenize(lexer);
 
-	ParseContext* parse_ctx = parser::create(context);
+	ParseContext* parse_ctx = parser::new(context);
 	defer parser::free(context, parse_ctx);
 
 	if (!parser::parse(parse_ctx, source))
@@ -94,7 +94,7 @@ fn bool process(AnalyzerContext* context, String buffer, String path) => @pool()
 		registry::register(context, sf);
 	}
 
-	SemaContext* sema_ctx = sema::create(context);
+	SemaContext* sema_ctx = sema::new(context);
 
 	foreach (SourceFile* sf : context.files.value_iter())
 	{

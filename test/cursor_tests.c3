@@ -27,7 +27,7 @@ fn void basic_cursor_test()
         fn void old_function() {}
 	`;
 
-	AnalyzerContext* context = context::create(tmem);
+	AnalyzerContext* context = context::new(tmem);
 	bool success = context::process(context, source_code, "test");
 	test::eq(success, true);
 

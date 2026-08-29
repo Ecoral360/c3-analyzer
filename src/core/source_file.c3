@@ -13,7 +13,7 @@ import std::io;
  @param [in] alloc : "The allocator to use for the file's internal data (AST, etc.) Defaults to context.allocator"
  @return "SourceFile* using context.allocator or null if failed to read from specified path"
 *>
-fn SourceFile* create(AnalyzerContext* context, Lexer* lexer, String path, Allocator alloc = null)
+fn SourceFile* new(AnalyzerContext* context, Lexer* lexer, String path, Allocator alloc = null)
 {
 	SourceFile* source_file = alloc::new(context.allocator, SourceFile);
 
