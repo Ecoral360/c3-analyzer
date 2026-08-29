@@ -26,14 +26,15 @@ fn void run_variable_pass(SemaContext* ctx) => @pool()
 			case VAR_DECL:
 			case FN_DECL:
 			case MACRO_DECL:
+			case TYPEDEF_DECL:
+			case ALIAS_DECL:
+			case ATTRDEF_DECL:
 				break;
 			default:
 				continue;
 		}
 
-		SemaScopeContext scope_ctx = {*ctx, null};
-
-		cursor::visit(root_node, null, { &sema_on_enter, &sema_on_exit }, &scope_ctx);
+		cursor::visit(root_node, null, { &sema_on_enter, &sema_on_exit }, ctx);
 	}
 }
 
@@ -55,31 +56,26 @@ fn void pop_scope(SemaContext* ctx)
 	}
 }
 
-struct SemaScopeContext
-{
-	inline SemaContext ctx;
-	Scope* top_scope;
-}
-
 fn ChildVisitResult sema_on_enter(Node* node, Node* parent, void* user_data) @local
 {
-	SemaScopeContext* ctx = (SemaScopeContext*)user_data;
+	SemaContext* ctx = (SemaContext*)user_data;
 
 	// A contract is written above the declaration it documents, so its range
 	// lies outside the scope that declaration opened. Walking into it would
 	// make the loop below climb back out to the file scope, and every sibling
 	// visited afterwards - the parameters among them - would land there. A
 	// contract declares no runtime variables, so skip the subtree untouched.
-	if (node.kind == CONTRACT_DECL) return CONTINUE;
+	// if (node.kind == CONTRACT_DECL) return CONTINUE;
 
 	// contains() treats the end location as exclusive, so a block that ends
 	// exactly where its declaration ends would look like it escaped the
 	// enclosing scope and get reparented to the root. contains_range is the
 	// inclusive comparison this needs.
-	while (ctx.scope.parent && !ctx.scope.range.contains_range(node.range))
-	{
-		ctx.scope = ctx.scope.parent;
-	}
+	// while (ctx.scope.parent && !ctx.scope.range.contains_range(node.range))
+	// {
+	// 	ctx.scope = ctx.scope.parent;
+	// }
+	// ctx.scope = ctx.top_scope;
 
 	switch (node.kind)
 	{
