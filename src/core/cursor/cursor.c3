@@ -389,10 +389,29 @@ fn Node* find_at(Node*[] slice, Range range)
 	return ctx.best_match;
 }
 
+<*
+ Get the contract (doc comment block) attached to a declaration.
+
+ Every declaration that can carry a doc comment block is handled:
+ module, fn, macro, var (globals, locals, fields and enum variants),
+ struct/union/bitstruct, enum, alias, typedef, attrdef, fault,
+ faultdef and interface.
+
+ A node that cannot carry a contract, or one that simply has none,
+ answers with null rather than an error.
+*>
 fn ContractDecl*? contract(Node* node)
 {
+	if (!node) return null;
+
 	switch (node.kind)
 	{
+		case MODULE_DECL:
+			ModuleDecl* decl = node.as(ModuleDecl);
+			if (try val = decl.contract.get())
+			{
+				return val.as(ContractDecl);
+			}
 		case FN_DECL:
 			FnDecl* decl = node.as(FnDecl);
 			if (try val = decl.contract.get())
@@ -405,6 +424,62 @@ fn ContractDecl*? contract(Node* node)
 			{
 				return val.as(ContractDecl);
 			}
+		case VAR_DECL:
+			VarDecl* decl = node.as(VarDecl);
+			if (try val = decl.contract.get())
+			{
+				return val.as(ContractDecl);
+			}
+		case STRUCT_DECL:
+			StructDecl* decl = node.as(StructDecl);
+			if (try val = decl.contract.get())
+			{
+				return val.as(ContractDecl);
+			}
+		case FAULT_DECL:
+			FaultDecl* decl = node.as(FaultDecl);
+			if (try val = decl.contract.get())
+			{
+				return val.as(ContractDecl);
+			}
+		case FAULTDEF_DECL:
+			FaultdefDecl* decl = node.as(FaultdefDecl);
+			if (try val = decl.contract.get())
+			{
+				return val.as(ContractDecl);
+			}
+		case INTERFACE_DECL:
+			InterfaceDecl* decl = node.as(InterfaceDecl);
+			if (try val = decl.contract.get())
+			{
+				return val.as(ContractDecl);
+			}
+		case ENUM_DECL:
+			EnumDecl* decl = node.as(EnumDecl);
+			if (try val = decl.contract.get())
+			{
+				return val.as(ContractDecl);
+			}
+		case ALIAS_DECL:
+			AliasDecl* decl = node.as(AliasDecl);
+			if (try val = decl.contract.get())
+			{
+				return val.as(ContractDecl);
+			}
+		case TYPEDEF_DECL:
+			TypedefDecl* decl = node.as(TypedefDecl);
+			if (try val = decl.contract.get())
+			{
+				return val.as(ContractDecl);
+			}
+		case ATTRDEF_DECL:
+			AttrdefDecl* decl = node.as(AttrdefDecl);
+			if (try val = decl.contract.get())
+			{
+				return val.as(ContractDecl);
+			}
+		case CONTRACT_DECL:
+			return node.as(ContractDecl);
 		default:
 	}
 
@@ -420,7 +495,7 @@ fn String? docs(Node* node)
 
 	if (try val = contract(node) && val)
 	{
-		return val.as(ContractDecl).comment.text;
+		return val.comment.text;
 	}
 
 	return "";
