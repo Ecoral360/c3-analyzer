@@ -51,6 +51,56 @@ fn ChildVisitResult balance_exit(Node* cursor, Node* parent, void* user_data)
 	return CONTINUE;
 }
 
+struct DepthProbe
+{
+	int enters;
+	int max_depth_seen;
+	int depth;
+	int[32] per_depth; // how many nodes were entered at each level
+	NodeKind exit_break_on;
+	bool has_broken;
+}
+
+fn ChildVisitResult depth_enter(Node* cursor, Node* parent, void* user_data)
+{
+	DepthProbe* probe = (DepthProbe*)user_data;
+	probe.enters++;
+	probe.depth++;
+	if (probe.depth > probe.max_depth_seen) probe.max_depth_seen = probe.depth;
+	if (probe.depth < probe.per_depth.len) probe.per_depth[probe.depth]++;
+	return RECURSE;
+}
+
+fn ChildVisitResult depth_exit(Node* cursor, Node* parent, void* user_data)
+{
+	DepthProbe* probe = (DepthProbe*)user_data;
+	probe.depth--;
+
+	if (!probe.has_broken && cursor.kind == probe.exit_break_on)
+	{
+		probe.has_broken = true;
+		return BREAK;
+	}
+
+	return CONTINUE;
+}
+
+fn DepthProbe walk(Module* mod, int max_depth)
+{
+	DepthProbe probe;
+	foreach (node : mod.nodes)
+	{
+		if (node == null) continue;
+		cursor::visit(
+			node,
+			null,
+			{ &depth_enter, &depth_exit },
+			&probe,
+			max_depth);
+	}
+	return probe;
+}
+
 module visitor_tests @test;
 
 import parser_tests;
@@ -300,4 +350,96 @@ fn void enter_and_exit_stay_balanced()
 		test::eq(capped.open, 0);
 		test::eq(capped.enters, capped.exits);
 	}
+}
+
+<*
+ 'max_depth' counts levels of the tree, and reaching it prunes that branch
+ rather than ending the walk: everything above the cut is still visited.
+*>
+fn void max_depth_counts_levels_and_prunes()
+{
+	String source_code = `
+		module hello;
+
+		fn int foo(int a)
+		{
+			int[4] arr = { 1, 2, 3, 4 };
+			if (a > 0)
+			{
+				a += arr[1];
+			}
+			return a;
+		}
+
+		fn int bar(int b) { return b; }
+	`;
+
+	AnalyzerContext* context = context::new(tmem);
+	context::process(context, source_code, "test");
+	Module* mod = context.modules.get("hello")!!;
+
+	// The shape of the whole tree, level by level.
+	visitor_test_helpers::DepthProbe full = visitor_test_helpers::walk(mod, int::max);
+	test::@check(full.max_depth_seen > 4, "the fixture needs a few levels to be worth capping");
+
+	// Capping at N must enter exactly the nodes sitting at levels 1..N - no
+	// more (the cap holds) and no fewer (a pruned branch does not end the walk).
+	int expected = 0;
+	for (int limit = 1; limit <= full.max_depth_seen + 2; limit++)
+	{
+		if (limit <= full.max_depth_seen) expected += full.per_depth[limit];
+
+		visitor_test_helpers::DepthProbe capped = visitor_test_helpers::walk(mod, limit);
+
+		test::@check(
+			capped.enters == expected,
+			"max_depth %d entered %d nodes, expected %d",
+			limit, capped.enters, expected);
+		test::@check(
+			capped.max_depth_seen <= limit,
+			"max_depth %d reached level %d",
+			limit, capped.max_depth_seen);
+	}
+
+	test::eq(expected, full.enters);
+}
+
+<*
+ on_exit can force a break even though on_enter asked to carry on.
+*>
+fn void on_exit_can_break_the_walk()
+{
+	String source_code = `
+		module hello;
+
+		fn int foo(int a) { return a; }
+		fn int bar(int a) { return a; }
+		fn int baz(int a) { return a; }
+	`;
+
+	AnalyzerContext* context = context::new(tmem);
+	context::process(context, source_code, "test");
+	Module* mod = context.modules.get("hello")!!;
+
+	visitor_test_helpers::DepthProbe probe;
+	probe.exit_break_on = NodeKind.FN_DECL;
+
+	bool completed = true;
+	foreach (node : mod.nodes)
+	{
+		if (node == null) continue;
+		if (!cursor::visit(
+			node,
+			null,
+			{ &visitor_test_helpers::depth_enter, &visitor_test_helpers::depth_exit },
+			&probe))
+		{
+			completed = false;
+			break;
+		}
+	}
+
+	test::eq(probe.has_broken, true);
+	test::eq(completed, false);
+	test::eq(probe.depth, 0);
 }
