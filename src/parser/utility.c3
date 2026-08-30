@@ -283,6 +283,17 @@ fn bool can_start_expression(TokenKind kind)
 	}
 }
 
+fn bool can_start_statement(TokenKind kind)
+{
+	switch (kind)
+	{
+		case DOCS_START:
+			return true;
+		default:
+			return can_start_expression(kind);
+	}
+}
+
 fn bool token_type_ends_case(TokenKind kind)
 {
 	return kind == CASE || kind == DEFAULT || kind == CT_DEFAULT || kind == RBRACE || kind == CT_CASE

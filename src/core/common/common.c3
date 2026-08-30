@@ -72,7 +72,7 @@ fn bool Location.eq(self, Location other) @operator(==)
 	return self.line == other.line && self.column == other.column;
 }
 
-typedef NodePath = inline sz[];
+typedef NodePath = inline NodeID[];
 struct NodePoint
 {
 	NodePath path;

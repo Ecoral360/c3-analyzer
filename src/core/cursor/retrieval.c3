@@ -65,8 +65,7 @@ fn NodePath? path(Ast* ast, Location location)
 struct FindPathContext
 {
 	Range target;
-	List{sz} current_path;
-	sz current_idx;
+	List{NodeID} current_path;
 	Node* best_match;
 	int best_span;
 }
@@ -77,7 +76,6 @@ fn ChildVisitResult find_path_callback(Node* cursor, Node* parent, void* user_da
 
 	if (!cursor || !cursor.is_valid())
 	{
-		ctx.current_idx += 1;
 		return CONTINUE;
 	}
 
@@ -85,8 +83,7 @@ fn ChildVisitResult find_path_callback(Node* cursor, Node* parent, void* user_da
 
 	if (node.range.contains_range(ctx.target))
 	{
-		ctx.current_path.push(ctx.current_idx);
-		ctx.current_idx = 0;
+		ctx.current_path.push(node.id);
 
 		int current_span = (node.range.end.line - node.range.start.line) * 1000
 			+ (node.range.end.column - node.range.start.column);
@@ -100,6 +97,5 @@ fn ChildVisitResult find_path_callback(Node* cursor, Node* parent, void* user_da
 		return RECURSE;
 	}
 
-	ctx.current_idx += 1;
 	return CONTINUE;
 }
