@@ -84,9 +84,11 @@ fn bool process(AnalyzerContext* context, String buffer, String path) => @pool()
 	ParseContext* parse_ctx = parser::new(context);
 	defer parser::free(context, parse_ctx);
 
+	bool success = true;
+
 	if (!parser::parse(parse_ctx, source))
 	{
-		// return false;
+		success = false;
 	}
 
 	foreach (SourceFile* sf : context.files.value_iter())
@@ -101,7 +103,7 @@ fn bool process(AnalyzerContext* context, String buffer, String path) => @pool()
 	    sema::analyze_source_file(sema_ctx, sf);
 	}
 
-	return true;
+	return success;
 }
 
 fn bool process_file(AnalyzerContext* context, String path) => @pool()
