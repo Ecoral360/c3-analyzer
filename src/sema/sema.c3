@@ -13,7 +13,8 @@ struct SemaContext
 {
 	AnalyzerContext* context;
 	Allocator allocator;
-	Scope* scope;
+	Scope* runtime_scope;
+	Scope* comptime_scope;
 	HashMap{String, ImportInfo} imports;
 }
 
@@ -23,7 +24,8 @@ fn SemaContext* new(AnalyzerContext* context)
 
 	ctx.context = context;
 	ctx.allocator = context.allocator;
-	ctx.scope = scope::new(ctx.allocator, {});
+	ctx.runtime_scope = scope::new(ctx.allocator, {}, null, FILE);
+	ctx.comptime_scope = scope::new(ctx.allocator, {}, null, FILE);
 	ctx.imports.init(context.allocator);
 
 	return ctx;
@@ -36,7 +38,8 @@ fn void analyze_source_file(SemaContext* ctx, SourceFile* sf)
 {
 	ctx.context.current_source_file = sf;
 
-	ctx.scope = scope::new(ctx.allocator, {});
+	ctx.runtime_scope = scope::new(ctx.allocator, {}, null, FILE);
+	ctx.comptime_scope = scope::new(ctx.allocator, {}, null, FILE);
 
 	analyze_imports(ctx);
 

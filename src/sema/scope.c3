@@ -1,17 +1,36 @@
 module analyzer::sema::scope @feat(SEMA);
 
 import analyzer::core;
+import std::collections;
 
 <*
- @param is_barrier : "true for a function-like scope, which lookup does not climb out of"
+ Where a scope sits, which decides what a lookup climbing out of it can see.
 *>
-fn Scope* new(Allocator alloc, Range range, Scope* parent = null, bool is_barrier = false)
+enum ScopeKind : char
+{
+	FILE,     // globals and file level constants / variables
+	FUNCTION, // fn, macro, lambda, attrdef: a boundary for runtime bindings
+	BLOCK,    // compound statement, loop, non-compound if body
+}
+
+struct Scope
+{
+	Scope* parent;
+	ScopeKind kind;
+	Range range;
+	List{Scope*} children;
+	HashMap{String, FunctionInfo*} functions;
+	HashMap{String, VariableInfo*} variables;
+	HashMap{String, TypeInfo*} types;
+}
+
+fn Scope* new(Allocator alloc, Range range, Scope* parent = null, ScopeKind kind = BLOCK)
 {
 	Scope* scope = alloc::new(alloc, Scope);
 
 	scope.parent = parent;
 	scope.range = range;
-	scope.is_barrier = is_barrier;
+	scope.kind = kind;
 	scope.children.init(alloc);
 	scope.functions.init(alloc);
 	scope.variables.init(alloc);
@@ -36,54 +55,54 @@ fn void free(Scope* scope)
 }
 
 
-fn void add_variable(Scope* scope, Allocator alloc, String name, Node* node)
+fn void add_variable(Scope* scope, Allocator alloc, String name, Node* node, BindingKind binding = RUNTIME)
 {
 	VariableInfo* variable = alloc::new(alloc, VariableInfo);
 
 	variable.name = name;
 	variable.mod = name;
 	variable.node = node;
+	variable.binding = binding;
+	variable.scope = scope;
 
 	scope.variables.set(name, variable);
 }
 
 <*
- Look for a variable in this scope and the ones enclosing it, stopping at the
- first function-like scope: C3 lets a local shadow a global, and a lambda
- cannot see the locals of the function it is written in.
+ Find 'name' as it is seen from this scope.
+
+ A lookup climbs outwards, and a FUNCTION scope filters what it carries with
+ it rather than stopping it: past that boundary the runtime bindings of the
+ enclosing function are out of view, while globals and compile-time bindings
+ stay visible. A binding hidden that way is not an answer and not the end of
+ the search either - an outer binding of the same name can still be the one in
+ view, which is why a filtered hit keeps climbing.
 *>
-fn bool has_variable(Scope* scope, String name)
+fn VariableInfo* resolve(Scope* scope, String name)
 {
-	if (scope.variables.has_key(name))
-	{
-		return true;
-	}
+	bool crossed_function;
 
-	if (scope.parent && !scope.is_barrier)
+	for (Scope* current = scope; current != null; current = current.parent)
 	{
-		return has_variable(scope.parent, name);
-	}
+		if (current.variables.has_key(name))
+		{
+			VariableInfo* info = current.variables.get(name)!!;
 
-	return false;
-}
+			if (!crossed_function || info.binding != RUNTIME)
+			{
+				return info;
+			}
+		}
 
-<*
- Stops at a function-like scope, the same way 'has_variable' does.
-*>
-fn VariableInfo* get_variable(Scope* scope, String name)
-{
-	if (scope.variables.has_key(name))
-	{
-		return scope.variables.get(name)!!;
-	}
-
-	if (scope.parent && !scope.is_barrier)
-	{
-		return get_variable(scope.parent, name);
+		if (current.kind == FUNCTION) crossed_function = true;
 	}
 
 	return null;
 }
+
+fn bool has_variable(Scope* scope, String name) => resolve(scope, name) != null;
+
+fn VariableInfo* get_variable(Scope* scope, String name) => resolve(scope, name);
 
 fn FunctionInfo* add_function(Scope* scope, Allocator alloc, String name, String mod, Node* node)
 {

@@ -706,3 +706,45 @@ fn void macro_body_params()
 	MacroDecl* plain = mod.nodes[3].as(MacroDecl);
 	test::eq(plain.body_params, null);
 }
+
+<*
+ A declaration's own modifiers must not reach the statements of a lambda
+ written in its initializer: 'var f = fn ...' used to leak 'var' inside, where
+ it ate the name of a 'const' and the type of a 'static'.
+*>
+fn void decl_modifiers_do_not_leak_into_a_lambda_body()
+{
+	String source_code = `
+		module hello;
+
+		fn void main()
+		{
+			var f = fn void()
+			{
+				const A = "x";
+				static int g = 1;
+			};
+		}
+	`;
+	parser_tests::start_counting_diags();
+	defer parser_tests::stop_counting_diags();
+
+	AnalyzerContext* context = context::new(tmem);
+	context::process(context, source_code, "test");
+	test::eq(parser_tests::error_diag_count, 0);
+
+	Module* mod = context.modules.get("hello")!!;
+	FnDecl* main_fn = mod.nodes[1].as(FnDecl);
+	VarDecl* f = main_fn.body.as(CompoundStmt).statements[0].as(VarDecl);
+	LambdaExpr* lambda = f.init_expr.as(LambdaExpr);
+	NodeArray body = lambda.body.as(CompoundStmt).statements;
+
+	VarDecl* a = body[0].as(VarDecl);
+	test::eq(a.name.text, "A");
+	test::eq(a.var_flags.is_const, true);
+
+	VarDecl* g = body[1].as(VarDecl);
+	test::eq(g.name.text, "g");
+	test::eq(g.var_flags.is_static, true);
+	test::ne(g.type, null); // 'var' used to swallow the 'int'
+}

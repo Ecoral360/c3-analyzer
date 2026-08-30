@@ -101,11 +101,22 @@ struct TypeInfo
 	Type* resolved;
 }
 
+<*
+ What a binding is, which decides whether it survives a function boundary.
+*>
+enum BindingKind : char
+{
+	GLOBAL,   // declared at file scope
+	RUNTIME,  // parameter, local, local constant, static local
+}
+
 struct VariableInfo
 {
 	String name;
 	String mod;
 	Node* node;
+	BindingKind binding;
+	Scope* scope; // the scope the binding was declared in
 }
 
 struct Registry
@@ -113,19 +124,6 @@ struct Registry
 	HashMap{String, TypeInfo*} types;
 	HashMap{String, FunctionInfo*} functions;
 	HashMap{String, MacroInfo*} macros;
-}
-
-struct Scope
-{
-	Scope* parent;
-	Range range;
-	// A function-like scope: variable lookup stops here instead of climbing
-	// into the enclosing function or the file scope.
-	bool is_barrier;
-	List{Scope*} children;
-	HashMap{String, FunctionInfo*} functions;
-	HashMap{String, VariableInfo*} variables;
-	HashMap{String, TypeInfo*} types;
 }
 
 enum ResolveStatus : char

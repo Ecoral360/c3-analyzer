@@ -15,7 +15,8 @@ fn void run_variable_pass(SemaContext* ctx) => @pool()
 		.end = { .line = lines.len - 1, .column = lines[^1].len - 1 },
 	};
 
-	ctx.scope.range = range;
+	ctx.comptime_scope.range = range;
+	ctx.runtime_scope.range = range;
 
 	foreach (root_node : sf.ast.statements)
 	{
@@ -38,21 +39,39 @@ fn void run_variable_pass(SemaContext* ctx) => @pool()
 	}
 }
 
-fn void push_scope(SemaContext* ctx, Node* node, bool is_barrier = false)
+fn void push_rt_scope(SemaContext* ctx, Node* node, ScopeKind kind = BLOCK)
 {
-	diagnostics::log_debug("[VariablePass]: Pushed new scope for %s at %s", node.kind.description, node.range);
+	diagnostics::log_debug("[VariablePass]: Pushed new runtime scope for %s at %s", node.kind.description, node.range);
 
-	Scope* new_scope = scope::new(ctx.allocator, node.range, ctx.scope, is_barrier);
+	Scope* new_scope = scope::new(ctx.allocator, node.range, ctx.runtime_scope, kind);
 
-	ctx.scope.children.push(new_scope);
-	ctx.scope = new_scope;
+	ctx.runtime_scope.children.push(new_scope);
+	ctx.runtime_scope = new_scope;
 }
 
-fn void pop_scope(SemaContext* ctx)
+fn void pop_rt_scope(SemaContext* ctx)
 {
-	if (ctx.scope.parent)
+	if (ctx.runtime_scope.parent)
 	{
-		ctx.scope = ctx.scope.parent;
+		ctx.runtime_scope = ctx.runtime_scope.parent;
+	}
+}
+
+fn void push_ct_scope(SemaContext* ctx, Node* node, ScopeKind kind = BLOCK)
+{
+	diagnostics::log_debug("[VariablePass]: Pushed new comptime scope for %s at %s", node.kind.description, node.range);
+
+	Scope* new_scope = scope::new(ctx.allocator, node.range, ctx.comptime_scope, kind);
+
+	ctx.comptime_scope.children.push(new_scope);
+	ctx.comptime_scope = new_scope;
+}
+
+fn void pop_ct_scope(SemaContext* ctx)
+{
+	if (ctx.comptime_scope.parent)
+	{
+		ctx.comptime_scope = ctx.comptime_scope.parent;
 	}
 }
 
@@ -69,9 +88,9 @@ fn ChildVisitResult sema_on_enter(Node* node, Node* parent, void* user_data) @lo
 			IfStmt* if_stmt = node.as(IfStmt);
 			if (if_stmt.then_body.kind != COMPOUND_STMT)
 			{
-				push_scope(ctx, if_stmt.then_body);
+				push_rt_scope(ctx, if_stmt.then_body);
 				cursor::visit(if_stmt.then_body, node, { &sema_on_enter, &sema_on_exit }, ctx);
-				pop_scope(ctx);
+				pop_rt_scope(ctx);
 			}
 			else
 			{
@@ -82,9 +101,9 @@ fn ChildVisitResult sema_on_enter(Node* node, Node* parent, void* user_data) @lo
 			{
 				if (if_stmt.else_body.kind != COMPOUND_STMT)
 				{
-					push_scope(ctx, if_stmt.else_body);
+					push_rt_scope(ctx, if_stmt.else_body);
 					cursor::visit(if_stmt.else_body, node, { &sema_on_enter, &sema_on_exit }, ctx);
-					pop_scope(ctx);
+					pop_rt_scope(ctx);
 				}
 				else
 				{
@@ -96,38 +115,41 @@ fn ChildVisitResult sema_on_enter(Node* node, Node* parent, void* user_data) @lo
 
 		case CT_IF_STMT:
 			CtIfStmt* if_stmt = node.as(CtIfStmt);
-			push_scope(ctx, node);
+			push_ct_scope(ctx, node);
 			foreach (child : if_stmt.then_stmts)
 			{
 				cursor::visit(child, node, { &sema_on_enter, &sema_on_exit }, ctx);
 			}
-			pop_scope(ctx);
+			pop_ct_scope(ctx);
 			if (if_stmt.else_stmts.len > 0)
 			{
-				push_scope(ctx, node);
+				push_ct_scope(ctx, node);
 				foreach (child : if_stmt.else_stmts)
 				{
 					cursor::visit(child, node, { &sema_on_enter, &sema_on_exit }, ctx);
 				}
-				pop_scope(ctx);
+				pop_ct_scope(ctx);
 			}
 			return CONTINUE;
 
 		case MACRO_DECL:
 		case FN_DECL:
-		case LAMBDA_EXPR:
 		case ATTRDEF_DECL:
-			push_scope(ctx, node, true);
-			break;
+			push_rt_scope(ctx, node, FUNCTION);
+			push_ct_scope(ctx, node, FUNCTION);
+
+		case LAMBDA_EXPR:
+			push_rt_scope(ctx, node, FUNCTION);
+
 		case FOR_STMT:
 		case CT_FOR_STMT:
 		case FOREACH_STMT:
 		case CT_FOREACH_STMT:
 		case WHILE_STMT:
 		case COMPOUND_STMT:
-			push_scope(ctx, node);
-			break;
-		default: break;
+			push_rt_scope(ctx, node);
+
+		default:
 	}
 
 	if VAR: (node.kind == VAR_DECL)
@@ -136,8 +158,13 @@ fn ChildVisitResult sema_on_enter(Node* node, Node* parent, void* user_data) @lo
 
 		if (!decl.name) break VAR;
 
-		VariableInfo* info = scope::get_variable(ctx.scope, decl.name.text);
-		if (info)
+		Scope* scope = decl.var_flags.is_comptime ? ctx.comptime_scope : ctx.runtime_scope;
+
+		// A name already in view is a redefinition, with one exception: a
+		// declaration inside a function may shadow a global. Two globals of the
+		// same name still clash with each other.
+		VariableInfo* info = scope::resolve(scope, decl.name.text);
+		if (info && (scope.kind == FILE || info.binding != GLOBAL))
 		{
 			diagnostics::note(ctx.context, info.node.range, "Previous definition of '%s' was here", info.name);
 			diagnostics::error(
@@ -151,10 +178,35 @@ fn ChildVisitResult sema_on_enter(Node* node, Node* parent, void* user_data) @lo
 
 		diagnostics::log_debug("[VariablePass]: Added local variable: %s", decl.name.text);
 
-		scope::add_variable(ctx.scope, ctx.allocator, decl.name.text, node);
+		scope::add_variable(scope, ctx.allocator, decl.name.text, node, binding_of(scope, decl));
 	}
 
 	return RECURSE;
+}
+
+<*
+ A '$name' is a compile-time binding, which stays in view inside a nested
+ function. Otherwise the scope it is declared in decides: file scope makes a
+ global, anything else - parameters, locals, local constants, static locals -
+ makes a runtime binding.
+
+ The scope is what decides rather than 'decl.var_kind', which the parser only
+ fills in as VAR_LOCAL when the statement carried an explicit modifier.
+*>
+fn BindingKind binding_of(Scope* scope, VarDecl* decl) @local
+{
+	String name = decl.name.text;
+
+	switch {
+		case scope.kind == FILE:
+		case decl.var_flags.is_const:
+		case decl.var_flags.is_static:
+		case decl.var_flags.is_thread_local:
+			return GLOBAL;
+
+		default:
+			return RUNTIME;
+	}
 }
 
 fn ChildVisitResult sema_on_exit(Node* node, Node* parent, void* user_data) @local
@@ -164,6 +216,9 @@ fn ChildVisitResult sema_on_exit(Node* node, Node* parent, void* user_data) @loc
 	{
 		case MACRO_DECL:
 		case FN_DECL:
+			pop_ct_scope(ctx);
+			pop_rt_scope(ctx);
+
 		case LAMBDA_EXPR:
 		case ATTRDEF_DECL:
 		case FOR_STMT:
@@ -172,7 +227,7 @@ fn ChildVisitResult sema_on_exit(Node* node, Node* parent, void* user_data) @loc
 		case CT_FOREACH_STMT:
 		case WHILE_STMT:
 		case COMPOUND_STMT:
-			pop_scope(ctx);
+			pop_rt_scope(ctx);
 		default:
 	}
 

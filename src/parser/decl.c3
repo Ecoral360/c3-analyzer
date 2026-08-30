@@ -566,7 +566,10 @@ fn Node* parse_param_decl(ContextScope scope, ParamParseFlags flags = {})
 		}
 		else
 		{
-			node.init_expr = parse_expr(scope);
+			// The initializer is its own expression: the modifiers of the
+			// declaration around it ('var', 'const', 'static', ...) must not
+			// reach the statements of a lambda written inside it.
+			node.init_expr = parse_expr(scope.with_only_flags({ }));
 		}
 	}
 
@@ -667,7 +670,7 @@ fn Node* parse_var_decl(ContextScope scope, Node* type = null)
 				diagnostics::error(ctx.context, ctx.current.range, "Extern cannot have initializer");
 			}
 
-			var_node.init_expr = parse_expr(scope);
+			var_node.init_expr = parse_expr(scope.with_only_flags({ }));
 		}
 		else if (flags.is_const && !flags.is_extern)
 		{
@@ -685,6 +688,7 @@ fn Node* parse_var_decl(ContextScope scope, Node* type = null)
 		var_node.var_flags.is_local = flags.is_local;
 		var_node.var_flags.is_thread_local = flags.is_thread_local;
 		var_node.var_flags.is_static = flags.is_static;
+		var_node.var_flags.is_comptime = name.text.starts_with("$");
 
 		if (flags.is_local)
 		{

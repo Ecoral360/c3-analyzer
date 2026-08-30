@@ -250,6 +250,7 @@ bitstruct VarDeclFlags : uint
 	bool is_thread_local;
 	bool is_inline;
 	bool is_static;
+	bool is_comptime;
 
 	bool is_ref;
 
