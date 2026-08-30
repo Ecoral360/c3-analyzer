@@ -69,15 +69,24 @@ macro Ast.alloc_node(&self, $Type, Range range)
 	return node;
 }
 
-// macro String @typename_to_constname(String $typename) @const @local
-// {
-// 	var $name = "";
-// 	$foreach $i, $c : $typename:
-// 		$if $i != 0 &&& $c >= 'A' &&& $c <= 'Z':
-// 			$name +++= "_";
-// 		$endif
-// 		$name +++= @str_upper("" +++ $c);
-// 	$endforeach
-//
-// 	return $name;
-// }
+
+<*
+ Get the node at a certain path
+
+ @require self.statements.size > 0 || path.len == 0
+ @return "The node at that location, or null if the path is empty"
+ @return? NOT_FOUND
+*>
+fn Node*? Ast.node_at(&self, NodePath path)
+{
+	if (path.len == 0) return null;
+
+	NodeID target = path[path.len - 1];
+
+	foreach (node : self.nodes)
+	{
+		if (node.id == target) return node;
+	}
+
+	return NOT_FOUND~;
+}
