@@ -520,9 +520,13 @@ fn void lex_contract(Lexer* self)
 
 	int start_index = self.index;
 
-	while (self.current != 0 && self.current != '@' &&
-		   !(self.current == '*' && self.peek() == '>'))
+	bool start_of_line = true;
+	while (self.current != 0 && !(self.current == '*' && self.peek() == '>'))
 	{
+		if (start_of_line && self.current == '@') break;
+		if (self.current != ' ' && self.current != '\t') start_of_line = false;
+		if (self.current == '\n') start_of_line = true;
+
 		advance(self);
 	}
 
