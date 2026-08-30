@@ -40,6 +40,7 @@ struct Lexer
 	AnalyzerContext* ctx;
 	String buffer;
 	List{Token} tokens;
+	Location start_location;
 	Location location;
 	char current;
 	int index;
@@ -632,7 +633,7 @@ fn Token Lexer.emit_range(Lexer* self, TokenKind kind, int start_index)
 	return {
 		.kind = kind,
 		.value = self.get_string(start_index, self.index - start_index),
-		.range = { .start = self.location_at(start_index), .end = self.location }
+		.range = { .start = self.start_location, .end = self.location }
 	};
 }
 
@@ -658,6 +659,8 @@ fn void tokenize(Lexer* lexer)
 fn Token next(Lexer* lexer)
 {
 	skip_whitespace(lexer);
+
+	lexer.start_location = lexer.location;
 
 	switch (lexer.current)
 	{
