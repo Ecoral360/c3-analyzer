@@ -73,15 +73,20 @@ macro Ast.alloc_node(&self, $Type, Range range)
 <*
  Get the node at a certain path
 
+ @param depth : "The depth of the node to return. -1 means the deepest, 0 the highest"
  @require self.statements.size > 0 || path.len == 0
  @return "The node at that location, or null if the path is empty"
  @return? NOT_FOUND
 *>
-fn Node*? Ast.node_at(&self, NodePath path)
+fn Node*? Ast.node_at(&self, NodePath path, sz depth = -1)
 {
 	if (path.len == 0) return null;
 
-	NodeID target = path[path.len - 1];
+	depth = depth < 0 ? path.len + depth : depth;
+
+	if (depth < 0 || depth >= path.len) return NOT_FOUND~;
+
+	NodeID target = path[depth];
 
 	foreach (node : self.nodes)
 	{
