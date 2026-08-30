@@ -1361,6 +1361,18 @@ fn Node* parse_access_expr(ContextScope scope, Node* left)
 		node.member = parse_expr(scope.with_only_flags({ .type_as_expression = true }));
 		expect(ctx, (Node*)node, RPAREN);
 	}
+	else if (!can_start_expression(member_token.kind))
+	{
+		// A trailing '.' is the normal state of a half typed access. Sending
+		// parse_expr at whatever follows makes it consume the rest of the
+		// line and often the closing brace with it, which swallows the next
+		// top level declaration. C3 lets a type or a function be defined
+		// after its use, so that declaration is frequently the one the
+		// access needed in the first place. Stop here instead.
+		diagnostics::error(ctx.context, member_token.range, "Expected a member name after '%s'", op_kind.description);
+		error_node(ctx, node);
+		node.member = ctx.ast.error({ member_token.range.start, member_token.range.start });
+	}
 	else
 	{
 		// HIGHEST bp to avoid consuming downstream infix operators.
