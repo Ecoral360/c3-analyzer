@@ -70,7 +70,7 @@ fn bool visit_inner(Node* child, Node* parent, VisitorHooks hooks, void* data, i
 *>
 fn bool visit_children(Node* parent, VisitorHooks hooks, void* data, int max_depth, int depth)
 {
-	if (!parent.is_valid()) return true;
+	if (parent.kind == ERROR) return true;
 	Node* node = parent;
 
 	switch
