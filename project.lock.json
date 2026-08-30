@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "packages": [
+    {
+      "name": "seali",
+      "repo": "Ecoral360/seali.c3l",
+      "origin": "github",
+      "path": "lib/seali.c3l",
+      "zip": true,
+      "ref": "",
+      "commit": "7999e50fed6a29206ecd0e20816458998567b065"
+    }
+  ]
+}

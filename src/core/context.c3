@@ -86,7 +86,7 @@ fn bool process(AnalyzerContext* context, String buffer, String path) => @pool()
 
 	if (!parser::parse(parse_ctx, source))
 	{
-		return false;
+		// return false;
 	}
 
 	foreach (SourceFile* sf : context.files.value_iter())

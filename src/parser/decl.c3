@@ -13,7 +13,7 @@ fn Node* parse_module_decl(ContextScope scope)
 	diagnostics::log_debug("parse_mod");
 
 	ParseContext* ctx = scope.ctx;
-	Range start = ctx.current.range;
+	Range start       = ctx.current.range;
 
 	advance(ctx);
 
@@ -41,7 +41,7 @@ fn Node* parse_module_decl(ContextScope scope)
 
 	(void)expect(ctx, node, EOS);
 
-	PathExpr* path = node.path.as(PathExpr);
+	PathExpr* path  = node.path.as(PathExpr);
 	String mod_name = path.path.text;
 
 	return (Node*)node;
@@ -52,14 +52,18 @@ fn Node* parse_module_decl(ContextScope scope)
 *>
 fn Node* parse_contract_decl(ContextScope scope) => @pool()
 {
-	ParseContext* ctx = scope.ctx;
+	ParseContext* ctx  = scope.ctx;
 	ContractDecl* node = ctx.ast.alloc_node(ContractDecl, ctx.current.range);
 	defer node.range.end = ctx.peek(-1).range.end;
 
-	List{Node*} ensures;  ensures.tinit();
-	List{Node*} requires; requires.tinit();
-	List{Node*} params;   params.tinit();
-	List{Node*} returns;  returns.tinit();
+	List{Node*} ensures;
+	ensures.tinit();
+	List{Node*} requires;
+	requires.tinit();
+	List{Node*} params;
+	params.tinit();
+	List{Node*} returns;
+	returns.tinit();
 
 	advance(ctx); // skip <*
 
@@ -161,14 +165,14 @@ fn Node* parse_contract_decl(ContextScope scope) => @pool()
 fn Node* parse_import_decl(ContextScope scope) => @pool()
 {
 	ParseContext* ctx = scope.ctx;
-	Range start = ctx.current.range;
+	Range start       = ctx.current.range;
 	advance(ctx);
 	ImportDecl* node = ctx.ast.alloc_node(ImportDecl, start);
 	defer node.range.end = ctx.peek(-1).range.end;
 	List{Node*} temp_paths;
 	temp_paths.init(tmem, 4);
 
-	while (!ctx.eof())
+	do
 	{
 		Node* path_node = parse_path_expr(scope);
 		temp_paths.push(path_node);
@@ -178,14 +182,14 @@ fn Node* parse_import_decl(ContextScope scope) => @pool()
 			node.flags.has_error = true;
 		}
 
-		if (!consume(ctx, COMMA)) break;
-		if (ctx.is(EOS))
-		{
-			diagnostics::error(ctx.context, ctx.current.range, "Expected another path after ','");
-			node.flags.has_error = true;
-			break;
-		}
-	}
+		// if (!consume(ctx, COMMA)) break;
+		// if (ctx.is(EOS))
+		// {
+		// 	diagnostics::error(ctx.context, ctx.current.range, "Expected another path after ','");
+		// 	node.flags.has_error = true;
+		// 	break;
+		// }
+	} while (consume(ctx, COMMA));
 
 	node.paths = alloc::clone_slice(ctx.allocator, temp_paths.array_view());
 
@@ -209,7 +213,7 @@ fn Node* parse_import_decl(ContextScope scope) => @pool()
 fn Node* parse_alias_decl(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
-	Range start = ctx.current.range;
+	Range start       = ctx.current.range;
 	advance(ctx);
 	AliasDecl* node = ctx.ast.alloc_node(AliasDecl, start);
 	defer node.range.end = ctx.peek(-1).range.end;
@@ -277,8 +281,8 @@ fn Node* parse_alias_decl(ContextScope scope)
 fn Node* parse_typedef_decl(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
-	ParseFlags flags = scope.flags;
-	Range start = ctx.current.range;
+	ParseFlags flags  = scope.flags;
+	Range start       = ctx.current.range;
 	advance(ctx);
 	TypedefDecl* node = ctx.ast.alloc_node(TypedefDecl, start);
 	defer node.range.end = ctx.peek(-1).range.end;
@@ -353,8 +357,8 @@ fn Node* parse_typedef_decl(ContextScope scope)
 fn Node* parse_macro_decl(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
-	ParseFlags flags = scope.flags;
-	Range start = ctx.current.range;
+	ParseFlags flags  = scope.flags;
+	Range start       = ctx.current.range;
 
 	advance(ctx);
 
@@ -442,20 +446,20 @@ fn Node* parse_macro_decl(ContextScope scope)
 <*
  parameter_decl ::= parameter (("=" "...") | ("=" expression))?
  parameter      ::= type_expr ("..."? IDENTIFIER attributes?
-					| "..."? CT_IDENT
-					| (HASH_IDENT | "&" IDENTIFIER) attributes?
-					| attributes?)
-					| "..."
-					| HASH_IDENT attributes?
-					| "&" IDENTIFIER attributes?
-					| IDENTIFIER "..."? attributes?
-					| CT_IDENT
-					| CT_IDENT "..."
+ | "..."? CT_IDENT
+ | (HASH_IDENT | "&" IDENTIFIER) attributes?
+ | attributes?)
+ | "..."
+ | HASH_IDENT attributes?
+ | "&" IDENTIFIER attributes?
+ | IDENTIFIER "..."? attributes?
+ | CT_IDENT
+ | CT_IDENT "..."
 *>
-fn Node* parse_param_decl(ContextScope scope, ParamParseFlags flags = {})
+fn Node* parse_param_decl(ContextScope scope, ParamParseFlags flags = { })
 {
 	ParseContext* ctx = scope.ctx;
-	Range start = ctx.current.range;
+	Range start       = ctx.current.range;
 
 	VarDecl* node = ctx.ast.alloc_node(VarDecl, start);
 	defer node.range.end = ctx.peek(-1).range.end;
@@ -583,8 +587,8 @@ fn Node* parse_param_decl(ContextScope scope, ParamParseFlags flags = {})
 fn Node* parse_var_decl(ContextScope scope, Node* type = null)
 {
 	ParseContext* ctx = scope.ctx;
-	ParseFlags flags = scope.flags;
-	Range start = (type != null) ? type.range : ctx.current.range;
+	ParseFlags flags  = scope.flags;
+	Range start       = (type != null) ? type.range : ctx.current.range;
 
 	Node* contract;
 	if (ctx.is(DOCS_START))
@@ -651,8 +655,8 @@ fn Node* parse_var_decl(ContextScope scope, Node* type = null)
 		diagnostics::log_debug("var name: %s", t.value);
 		advance(ctx);
 
-		Range var_start = (head_node == null) ? start : t.range;
-		VarDecl* var_node    = ctx.ast.alloc_node(VarDecl, var_start);
+		Range var_start   = (head_node == null) ? start : t.range;
+		VarDecl* var_node = ctx.ast.alloc_node(VarDecl, var_start);
 
 		if (ctx.is(AT_IDENT) || ctx.is(AT_TYPE_IDENT))
 		{
@@ -757,7 +761,7 @@ fn Node* make_overload(ParseContext* ctx, Token t)
 
 <*
  attributes ::= attribute attribute*
-  attribute  ::= (AT_IDENT | path? AT_TYPE_IDENT) ("(" expression_list? ")")?
+ attribute  ::= (AT_IDENT | path? AT_TYPE_IDENT) ("(" expression_list? ")")?
 *>
 fn NodeArray parse_attributes(ContextScope scope, Node* parent_node, AttributeParseFlags flags = { }) => @pool()
 {
@@ -789,7 +793,8 @@ fn NodeArray parse_attributes(ContextScope scope, Node* parent_node, AttributePa
 
 		if (consume(ctx, LPAREN))
 		{
-			List{Node*} exprs; exprs.init(tmem, 4);
+			List{Node*} exprs;
+			exprs.init(tmem, 4);
 			while (!ctx.is(RPAREN) && !ctx.eof())
 			{
 				Node* expr;
@@ -850,11 +855,19 @@ fn NodeArray parse_attributes(ContextScope scope, Node* parent_node, AttributePa
 					case LESS_EQ:
 					case GREATER:
 					case GREATER_EQ:
-						diagnostics::error(ctx.context, ctx.current.range, "use '<' and '==', other comparison operations will be derived from those");
+						diagnostics::error(
+							ctx.context,
+							ctx.current.range,
+							"use '<' and '==', other comparison operations will be derived from those"
+						);
 						attr_node.flags.has_error = true;
 					case PLUSPLUS:
 					case MINUSMINUS:
-						diagnostics::error(ctx.context, ctx.current.range, "Increment and decrement operators '++' and '--' cannot be directly overloaded, use '+=' and '-=' instead");
+						diagnostics::error(
+							ctx.context,
+							ctx.current.range,
+							"Increment and decrement operators '++' and '--' cannot be directly overloaded, use '+=' and '-=' instead"
+						);
 						attr_node.flags.has_error = true;
 					case DOT:
 						diagnostics::error(ctx.context, ctx.current.range, "Cannot overload '.'");
@@ -891,17 +904,20 @@ fn NodeArray parse_attributes(ContextScope scope, Node* parent_node, AttributePa
 fn Node* parse_expand_decl(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
-	Range start = ctx.current.range;
+	Range start       = ctx.current.range;
 	advance(ctx);
 	CtExpandDecl* node = ctx.ast.alloc_node(CtExpandDecl, start);
 	defer node.range.end = ctx.peek(-1).range.end;
 	if (!consume(ctx, LPAREN))
 	{
 		node.flags.has_error = true;
-		diagnostics::error(ctx.context, ctx.current.range,
+		diagnostics::error(
+			ctx.context,
+			ctx.current.range,
 			"Expected '%s' got '%s'",
 			ctx.current.kind.description,
-			ctx.current.kind.description);
+			ctx.current.kind.description
+		);
 
 		skip_until(ctx, { RPAREN, EOS });
 	}
@@ -932,9 +948,9 @@ fn Node* parse_expand_decl(ContextScope scope)
 fn Node* parse_struct_union_decl(ContextScope scope, bool is_sub = false) => @pool()
 {
 	ParseContext* ctx = scope.ctx;
-	ParseFlags flags = scope.flags;
+	ParseFlags flags  = scope.flags;
 
-	Range start  = ctx.current.range;
+	Range start    = ctx.current.range;
 	bool is_struct = ctx.is(STRUCT);
 	advance(ctx);
 	StructDecl* node = ctx.ast.alloc_node(StructDecl, start);
@@ -1037,7 +1053,7 @@ fn Node* parse_struct_union_decl(ContextScope scope, bool is_sub = false) => @po
 fn Node* parse_bitstruct_decl(ContextScope scope, bool is_nested = false) => @pool()
 {
 	ParseContext* ctx = scope.ctx;
-	StructDecl* node = ctx.ast.alloc_node(StructDecl, ctx.current.range);
+	StructDecl* node  = ctx.ast.alloc_node(StructDecl, ctx.current.range);
 	advance(ctx);
 	defer node.range.end = ctx.peek(-1).range.end;
 
@@ -1143,7 +1159,7 @@ fn Node* parse_bitstruct_decl(ContextScope scope, bool is_nested = false) => @po
 fn Node* parse_faultdef_decl(ContextScope scope) => @pool()
 {
 	ParseContext* ctx = scope.ctx;
-	Range start = ctx.current.range;
+	Range start       = ctx.current.range;
 	advance(ctx);
 	FaultdefDecl* node = ctx.ast.alloc_node(FaultdefDecl, start);
 	defer node.range.end = ctx.peek(-1).range.end;
@@ -1200,7 +1216,7 @@ fn Node* parse_faultdef_decl(ContextScope scope) => @pool()
 fn Node* parse_interface_decl(ContextScope scope) => @pool()
 {
 	ParseContext* ctx = scope.ctx;
-	Range start = ctx.current.range;
+	Range start       = ctx.current.range;
 	advance(ctx);
 	InterfaceDecl* node = ctx.ast.alloc_node(InterfaceDecl, start);
 	defer node.range.end = ctx.peek(-1).range.end;
@@ -1282,7 +1298,7 @@ fn Node* parse_interface_decl(ContextScope scope) => @pool()
 fn Node* parse_attrdef_decl(ContextScope scope) => @pool()
 {
 	ParseContext* ctx = scope.ctx;
-	Range start = ctx.current.range;
+	Range start       = ctx.current.range;
 	advance(ctx);
 	AttrdefDecl* node = ctx.ast.alloc_node(AttrdefDecl, start);
 	defer node.range.end = ctx.peek(-1).range.end;
@@ -1301,7 +1317,7 @@ fn Node* parse_attrdef_decl(ContextScope scope) => @pool()
 
 	if (ctx.is(LPAREN))
 	{
-		node.params = parse_parameter_list(scope);//, { .is_attrdef = true });
+		node.params = parse_parameter_list(scope); // , { .is_attrdef = true });
 	}
 
 	if (ctx.is(AT_IDENT))
@@ -1328,14 +1344,15 @@ fn Node* parse_attrdef_decl(ContextScope scope) => @pool()
 <*
  enum_decl ::= "enum" TYPE_IDENT ("(" type ("," type)* ")")? (":" type? enum_param_list?)? attributes? "{" enum_body "}"
 
-	constdef_decl ::= "constdef" TYPE_IDENT ("(" type ("," type)* ")")? (":" "inline"? type)? attributes? "{" constdef_body "}"
-	@require scope.ctx.current.kind == ENUM || scope.ctx.current.kind == CONSTDEF
+ constdef_decl ::= "constdef" TYPE_IDENT ("(" type ("," type)* ")")? (":" "inline"? type)? attributes? "{" constdef_body
+ "}"
+ @require scope.ctx.current.kind == ENUM || scope.ctx.current.kind == CONSTDEF
 *>
 fn Node* parse_enum_constdef_decl(ContextScope scope) => @pool()
 {
 	ParseContext* ctx = scope.ctx;
-	ParseFlags flags = scope.flags;
-	Range start = ctx.current.range;
+	ParseFlags flags  = scope.flags;
+	Range start       = ctx.current.range;
 
 	advance(ctx);
 
@@ -1482,7 +1499,7 @@ fn Node* parse_enum_constdef_decl(ContextScope scope) => @pool()
 fn Node* parse_generic_decl(ContextScope scope) => @pool()
 {
 	ParseContext* ctx = scope.ctx;
-	Range start = ctx.current.range;
+	Range start       = ctx.current.range;
 	advance(ctx);
 	if (ctx.is(GREATER))
 	{

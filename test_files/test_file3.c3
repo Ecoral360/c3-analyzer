@@ -1,4 +1,6 @@
 import s
 
 
-struct Foo {}
+struct Foo {
+int x;
+}

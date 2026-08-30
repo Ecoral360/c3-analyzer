@@ -7,6 +7,7 @@ import std::collections::maybe;
 import std::collections::list;
 import seali;
 
+$expand(seali::@derive(Cli));
 struct Cli @Command({ .name = "c3_parser", .help_on_empty = true })
 {
 	Maybe{Std} std @Seali(arg(subcommand));
@@ -25,7 +26,11 @@ struct Std @Command({ .name = "std", .about = "Test parser against the std lib",
 
 fn int main(String[] args) => @pool()
 {
-	Cli cli = seali::parse(Cli, args)!!;
+	Cli cli;
+	if (catch err = cli.tparse(args))
+	{
+		return 0;
+	}
 
 	if (cli.verbose) log::set_priority_all(LogPriority.VERBOSE);
 	if (cli.quiet) log::set_logger(&&(NullLogger) { });
