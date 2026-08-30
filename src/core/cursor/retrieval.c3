@@ -12,7 +12,7 @@ import std::collections::list;
 
 import std::io;
 
-fn NodeEntry node(Ast* ast, Location location)
+fn NodeEntry node_entry(Ast* ast, Location location)
 {
 	FindPathContext ctx = {
 		.target = { location, location },
