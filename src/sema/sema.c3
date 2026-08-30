@@ -57,6 +57,8 @@ fn void analyze_imports(SemaContext* ctx)
 
 		foreach (Node* path : imp.paths)
 		{
+			if (path.kind != PATH_EXPR) continue; // stops a crash if the path is invalid
+
 			PathExpr* expr = path.as(PathExpr);
 			String full_path = expr.path.text;
 
