@@ -535,6 +535,7 @@ fn Node* parse_switch_stmt(ContextScope scope) => @pool()
 		node.flags.has_error = true;
 		// Synchronization: Since we missed the '{', we shouldn't attempt to parse the body
 		skip_until(ctx, { RBRACE });
+		node.range.end = ctx.current.range.end;
 	}
 	else
 	{
@@ -543,6 +544,10 @@ fn Node* parse_switch_stmt(ContextScope scope) => @pool()
 		parse_switch_body(scope, &bodies);
 
 		node.cases = alloc::clone_slice(ctx.allocator, bodies.array_view());
+
+		// Taken before the brace is consumed: reading ctx.current after
+		// would put the end on whatever follows the switch.
+		node.range.end = ctx.current.range.end;
 
 		if (!consume(ctx, RBRACE))
 		{
@@ -571,6 +576,9 @@ fn Node* parse_return_stmt(ContextScope scope)
 	{
 		node.expr = parse_expr(scope);
 	}
+
+	// Cover the returned expression and the ';'. 
+	node.range.end = ctx.current.range.end;
 
 	if (!consume(ctx, EOS))
 	{
@@ -1214,6 +1222,8 @@ fn Node* parse_ct_assert_stmt(ContextScope scope) => @pool()
 		node.args = alloc::clone_slice(ctx.allocator, args.array_view());
 	}
 
+	node.range.end = ctx.current.range.end;
+
 	if (!consume(ctx, EOS))
 	{
 		diagnostics::error(ctx.context, ctx.current.range, "Expected ';'");
@@ -1388,6 +1398,10 @@ fn Node* parse_assert_stmt(ContextScope scope)
 		diagnostics::error(ctx.context, ctx.current.range, "Expected ')'");
 		error_node(ctx, node);
 	}
+
+	// The condition and the message are inside this node; the range has to
+	// contain them for a position lookup to find them.
+	node.range.end = ctx.current.range.end;
 
 	if (!consume(ctx, EOS))
 	{

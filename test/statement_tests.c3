@@ -872,3 +872,76 @@ fn void nextcase_stmt()
 	NextcaseStmt* to_default = parser_tests::case_body(swi.cases[2]).as(NextcaseStmt);
 	test::eq(to_default.is_default, true);
 }
+
+<*
+ A statement's range has to contain the expressions it is made of.
+
+ return, assert, $assert and switch all left their range on the keyword
+ alone, so every node underneath them was unreachable to anything that
+ walks the tree by position - a cursor lookup for hover or goto
+ definition would stop at the enclosing block and find nothing.
+*>
+fn void statement_ranges_cover_their_operands()
+{
+	String source_code = `module hello;
+fn int foo(int a)
+{
+	assert(a > 0);
+	$assert(true);
+	switch (a)
+	{
+		case 1:
+			break;
+		default:
+			break;
+	}
+	return a + 1;
+}
+`;
+	AnalyzerContext* context = context::new(tmem);
+	bool success             = context::process(context, source_code, "test");
+	test::eq(success, true);
+
+	FunctionInfo* func_info = context.registry.functions.get("hello::foo")!!;
+	CompoundStmt* body      = func_info.node.as(FnDecl).body.as(CompoundStmt);
+
+	// Every one of these ends on the line it starts on, past its operand,
+	// rather than a few columns after the keyword.
+	foreach (Node* stmt : body.statements)
+	{
+		test::@check(
+			stmt.range.end.line > stmt.range.start.line || stmt.range.end.column > stmt.range.start.column + 8,
+			"%s stops at its keyword: %d:%d - %d:%d",
+			stmt.kind.description,
+			stmt.range.start.line,
+			stmt.range.start.column,
+			stmt.range.end.line,
+			stmt.range.end.column
+		);
+	}
+
+	// And the nested expressions are inside their statement, which is what
+	// makes a position lookup able to descend to them.
+	Node* ret = body.statements[3];
+	test::eq(ret.kind, NodeKind.RETURN_STMT);
+	Node* returned = ret.as(ReturnStmt).expr;
+	test::@check(ret.range.contains_range(returned.range), "the returned expression is outside the return");
+
+	Node* assert_stmt = body.statements[0];
+	test::eq(assert_stmt.kind, NodeKind.ASSERT_STMT);
+	test::@check(
+		assert_stmt.range.contains_range(assert_stmt.as(AssertStmt).expr.range),
+		"the asserted expression is outside the assert"
+	);
+
+	Node* switch_stmt = body.statements[2];
+	test::eq(switch_stmt.kind, NodeKind.SWITCH_STMT);
+	test::@check(
+		switch_stmt.range.contains_range(switch_stmt.as(SwitchStmt).cond.range),
+		"the switch condition is outside the switch"
+	);
+	test::@check(
+		switch_stmt.range.contains_range(switch_stmt.as(SwitchStmt).cases[0].range),
+		"a case is outside the switch"
+	);
+}
