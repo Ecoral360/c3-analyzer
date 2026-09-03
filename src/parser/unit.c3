@@ -334,8 +334,6 @@ fn Node* parse_short_body(ContextScope scope, bool is_regular)
 	node_comp.statements = alloc::alloc_array(ctx.allocator, Node*, 1);
 	node_comp.statements[0] = stmt;
 
-	node_comp.range.end = stmt.range.end;
-
 	if (is_regular)
 	{
 		if (!consume(ctx, EOS))
@@ -343,7 +341,11 @@ fn Node* parse_short_body(ContextScope scope, bool is_regular)
 			diagnostics::error(ctx.context, ctx.current.range, "Expected ';' to end the expression body");
 			error_node(ctx, node_comp);
 		}
+		// adds the `;` to the range
+		stmt.range.end = ctx.peek(-1).range.end;
 	}
+
+	node_comp.range.end = stmt.range.end;
 
 	return (Node*)node_comp;
 }

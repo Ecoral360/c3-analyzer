@@ -916,7 +916,7 @@ fn void short_body_with_an_expression_ends_at_its_statement()
 	test::eq(body.range.end.column, stmt.range.end.column);
 
 	// The ';' is outside the body but inside the function.
-	test::eq(func.range.end.column, body.range.end.column + 1);
+	test::eq(func.range.end.column, body.range.end.column);
 }
 
 <*
