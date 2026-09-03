@@ -724,7 +724,7 @@ fn Token next(Lexer* lexer)
 			switch (lexer.peek())
 			{
 				case '<':
-					if (lexer.peek() == '=')
+					if (lexer.peek(2) == '=')
 					{
 						return lexer.emit(LSHIFT_ASSIGN, "<<=");
 					}
