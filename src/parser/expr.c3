@@ -595,7 +595,11 @@ fn Node* parse_binary_expr(ContextScope scope, Node* left, Precedence prec)
 	advance(ctx);
 	Node* right = parse_expr(scope.with_flags({ .type_as_expression = true }), prec);
 
-	BinaryExpr* node = ctx.ast.alloc_node(BinaryExpr, { start.start, right.range.end });
+	// The expression starts where its left operand does - 'start' is only the
+	// operator token, which sits in the middle of what the node covers.
+	Location node_start = left ? left.range.start : start.start;
+
+	BinaryExpr* node = ctx.ast.alloc_node(BinaryExpr, { node_start, right.range.end });
 	node.left = left;
 	node.right = right;
 	node.op = core::binaryop_from_token(kind);
@@ -655,7 +659,11 @@ fn Node* parse_post_unary_expr(ContextScope scope, Node* left, Precedence bp)
 {
 	ParseContext* ctx = scope.ctx;
 	Range start = ctx.current.range;
-	PostUnaryExpr* node = ctx.ast.alloc_node(PostUnaryExpr, start);
+
+	// 'a++' starts at its operand, not at the operator the parser stands on.
+	Location node_start = left ? left.range.start : start.start;
+
+	PostUnaryExpr* node = ctx.ast.alloc_node(PostUnaryExpr, { node_start, start.end });
 	defer node.range.end = ctx.peek(-1).range.end;
 	UnaryOpKind? op = core::unaryop_from_token(ctx.current.kind);
 	if (catch op)
@@ -996,7 +1004,12 @@ fn Node* parse_try_unwrap_chain_expr(ContextScope scope)
 fn Node* parse_ternary_expr(ContextScope scope, Node* left)
 {
 	ParseContext* ctx = scope.ctx;
-	TernaryExpr* node = ctx.ast.alloc_node(TernaryExpr, ctx.current.range);
+	Range start = ctx.current.range;
+
+	// The condition is already parsed and sits in front of the '?'.
+	Location node_start = left ? left.range.start : start.start;
+
+	TernaryExpr* node = ctx.ast.alloc_node(TernaryExpr, { node_start, start.end });
 	defer node.range.end = ctx.peek(-1).range.end;
 
 	node.is_const = ctx.is(CT_TERNARY);

@@ -333,6 +333,7 @@ fn Node* parse_short_body(ContextScope scope, bool is_regular)
 	CompoundStmt* node_comp = ctx.ast.alloc_node(CompoundStmt, pos);
 	node_comp.statements = alloc::alloc_array(ctx.allocator, Node*, 1);
 	node_comp.statements[0] = stmt;
+
 	node_comp.range.end = stmt.range.end;
 
 	if (is_regular)

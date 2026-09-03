@@ -890,9 +890,10 @@ fn void short_body_with_a_macro_call_spans_the_whole_body()
 }
 
 <*
- The ';' terminated form keeps covering its terminator.
+ The ';' terminated form covers the statement it wraps, stopping before the
+ terminator, which belongs to the declaration.
 *>
-fn void short_body_with_an_expression_ends_at_the_semicolon()
+fn void short_body_with_an_expression_ends_at_its_statement()
 {
 	String source_code = `
 		module hello;
@@ -909,7 +910,86 @@ fn void short_body_with_an_expression_ends_at_the_semicolon()
 	Module* mod = context.modules.get("hello")!!;
 	FnDecl* func = mod.nodes[1].as(FnDecl);
 	CompoundStmt* body = func.body.as(CompoundStmt);
+	Node* stmt = body.statements[0];
 
-	test::eq(body.range.end.line, func.range.end.line);
-	test::eq(body.range.end.column, func.range.end.column);
+	test::eq(body.range.end.line, stmt.range.end.line);
+	test::eq(body.range.end.column, stmt.range.end.column);
+
+	// The ';' is outside the body but inside the function.
+	test::eq(func.range.end.column, body.range.end.column + 1);
+}
+
+<*
+ A binary expression covers both operands: its range used to start at the
+ operator token, since that is where the led parser stands when it builds the
+ node.
+*>
+fn void binary_expr_starts_at_its_left_operand()
+{
+	String source_code = `
+		module hello;
+
+		fn void f(int a, int b, int c)
+		{
+			int r = a + b * c;
+		}
+	`;
+	parser_tests::start_counting_diags();
+	defer parser_tests::stop_counting_diags();
+
+	AnalyzerContext* context = context::new(tmem);
+	context::process(context, source_code, "test");
+	test::eq(parser_tests::error_diag_count, 0);
+
+	Module* mod = context.modules.get("hello")!!;
+	FnDecl* func = mod.nodes[1].as(FnDecl);
+	VarDecl* decl = func.body.as(CompoundStmt).statements[0].as(VarDecl);
+
+	BinaryExpr* add = decl.init_expr.as(BinaryExpr);
+	Node* left = add.left;
+	BinaryExpr* mul = add.right.as(BinaryExpr);
+
+	// 'a + b * c' starts where 'a' does and ends where 'c' does.
+	test::eq(add.range.start.line, left.range.start.line);
+	test::eq(add.range.start.column, left.range.start.column);
+	test::eq(add.range.end.column, mul.range.end.column);
+
+	// The nested 'b * c' starts at 'b', not at '*'.
+	test::eq(mul.range.start.column, mul.left.range.start.column);
+}
+
+<*
+ A postfix operator and a ternary both stand on their operator token when the
+ node is built, so their ranges used to start there instead of at the operand
+ in front of them.
+*>
+fn void postfix_and_ternary_start_at_their_left_operand()
+{
+	String source_code = `
+		module hello;
+
+		fn void f(int a, int b, int c)
+		{
+			int p = a++;
+			int s = a > b ? b : c;
+		}
+	`;
+	parser_tests::start_counting_diags();
+	defer parser_tests::stop_counting_diags();
+
+	AnalyzerContext* context = context::new(tmem);
+	context::process(context, source_code, "test");
+	test::eq(parser_tests::error_diag_count, 0);
+
+	Module* mod = context.modules.get("hello")!!;
+	NodeArray body = mod.nodes[1].as(FnDecl).body.as(CompoundStmt).statements;
+
+	PostUnaryExpr* post = body[0].as(VarDecl).init_expr.as(PostUnaryExpr);
+	test::eq(post.range.start.column, post.expr.range.start.column);
+	test::eq(post.range.end.column, post.expr.range.end.column + 2); // '++'
+
+	TernaryExpr* ternary = body[1].as(VarDecl).init_expr.as(TernaryExpr);
+	test::eq(ternary.range.start.line, ternary.cond.range.start.line);
+	test::eq(ternary.range.start.column, ternary.cond.range.start.column);
+	test::eq(ternary.range.end.column, ternary.else_expr.range.end.column);
 }
