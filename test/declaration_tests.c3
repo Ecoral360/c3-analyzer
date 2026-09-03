@@ -852,3 +852,64 @@ fn void untypedlist_is_allowed_as_a_body_param()
 	MacroDecl* each = mod.nodes[1].as(MacroDecl);
 	test::eq(each.body_params.as(BodyParamDecl).params.len, 1);
 }
+
+<*
+ 'fn ... => @macro() { ... }' wraps the call in a synthetic body. That body used
+ to keep the range of the first token of the call, since the branch that closes
+ the range only ran for the ';' terminated form.
+*>
+fn void short_body_with_a_macro_call_spans_the_whole_body()
+{
+	String source_code = `
+		module hello;
+
+		fn void x() => @pool()
+		{
+			int a = 1;
+		}
+	`;
+	parser_tests::start_counting_diags();
+	defer parser_tests::stop_counting_diags();
+
+	AnalyzerContext* context = context::new(tmem);
+	context::process(context, source_code, "test");
+	test::eq(parser_tests::error_diag_count, 0);
+
+	Module* mod = context.modules.get("hello")!!;
+	FnDecl* func = mod.nodes[1].as(FnDecl);
+	CompoundStmt* body = func.body.as(CompoundStmt);
+	Node* stmt = body.statements[0];
+
+	// The body reaches the closing brace, which is where the function ends.
+	test::eq(body.range.end.line, func.range.end.line);
+	test::eq(body.range.end.column, func.range.end.column);
+
+	// And it is no shorter than the statement it wraps.
+	test::eq(body.range.end.line, stmt.range.end.line);
+	test::eq(body.range.end.column, stmt.range.end.column);
+}
+
+<*
+ The ';' terminated form keeps covering its terminator.
+*>
+fn void short_body_with_an_expression_ends_at_the_semicolon()
+{
+	String source_code = `
+		module hello;
+
+		fn int y() => 1 + 2;
+	`;
+	parser_tests::start_counting_diags();
+	defer parser_tests::stop_counting_diags();
+
+	AnalyzerContext* context = context::new(tmem);
+	context::process(context, source_code, "test");
+	test::eq(parser_tests::error_diag_count, 0);
+
+	Module* mod = context.modules.get("hello")!!;
+	FnDecl* func = mod.nodes[1].as(FnDecl);
+	CompoundStmt* body = func.body.as(CompoundStmt);
+
+	test::eq(body.range.end.line, func.range.end.line);
+	test::eq(body.range.end.column, func.range.end.column);
+}
