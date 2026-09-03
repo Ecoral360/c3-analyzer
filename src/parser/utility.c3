@@ -169,6 +169,7 @@ fn bool is_type_primitive(TokenKind kind)
 		case FAULT_TYPE:
 		case ANY_TYPE:
 		case VOID_TYPE:
+		case UNTYPEDLIST_TYPE:
 		case CT_TYPE_IDENT:
 		case CT_TYPEOF:
 		case CT_TYPEFROM:
