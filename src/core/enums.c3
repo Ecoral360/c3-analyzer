@@ -109,10 +109,10 @@ enum VarDeclKind : char
 	VAR_LOCAL,
 	VAR_GLOBAL,
 	VAR_FIELD,
-	VAR_BITFIELD,      // bitstruct field
-	VAR_PARAM,         // Regular parameter (foo)
-	VAR_PARAM_CT,      // Compile-time parameter ($foo)
-	VAR_PARAM_EXPR,    // Expression parameter (#foo)
+	VAR_BITFIELD, // bitstruct field
+	VAR_PARAM, // Regular parameter (foo)
+	VAR_PARAM_CT, // Compile-time parameter ($foo)
+	VAR_PARAM_EXPR, // Expression parameter (#foo)
 	VAR_PARAM_CT_TYPE, // Compile-time type parameter ($Type)
 }
 
@@ -196,43 +196,45 @@ enum TypeInfoKind
 
 enum TypeKind : char
 {
-	TYPE_VOID,
-	TYPE_BOOL,
-	TYPE_I8,
-	TYPE_I16,
-	TYPE_I32,
-	TYPE_I64,
-	TYPE_I128,
-	TYPE_U8,
-	TYPE_U16,
-	TYPE_U32,
-	TYPE_U64,
-	TYPE_U128,
-	TYPE_F16,
-	TYPE_BF16,
-	TYPE_F32,
-	TYPE_F64,
-	TYPE_F128,
-	TYPE_SZ,
-	TYPE_USZ,
-	TYPE_IPTR,
-	TYPE_UPTR,
+	VOID,
+	BOOL,
+	I8,
+	I16,
+	I32,
+	I64,
+	I128,
+	U8,
+	U16,
+	U32,
+	U64,
+	U128,
+	F16,
+	BF16,
+	F32,
+	F64,
+	F128,
+	SZ,
+	USZ,
+	IPTR,
+	UPTR,
 
-	TYPE_STRUCT,
-    TYPE_UNION,
-    TYPE_BITSTRUCT,
-    TYPE_ENUM,
+	STRUCT,
+	UNION,
+	BITSTRUCT,
+	ENUM,
+
+	UNTYPEDLIST,
 }
 
 enum BitSizes : char (uint bits)
 {
-	BIT1     { 8 },
-	BITS8    { 8 },
-    BITS16   { 16 },
-    BITS32   { 32 },
-    BITS64   { 64 },
-    BITS128  { 128 },
-    BITS256  { 256 },
+	BIT1    { 8 },
+	BITS8   { 8 },
+	BITS16  { 16 },
+	BITS32  { 32 },
+	BITS64  { 64 },
+	BITS128 { 128 },
+	BITS256 { 256 },
 }
 
 fn BitSizes int_to_bit_size(sz bits)
@@ -380,4 +382,3 @@ enum BuiltinFunction
 	LRINT,
 	LROUND,
 }
-

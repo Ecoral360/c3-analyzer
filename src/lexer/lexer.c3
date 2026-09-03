@@ -308,6 +308,7 @@ fn TokenKind lookup_keyword(String text)
 		case "float16": return FLOAT16_TYPE;
 		case "bfloat": return BFLOAT_TYPE;
 		case "float128": return FLOAT128_TYPE;
+		case "untypedlist": return UNTYPEDLIST_TYPE;
 		case "fault": return FAULT_TYPE;
 		case "typeid": return TYPEID_TYPE;
 		default: return IDENT;
