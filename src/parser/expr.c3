@@ -776,6 +776,7 @@ fn Node* parse_call_expr(ContextScope scope, Node* callee)
 		MacroBodyExpr* body_node = ctx.ast.alloc_node(MacroBodyExpr, start);
 		body_node.args = body_args;
 		body_node.body = body;
+		body_node.range.end = ctx.peek(-1).range.end;
 		node.macro_body_expr = body_node;
 	}
 

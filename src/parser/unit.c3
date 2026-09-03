@@ -11,11 +11,11 @@ import std::collections::list;
 <*
  @require t.kind == IDENT
 *>
-fn Ident* parse_identifier(ContextScope scope, Token t) 
-{   
+fn Ident* parse_identifier(ContextScope scope, Token t)
+{
 	ParseContext* ctx = scope.ctx;
-	String name = t.value;
-	if (!constants::is_valid_name(name)) 
+	String name       = t.value;
+	if (!constants::is_valid_name(name))
 	{
 		diagnostics::error(ctx.context, t.range, "Reserved identifier");
 		return null;
@@ -30,10 +30,11 @@ fn Ident* parse_identifier(ContextScope scope, Token t)
 fn NodeArray parse_parameter_list(ContextScope scope) => @pool()
 {
 	ParseContext* ctx = scope.ctx;
-	ParseFlags flags = scope.flags;
-	Range start = ctx.current.range;
+	ParseFlags flags  = scope.flags;
+	Range start       = ctx.current.range;
 
-	List{Node*} temp_params; temp_params.init(tmem, 4);
+	List{Node*} temp_params;
+	temp_params.init(tmem, 4);
 
 	if (!flags.is_call)
 	{
@@ -95,8 +96,8 @@ fn NodeArray parse_parameter_list(ContextScope scope) => @pool()
 fn void parse_macro_params(ContextScope scope, Node* macro_node)
 {
 	ParseContext* ctx = scope.ctx;
-	NodeArray params = parse_parameter_list(scope.with_flags({ .is_macro = true }));
-	MacroDecl* mac   = macro_node.as(MacroDecl);
+	NodeArray params  = parse_parameter_list(scope.with_flags({ .is_macro = true }));
+	MacroDecl* mac    = macro_node.as(MacroDecl);
 	mac.params = params;
 
 	if (consume(ctx, EOS))
@@ -146,7 +147,7 @@ fn NodeArray parse_generics_list(ContextScope scope)
 
 fn Node* parse_contract_param(ContextScope scope)
 {
-	ParseContext* ctx = scope.ctx;
+	ParseContext* ctx   = scope.ctx;
 	ContractParam* node = ctx.ast.alloc_node(ContractParam, ctx.current.range);
 	defer node.range.end = ctx.peek(-1).range.end;
 
@@ -209,7 +210,7 @@ fn Node* parse_contract_param(ContextScope scope)
 			node.description = ctx.ident(ctx.current);
 			advance(ctx);
 		}
-		else 
+		else
 		{
 			diagnostics::error(ctx.context, ctx.current.range, "Expected string description after ':'");
 			node.flags.has_error = true;
@@ -238,8 +239,8 @@ fn NodeArray parse_arg_list(ContextScope scope) => @pool()
 
 	while (!ctx.eof() && !ctx.is(RPAREN))
 	{
-		int pos_before = ctx.pos;
-		Node* expr = null;
+		int pos_before  = ctx.pos;
+		Node* expr      = null;
 		Range start_pos = ctx.current.range;
 		if (ctx.is(RPAREN)) break;
 
@@ -255,7 +256,7 @@ fn NodeArray parse_arg_list(ContextScope scope) => @pool()
 
 			if (expr.kind == IDENT_EXPR && consume(ctx, COLON))
 			{
-				IdentExpr* ident  = expr.as(IdentExpr);
+				IdentExpr* ident = expr.as(IdentExpr);
 				expr = (Node*)ctx.ast.alloc_node(NamedArgExpr, start_pos);
 				NamedArgExpr* named = expr.as(NamedArgExpr);
 				named.name = ident.ident;
@@ -281,8 +282,13 @@ fn NodeArray parse_arg_list(ContextScope scope) => @pool()
 
 		if (ctx.pos == pos_before)
 		{
-			diagnostics::error(ctx.context, ctx.current.range, "Parser loop stalled in argument list at token: %s", ctx.current.kind);
-			advance(ctx); 
+			diagnostics::error(
+				ctx.context,
+				ctx.current.range,
+				"Parser loop stalled in argument list at token: %s",
+				ctx.current.kind
+			);
+			advance(ctx);
 		}
 
 		if (!consume(ctx, COMMA)) break;
@@ -299,25 +305,27 @@ fn NodeArray parse_arg_list(ContextScope scope) => @pool()
 fn Node* parse_short_body(ContextScope scope, bool is_regular)
 {
 	ParseContext* ctx = scope.ctx;
-	Range pos = ctx.current.range;
+	Range pos         = ctx.current.range;
 
 	Node* expr = parse_expr(scope);
 	Node* stmt = null;
-	
+
 	bool is_macro_call = (expr.kind == CALL_EXPR && expr.as(CallExpr).macro_body_expr);
+
+	Range body_range = { .start = pos.start, .end = expr.range.end };
 
 	if (is_macro_call)
 	{
-		ExprStmt* ex_stmt = ctx.ast.alloc_node(ExprStmt, pos);
+		ExprStmt* ex_stmt = ctx.ast.alloc_node(ExprStmt, body_range);
 		ex_stmt.expr_stmt = expr;
 		stmt = (Node*)ex_stmt;
-		
+
 		expr.as(CallExpr).is_outer_call = true;
 		is_regular = false;
 	}
 	else
 	{
-		ReturnStmt* ret = ctx.ast.alloc_node(ReturnStmt, pos);
+		ReturnStmt* ret = ctx.ast.alloc_node(ReturnStmt, body_range);
 		ret.expr = expr;
 		stmt = (Node*)ret;
 	}
@@ -328,13 +336,15 @@ fn Node* parse_short_body(ContextScope scope, bool is_regular)
 
 	if (is_regular)
 	{
+		node_comp.range.end = ctx.current.range.end;
+
 		if (!consume(ctx, EOS))
 		{
 			diagnostics::error(ctx.context, ctx.current.range, "Expected valid interface type");
 			error_node(ctx, node_comp);
 		}
 	}
-	
+
 	return (Node*)node_comp;
 }
 
@@ -357,25 +367,25 @@ fn NodeArray parse_interface_type_list(ContextScope scope) => @pool()
 	{
 		Node* interface_type = parse_type_expr(scope, null);
 
-		if (interface_type) 
+		if (interface_type)
 		{
 			interfaces.push(interface_type);
-		} 
-		else 
+		}
+		else
 		{
 			diagnostics::error(ctx.context, ctx.current.range, "Expected valid interface type");
 			skip_until(ctx, { COMMA, RPAREN });
 		}
 
-		if (consume(ctx, COMMA)) 
+		if (consume(ctx, COMMA))
 		{
-			if (ctx.is(RPAREN)) 
+			if (ctx.is(RPAREN))
 			{
 				diagnostics::error(ctx.context, ctx.current.range, "Unexpected trailing comma in interface list");
 				break;
 			}
-		} 
-		else if (!ctx.is(RPAREN)) 
+		}
+		else if (!ctx.is(RPAREN))
 		{
 			diagnostics::error(ctx.context, ctx.current.range, "Expected ',' or ')'");
 			skip_until(ctx, { RPAREN });
@@ -383,7 +393,7 @@ fn NodeArray parse_interface_type_list(ContextScope scope) => @pool()
 		}
 	}
 
-	if (!consume(ctx, RPAREN)) 
+	if (!consume(ctx, RPAREN))
 	{
 		diagnostics::error(ctx.context, ctx.current.range, "Expected ')' to close interface list");
 	}
