@@ -618,6 +618,14 @@ fn Node* parse_unary_expr(ContextScope scope)
 			return parse_expr(scope);
 		}
 	}
+	if (ctx.is(PLUS))
+	{
+		if (ctx.peek(1).kind.is_int_literal())
+		{
+			advance(ctx);
+			return parse_expr(scope);
+		}
+	}
 	bool is_bang_bang = ctx.is(BANGBANG);
 	UnaryExpr* node = ctx.ast.alloc_node(UnaryExpr, start);
 	defer node.range.end = ctx.peek(-1).range.end;

@@ -241,6 +241,7 @@ fn Node* parse_prefix_expr(ContextScope scope)
 		case BANG:
 		case BANGBANG:
 		case MINUS:
+		case PLUS:
 		case BIT_NOT:
 		case AMP:
 		case AND:
