@@ -30,6 +30,7 @@ bitstruct ParseFlags : ulong
 	bool is_comptime;
 	bool type_as_expression;
 	bool no_generics; // dont allow type parsing to check for generics
+	bool is_body_param; // inside a macro '@body(...)' parameter list
 	bool skip_eos;
 }
 

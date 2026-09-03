@@ -801,3 +801,54 @@ fn void comptime_untypedlist_variables_are_accepted()
 
 	test::eq(list.var_flags.is_comptime, true);
 }
+
+<*
+ A member is never a compile time binding, and a parameter is bound at the call
+ site, so 'untypedlist' is invalid in both places - even spelled '$name'.
+*>
+fn void untypedlist_is_never_a_member_or_a_parameter()
+{
+	String source_code = `
+		module hello;
+
+		struct Data { untypedlist a; untypedlist $b; int c; }
+		union Uni { untypedlist u; }
+		bitstruct Bits : uint { untypedlist f : 0..3; }
+
+		fn void takes(untypedlist p) {}
+		macro @m(untypedlist $p) {}
+	`;
+	parser_tests::start_counting_diags();
+	defer parser_tests::stop_counting_diags();
+
+	AnalyzerContext* context = context::new(tmem);
+	context::process(context, source_code, "test");
+
+	// S.a, S.$b, U.u, B.f, 'takes' p and '@m' $p.
+	test::eq(parser_tests::error_diag_count, 6);
+}
+
+<*
+ A '@body(...)' parameter is bound inside the macro, where an untyped list is
+ still a compile time value, so 'untypedlist' is allowed there - unlike a
+ regular macro parameter.
+*>
+fn void untypedlist_is_allowed_as_a_body_param()
+{
+	String source_code = `
+		module hello;
+
+		macro @each(; @body(untypedlist $p)) {}
+		macro @two(int a; @body(untypedlist $p, untypedlist q)) {}
+	`;
+	parser_tests::start_counting_diags();
+	defer parser_tests::stop_counting_diags();
+
+	AnalyzerContext* context = context::new(tmem);
+	context::process(context, source_code, "test");
+	test::eq(parser_tests::error_diag_count, 0);
+
+	Module* mod = context.modules.get("hello")!!;
+	MacroDecl* each = mod.nodes[1].as(MacroDecl);
+	test::eq(each.body_params.as(BodyParamDecl).params.len, 1);
+}

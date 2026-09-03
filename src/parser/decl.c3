@@ -494,6 +494,17 @@ fn Node* parse_param_decl(ContextScope scope, ParamParseFlags flags = { })
 		}
 	}
 
+	// allowed in @body(...) params, but not in regular macro param list
+	if (!scope.flags.is_body_param && is_untypedlist_type(parsed_type))
+	{
+		diagnostics::error(
+			ctx.context,
+			parsed_type.range,
+			"The type of a parameter cannot be an 'untypedlist', which is a compile time type"
+		);
+		node.flags.has_error = true;
+	}
+
 	node.type = parsed_type;
 
 	Token t = ctx.current;
@@ -712,17 +723,30 @@ fn Node* parse_var_decl(ContextScope scope, Node* type = null)
 		var_node.var_flags.is_comptime = name.text.starts_with("$");
 
 		// 'untypedlist' only exists at compile time, so it can only be the type
-		// of a compile time variable - '$name'.
-		if (is_untypedlist_type(type_node) && !var_node.var_flags.is_comptime)
+		// of a compile time variable `$name`, i.e never a struct member
+		if (is_untypedlist_type(type_node))
 		{
-			diagnostics::error(
-				ctx.context,
-				type_node.range,
-				"Variable '%s' cannot be an 'untypedlist', which is a compile time type. Only a compile time variable ('$%s') can hold one",
-				name.text,
-				name.text
-			);
-			var_node.flags.has_error = true;
+			if (flags.is_struct)
+			{
+				diagnostics::error(
+					ctx.context,
+					type_node.range,
+					"Member '%s' cannot be an 'untypedlist', which is a compile time type",
+					name.text
+				);
+				var_node.flags.has_error = true;
+			}
+			else if (!var_node.var_flags.is_comptime)
+			{
+				diagnostics::error(
+					ctx.context,
+					type_node.range,
+					"Variable '%s' cannot be an 'untypedlist', which is a compile time type. Only a compile time variable ('$%s') can hold one",
+					name.text,
+					name.text
+				);
+				var_node.flags.has_error = true;
+			}
 		}
 
 		if (flags.is_local)
@@ -1140,6 +1164,17 @@ fn Node* parse_bitstruct_decl(ContextScope scope, bool is_nested = false) => @po
 		if (ctx.is(DOCS_START)) field_node.contract.set(parse_contract_decl(scope));
 
 		field_node.type = parse_type_expr(scope);
+
+		if (is_untypedlist_type(field_node.type))
+		{
+			diagnostics::error(
+				ctx.context,
+				field_node.type.range,
+				"'untypedlist' is not supported in a bitstruct, only enums, integer and boolean values may be used"
+			);
+			field_node.flags.has_error = true;
+		}
+
 		field_node.attributes = parse_attributes(scope, field_node);
 
 		if (ctx.is(IDENT))

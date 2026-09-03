@@ -108,7 +108,7 @@ fn void parse_macro_params(ContextScope scope, Node* macro_node)
 
 		if (ctx.is(LPAREN))
 		{
-			body_param_node.params = parse_parameter_list(scope);
+			body_param_node.params = parse_parameter_list(scope.with_flags({ .is_body_param = true }));
 		}
 
 		body_param_node.range.end = ctx.peek(-1).range.end;
