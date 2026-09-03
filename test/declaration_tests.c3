@@ -748,3 +748,56 @@ fn void decl_modifiers_do_not_leak_into_a_lambda_body()
 	test::eq(g.var_flags.is_static, true);
 	test::ne(g.type, null); // 'var' used to swallow the 'int'
 }
+
+<*
+ 'untypedlist' is a compile time type: only a '$name' variable can hold one.
+ A global, a local, or one name of a multi-declaration each get their own
+ error, while the compile time ones parse clean.
+*>
+fn void untypedlist_variables_must_be_comptime()
+{
+	String source_code = `
+		module hello;
+
+		untypedlist global_list = { 1, 2 };
+
+		fn void main()
+		{
+			untypedlist local_list = { 1, 2 };
+			untypedlist a, $b, c;
+		}
+	`;
+	parser_tests::start_counting_diags();
+	defer parser_tests::stop_counting_diags();
+
+	AnalyzerContext* context = context::new(tmem);
+	context::process(context, source_code, "test");
+
+	// global_list, local_list, a and c - '$b' is fine.
+	test::eq(parser_tests::error_diag_count, 4);
+}
+
+fn void comptime_untypedlist_variables_are_accepted()
+{
+	String source_code = `
+		module hello;
+
+		fn void main()
+		{
+			untypedlist $list = { 1, 2 };
+			untypedlist* ptr;
+		}
+	`;
+	parser_tests::start_counting_diags();
+	defer parser_tests::stop_counting_diags();
+
+	AnalyzerContext* context = context::new(tmem);
+	context::process(context, source_code, "test");
+	test::eq(parser_tests::error_diag_count, 0);
+
+	Module* mod = context.modules.get("hello")!!;
+	FnDecl* main_fn = mod.nodes[1].as(FnDecl);
+	VarDecl* list = main_fn.body.as(CompoundStmt).statements[0].as(VarDecl);
+
+	test::eq(list.var_flags.is_comptime, true);
+}

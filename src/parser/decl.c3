@@ -581,6 +581,23 @@ fn Node* parse_param_decl(ContextScope scope, ParamParseFlags flags = { })
 }
 
 <*
+ Whether the type written in front of a declaration is the bare 'untypedlist'
+ keyword. A derived type - 'untypedlist*', 'untypedlist[2]' - is a different
+ type and is left alone here.
+*>
+fn bool is_untypedlist_type(Node* type) @local
+{
+	if (!type || type.kind != TYPE_EXPR) return false;
+
+	TypeExpr* type_expr = type.as(TypeExpr);
+
+	if (type_expr.type_kind != TYPE_IDENTIFIER) return false;
+	if (type_expr.unresolved.path || !type_expr.unresolved.name) return false;
+
+	return type_expr.unresolved.name.text == "untypedlist";
+}
+
+<*
  var_decl ::= ('var' | type_expr) decl_element (',' decl_element)* ';'
  @todo "Split into -> parse_local, parse_global"
 *>
@@ -693,6 +710,20 @@ fn Node* parse_var_decl(ContextScope scope, Node* type = null)
 		var_node.var_flags.is_thread_local = flags.is_thread_local;
 		var_node.var_flags.is_static = flags.is_static;
 		var_node.var_flags.is_comptime = name.text.starts_with("$");
+
+		// 'untypedlist' only exists at compile time, so it can only be the type
+		// of a compile time variable - '$name'.
+		if (is_untypedlist_type(type_node) && !var_node.var_flags.is_comptime)
+		{
+			diagnostics::error(
+				ctx.context,
+				type_node.range,
+				"Variable '%s' cannot be an 'untypedlist', which is a compile time type. Only a compile time variable ('$%s') can hold one",
+				name.text,
+				name.text
+			);
+			var_node.flags.has_error = true;
+		}
 
 		if (flags.is_local)
 		{
