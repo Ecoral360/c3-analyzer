@@ -63,11 +63,11 @@ fn NodeArray parse_parameter_list(ContextScope scope) => @pool()
 
 		if (consume(ctx, COMMA))
 		{
-			if (ctx.is(RPAREN))
-			{
-				diagnostics::error(ctx.context, ctx.current.range, "Trailing comma in parameter list");
-				break;
-			}
+			// if (ctx.is(RPAREN))
+			// {
+			// 	diagnostics::error(ctx.context, ctx.current.range, "Trailing comma in parameter list");
+			// 	break;
+			// }
 		}
 		else if (flags.is_macro && ctx.is(EOS))
 		{
