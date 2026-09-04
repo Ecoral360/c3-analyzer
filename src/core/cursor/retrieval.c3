@@ -12,12 +12,34 @@ import std::collections::list;
 
 import std::io;
 
+fn NodeArray lineage(Ast* ast, Location location)
+{
+	FindPathContext ctx = {
+		.target = { location, location },
+		.current_path = { },
+	};
+	ctx.nodes.tinit();
+
+	foreach (node : ast.statements)
+	{
+		Node* root_cursor = node;
+
+		if (!visit(root_cursor, { }, { .on_enter = &find_path_callback }, &ctx))
+		{
+			break;
+		}
+	}
+
+	return ctx.nodes.to_tarray();
+}
+
 fn NodeEntry node_entry(Ast* ast, Location location)
 {
 	FindPathContext ctx = {
 		.target = { location, location },
 		.current_path = { },
 	};
+	ctx.nodes.tinit();
 
 	foreach (node : ast.statements)
 	{
@@ -66,6 +88,7 @@ struct FindPathContext
 {
 	Range target;
 	List{NodeID} current_path;
+	List{Node*} nodes;
 	Node* best_match;
 	int best_span;
 }
@@ -84,6 +107,7 @@ fn ChildVisitResult find_path_callback(Node* cursor, Node* parent, void* user_da
 	if (node.range.contains_range(ctx.target))
 	{
 		ctx.current_path.push(node.id);
+		ctx.nodes.push(node);
 
 		int current_span = (node.range.end.line - node.range.start.line) * 1000
 			+ (node.range.end.column - node.range.start.column);

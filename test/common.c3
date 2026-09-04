@@ -2,6 +2,8 @@ module parser_tests;
 
 import analyzer::core;
 import analyzer::sema;
+import analyzer::lexer;
+import analyzer::parser;
 
 import std::io;
 import std::collections::list;
@@ -66,4 +68,23 @@ fn Node* case_body(Node* case_node)
 	CompoundStmt* body = cs.body.as(CompoundStmt);
 	test::eq(body.statements.len, 1);
 	return body.statements[0];
+}
+
+<*
+ Parse a buffer and hand back the SourceFile, which 'context::process' frees
+ before it returns. A test that needs the Ast itself - to ask the cursor about
+ a location, say - has to drive the pipeline on its own.
+*>
+fn SourceFile* parse_source(AnalyzerContext* context, String source_code, String path = "test")
+{
+	Lexer* lex = lexer::new(context, source_code);
+	SourceFile* sf = source_file::new(context, lex, path);
+
+	context.current_source_file = sf;
+	lexer::tokenize(lex);
+
+	ParseContext* parse_ctx = parser::new(context);
+	parser::parse(parse_ctx, sf);
+
+	return sf;
 }
