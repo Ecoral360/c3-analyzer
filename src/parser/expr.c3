@@ -1,8 +1,8 @@
 <*
  Pratt parsing using Binding power
 
-	Resources for Binding power pratt parsing:
-	- https://matklad.github.io/2020/04/13/simple-but-powerful-pratt-parsing.html
+ Resources for Binding power pratt parsing:
+ - https://matklad.github.io/2020/04/13/simple-but-powerful-pratt-parsing.html
 *>
 module analyzer::parser;
 
@@ -24,7 +24,7 @@ import analyzer::lexer;
 fn Node* parse_fn_type_expr(ContextScope scope) => @pool()
 {
 	ParseContext* ctx = scope.ctx;
-	Range start = ctx.current.range;
+	Range start       = ctx.current.range;
 	advance(ctx);
 	TypeExpr* node = ctx.ast.alloc_node(TypeExpr, start);
 	defer node.range.end = ctx.peek(-1).range.end;
@@ -40,7 +40,7 @@ fn Node* parse_fn_type_expr(ContextScope scope) => @pool()
 
  C3 function pointer types are alias-only, so this helper accepts `fn` syntax
  for aliases without making `fn` a general type-expression start.
- @require(scope.ctx != null) : "Parser context positioned at the alias target."
+ @require (scope.ctx != null) : "Parser context positioned at the alias target."
 *>
 fn Node* parse_alias_type_target(ContextScope scope) => @pool()
 {
@@ -58,13 +58,13 @@ fn Node* parse_alias_type_target(ContextScope scope) => @pool()
 
  Handles primitive and named type identifiers plus postfix pointer, array,
  slice, vector, and generic type forms.
- @require(scope.ctx != null) : "Parser context positioned at the first type token."
+ @require (scope.ctx != null) : "Parser context positioned at the first type token."
 *>
 fn Node* parse_type_expr(ContextScope scope, Node* path_expr = null)
 {
 	ParseContext* ctx = scope.ctx;
-	ParseFlags flags = scope.flags;
-	Range start = ctx.current.range;
+	ParseFlags flags  = scope.flags;
+	Range start       = ctx.current.range;
 
 	diagnostics::log_debug("parse_type_expr");
 
@@ -77,9 +77,7 @@ fn Node* parse_type_expr(ContextScope scope, Node* path_expr = null)
 		expect(ctx, current_type, LPAREN);
 		current_type.expr = parse_expr(scope);
 		expect(ctx, current_type, RPAREN);
-	}
-
-	// Check for built-in primitive keywords (int, void, double, etc.)
+	} // Check for built-in primitive keywords (int, void, double, etc.)
 	else if (is_type_primitive(ctx.current.kind))
 	{
 		Token t = ctx.current;
@@ -216,7 +214,7 @@ fn Node* parse_type_expr(ContextScope scope, Node* path_expr = null)
 fn Node* parse_ident_expr(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
-	Range start = ctx.current.range;
+	Range start       = ctx.current.range;
 	Node* path_prefix;
 
 	diagnostics::log_debug("parse_ident: %s", ctx.current.value);
@@ -235,6 +233,7 @@ fn Node* parse_ident_expr(ContextScope scope)
 		case AT_IDENT:
 		case CT_IDENT:
 		case HASH_IDENT:
+
 			{
 				IdentExpr* ident = ctx.ast.alloc_node(IdentExpr, start);
 				ident.ident = ctx.ident(t);
@@ -245,7 +244,12 @@ fn Node* parse_ident_expr(ContextScope scope)
 			}
 		default:
 			advance(ctx);
-			diagnostics::error(ctx.context, t.range, "Expected type or identifier after path - got: %s", t.kind.description);
+			diagnostics::error(
+				ctx.context,
+				t.range,
+				"Expected type or identifier after path - got: %s",
+				t.kind.description
+			);
 			return ctx.ast.error(t.range);
 	}
 }
@@ -259,13 +263,13 @@ fn void parse_join_strings(ContextScope scope, String* list)
 
 	if (ctx.eof() || !ctx.is(STRING_LITERAL)) return;
 
-	Token first_tok = ctx.current;
+	Token first_tok    = ctx.current;
 	String current_str = first_tok.value[1:^2];
 	advance(ctx);
 
 	while (!ctx.eof() && ctx.is(STRING_LITERAL))
 	{
-		Token next_tok = ctx.current;
+		Token next_tok  = ctx.current;
 		String next_str = next_tok.value[1:^2];
 
 		current_str = current_str.tconcat(next_str);
@@ -279,12 +283,12 @@ fn void parse_join_strings(ContextScope scope, String* list)
 fn Node* parse_literal_expr(ContextScope scope) => @pool()
 {
 	ParseContext* ctx = scope.ctx;
-	Token token = ctx.current;
-	Range start   = token.range;
+	Token token       = ctx.current;
+	Range start       = token.range;
 
 	LiteralExpr* literal = ctx.ast.alloc_node(LiteralExpr, start);
 	defer literal.range.end = ctx.peek(-1).range.end;
-	String token_text    = token.value;
+	String token_text = token.value;
 
 	diagnostics::log_debug("literal_expr: %s", token.kind.description);
 
@@ -293,17 +297,17 @@ fn Node* parse_literal_expr(ContextScope scope) => @pool()
 		case NULL:
 			literal.literal_kind = NULL_LITERAL;
 			advance(ctx);
-			break;
+
 		case TRUE:
 			literal.literal_kind = BOOL_LITERAL;
 			literal.boolean = true;
 			advance(ctx);
-			break;
+
 		case FALSE:
 			literal.literal_kind = BOOL_LITERAL;
 			literal.boolean = false;
 			advance(ctx);
-			break;
+
 		case INT_DECIMAL_LITERAL:
 		case INT_HEX_LITERAL:
 		case INT_OCTAL_LITERAL:
@@ -363,59 +367,54 @@ fn Node* parse_literal_expr(ContextScope scope) => @pool()
 			}
 			literal.integer = value;
 			advance(ctx);
-			break;
+
 		case FLOAT_DECIMAL_LITERAL:
 		case FLOAT_HEX_LITERAL:
+			literal.literal_kind = REAL_LITERAL;
+			String clean_string = token_text.treplace("_", "");
+			sz len = clean_string.len;
+			if (len > 0)
 			{
-				literal.literal_kind = REAL_LITERAL;
-				String clean_string = token_text.treplace("_", "");
-				sz len              = clean_string.len;
-				if (len > 0)
+				if (clean_string.ends_with("f32") || clean_string.ends_with("f64"))
 				{
-					if (clean_string.ends_with("f32") || clean_string.ends_with("f64"))
+					clean_string = clean_string[:^3];
+				}
+				if (clean_string.ends_with("f") || clean_string.ends_with("d"))
+				{
+					if (token.kind == FLOAT_HEX_LITERAL)
 					{
-						clean_string = clean_string[:^3];
-					}
-					if (clean_string.ends_with("f") || clean_string.ends_with("d"))
-					{
-						if (token.kind == FLOAT_HEX_LITERAL)
-						{
-							if (clean_string.contains("p") || clean_string.contains("P"))
-							{
-								clean_string = clean_string[:^1];
-							}
-						}
-						else
+						if (clean_string.contains("p") || clean_string.contains("P"))
 						{
 							clean_string = clean_string[:^1];
 						}
 					}
+					else
+					{
+						clean_string = clean_string[:^1];
+					}
 				}
-				double? real = clean_string.to_double();
-				if (catch err = real)
-				{
-					diagnostics::error(ctx.context, token.range, "Failed to decode float literal (%s)", err);
-					advance(ctx);
-					return ctx.ast.error(start);
-				}
-				literal.real = real;
-				advance(ctx);
-				break;
 			}
+			double? real = clean_string.to_double();
+			if (catch err = real)
+			{
+				diagnostics::error(ctx.context, token.range, "Failed to decode float literal (%s)", err);
+				advance(ctx);
+				return ctx.ast.error(start);
+			}
+			literal.real = real;
+			advance(ctx);
+
 		case STRING_LITERAL:
 			literal.literal_kind = STRING_LITERAL;
 			literal.string = "";
 			parse_join_strings(scope, &literal.string);
-			break;
+
 		case BYTES_LITERAL:
 			literal.literal_kind = BYTES_LITERAL;
 			if (token_text.starts_with("b64"))
 			{
 				String payload = token_text[4:^5];
-				String clean = payload.treplace(" ", "")
-						.treplace("\t", "")
-						.treplace("\n", "")
-						.treplace("\r", "");
+				String clean = payload.treplace(" ", "").treplace("\t", "").treplace("\n", "").treplace("\r", "");
 				diagnostics::log_debug(clean);
 				char[]? b64 = base64::decode(tmem, clean);
 				if (catch err = b64)
@@ -430,17 +429,17 @@ fn Node* parse_literal_expr(ContextScope scope) => @pool()
 			else if (token_text.starts_with("x"))
 			{
 				String payload = token_text[2:^3];
-				String clean = payload.treplace(" ", "")
-						.treplace("\t", "")
-						.treplace("\n", "")
-						.treplace("\r", "");
+				String clean = payload.treplace(" ", "").treplace("\t", "").treplace("\n", "").treplace("\r", "");
 				diagnostics::log_debug("%s", clean);
 				if (clean.len % 2 != 0)
 				{
-					diagnostics::error(ctx.context, token.range,
+					diagnostics::error(
+						ctx.context,
+						token.range,
 						"Hex literal payload must have an even number of digits (got %s chars in '%s')",
 						clean.len,
-						clean);
+						clean
+					);
 					advance(ctx);
 					return ctx.ast.error(start);
 				}
@@ -454,7 +453,7 @@ fn Node* parse_literal_expr(ContextScope scope) => @pool()
 				literal.bytes = alloc::clone_slice(ctx.allocator, hex);
 				advance(ctx);
 			}
-			break;
+
 		case CHAR_LITERAL:
 			literal.literal_kind = INT_LITERAL;
 
@@ -480,18 +479,28 @@ fn Node* parse_literal_expr(ContextScope scope) => @pool()
 
 				switch (clean_char[1])
 				{
-					case 'n': literal.integer = (uint128)'\n'; break;
-					case 'r': literal.integer = (uint128)'\r'; break;
-					case 't': literal.integer = (uint128)'\t'; break;
-					case '\\': literal.integer = (uint128)'\\'; break;
-					case '\'': literal.integer = (uint128)'\''; break;
-					case '"': literal.integer = (uint128)'"'; break;
-					case '0': literal.integer = (uint128)'\0'; break;
-					case 'a':  literal.integer = (uint128)0x07; break; // Alert
-					case 'b':  literal.integer = (uint128)0x08; break; // Backspace
-					case 'e':  literal.integer = (uint128)0x1B; break; // Escape
-					case 'f':  literal.integer = (uint128)0x0C; break; // Form feed
-					case 'v':  literal.integer = (uint128)0x0B; break; // Vertical tab
+					case 'z':
+						diagnostics::error(
+							ctx.context,
+							token.range,
+							"Please ztop the program",
+							clean_char[1]
+						);
+						advance(ctx);
+						return ctx.ast.error(start);
+
+					case 'n': literal.integer = (uint128)'\n';
+					case 'r': literal.integer = (uint128)'\r';
+					case 't': literal.integer = (uint128)'\t';
+					case '\\': literal.integer = (uint128)'\\';
+					case '\'': literal.integer = (uint128)'\'';
+					case '"': literal.integer = (uint128)'"';
+					case '0': literal.integer = (uint128)'\0';
+					case 'a': literal.integer = (uint128)0x07;  // Alert
+					case 'b': literal.integer = (uint128)0x08;  // Backspace
+					case 'e': literal.integer = (uint128)0x1B;  // Escape
+					case 'f': literal.integer = (uint128)0x0C;  // Form feed
+					case 'v': literal.integer = (uint128)0x0B;  // Vertical tab
 					case 'x':
 						if (clean_char.len < 4)
 						{
@@ -505,7 +514,7 @@ fn Node* parse_literal_expr(ContextScope scope) => @pool()
 						// Combine them into a single byte/integer value
 						// (hi << 4) | lo
 						literal.integer = (uint128)((char.from_hex(hi) << 4) | char.from_hex(lo));
-						break;
+
 					case 'u':
 					case 'U':
 						// '\uNNNN' and '\UNNNNNNNN' carry a code point, four or
@@ -546,9 +555,14 @@ fn Node* parse_literal_expr(ContextScope scope) => @pool()
 						}
 
 						literal.integer = code_point;
-						break;
+
 					default:
-						diagnostics::error(ctx.context, token.range, "Unsupported escape sequence '\\%c'", clean_char[1]);
+						diagnostics::error(
+							ctx.context,
+							token.range,
+							"Unsupported escape sequence '\\%c'",
+							clean_char[1]
+						);
 						advance(ctx);
 						return ctx.ast.error(start);
 				}
@@ -559,7 +573,7 @@ fn Node* parse_literal_expr(ContextScope scope) => @pool()
 				literal.integer = (uint128)clean_char[0];
 			}
 			advance(ctx);
-			break;
+
 		default:
 			unreachable("Not implemented! (%s)", token.kind.description);
 	}
@@ -573,7 +587,7 @@ fn Node* parse_literal_expr(ContextScope scope) => @pool()
 fn Node* parse_path_expr(ContextScope scope, PathExprOptions options = { }) => @pool()
 {
 	ParseContext* ctx = scope.ctx;
-	Range start = ctx.current.range;
+	Range start       = ctx.current.range;
 	diagnostics::log_debug("parse_path_expr");
 
 	if (!ctx.is(IDENT))
@@ -585,7 +599,8 @@ fn Node* parse_path_expr(ContextScope scope, PathExprOptions options = { }) => @
 
 	PathExpr* node = ctx.ast.alloc_node(PathExpr, start);
 	defer node.range.end = ctx.peek(-1).range.end;
-	DString sb; sb.tinit();
+	DString sb;
+	sb.tinit();
 
 	while (ctx.is(IDENT))
 	{
@@ -632,8 +647,8 @@ fn Node* parse_path_expr(ContextScope scope, PathExprOptions options = { }) => @
 fn Node* parse_binary_expr(ContextScope scope, Node* left, Precedence prec)
 {
 	ParseContext* ctx = scope.ctx;
-	Range start  = ctx.current.range;
-	TokenKind kind = ctx.current.kind;
+	Range start       = ctx.current.range;
+	TokenKind kind    = ctx.current.kind;
 	advance(ctx);
 	Node* right = parse_expr(scope.with_flags({ .type_as_expression = true }), prec);
 
@@ -673,12 +688,12 @@ fn Node* parse_unary_expr(ContextScope scope)
 		}
 	}
 	bool is_bang_bang = ctx.is(BANGBANG);
-	UnaryExpr* node = ctx.ast.alloc_node(UnaryExpr, start);
+	UnaryExpr* node   = ctx.ast.alloc_node(UnaryExpr, start);
 	defer node.range.end = ctx.peek(-1).range.end;
-	UnaryOpKind? op  = core::unaryop_from_token(ctx.current.kind);
+	UnaryOpKind? op = core::unaryop_from_token(ctx.current.kind);
 	if (catch op)
 	{
-		diagnostics::error(ctx.context, ctx.current.range,"Not a unary operator (%s)", ctx.current.kind);
+		diagnostics::error(ctx.context, ctx.current.range, "Not a unary operator (%s)", ctx.current.kind);
 		error_node(ctx, node);
 	}
 	else
@@ -700,7 +715,7 @@ fn Node* parse_unary_expr(ContextScope scope)
 fn Node* parse_post_unary_expr(ContextScope scope, Node* left, Precedence bp)
 {
 	ParseContext* ctx = scope.ctx;
-	Range start = ctx.current.range;
+	Range start       = ctx.current.range;
 
 	// 'a++' starts at its operand, not at the operator the parser stands on.
 	Location node_start = left ? left.range.start : start.start;
@@ -710,7 +725,7 @@ fn Node* parse_post_unary_expr(ContextScope scope, Node* left, Precedence bp)
 	UnaryOpKind? op = core::unaryop_from_token(ctx.current.kind);
 	if (catch op)
 	{
-		diagnostics::error(ctx.context, ctx.current.range,"Not a unary operator (%s)", ctx.current.kind);
+		diagnostics::error(ctx.context, ctx.current.range, "Not a unary operator (%s)", ctx.current.kind);
 		error_node(ctx, node);
 	}
 	else
@@ -724,12 +739,11 @@ fn Node* parse_post_unary_expr(ContextScope scope, Node* left, Precedence bp)
 
 <*
  expr_list ::= decl_or_expr*
-
 *>
 fn Node* parse_expr_list(ContextScope scope) => @pool()
 {
 	ParseContext* ctx = scope.ctx;
-	ExprList* node = ctx.ast.alloc_node(ExprList, ctx.current.range);
+	ExprList* node    = ctx.ast.alloc_node(ExprList, ctx.current.range);
 	defer node.range.end = ctx.peek(-1).range.end;
 	List{Node*} exprs;
 	exprs.tinit();
@@ -748,8 +762,8 @@ fn Node* parse_expr_list(ContextScope scope) => @pool()
 *>
 fn Node* parse_contract_expr(ContextScope scope)
 {
-	ParseContext* ctx = scope.ctx;
-	Range start = ctx.current.range;
+	ParseContext* ctx  = scope.ctx;
+	Range start        = ctx.current.range;
 	ContractExpr* node = ctx.ast.alloc_node(ContractExpr, start);
 	defer node.range.end = ctx.peek(-1).range.end;
 
@@ -772,8 +786,8 @@ fn Node* parse_contract_expr(ContextScope scope)
 fn Node* parse_call_expr(ContextScope scope, Node* callee)
 {
 	ParseContext* ctx = scope.ctx;
-	Range start = ctx.current.range;
-	CallExpr* node = ctx.ast.alloc_node(CallExpr, callee.range);
+	Range start       = ctx.current.range;
+	CallExpr* node    = ctx.ast.alloc_node(CallExpr, callee.range);
 	defer node.range.end = ctx.peek(-1).range.end;
 	expect(ctx, node, LPAREN);
 	node.callee = callee;
@@ -810,7 +824,11 @@ fn Node* parse_call_expr(ContextScope scope, Node* callee)
 					// Set flags?
 					break;
 				default:
-					diagnostics::error(ctx.context, t.range, "Only '@pure', '@inline' and '@noinline' are valid attributes for calls");
+					diagnostics::error(
+						ctx.context,
+						t.range,
+						"Only '@pure', '@inline' and '@noinline' are valid attributes for calls"
+					);
 					error_node(ctx, attr);
 			}
 		}
@@ -835,13 +853,13 @@ fn Node* parse_call_expr(ContextScope scope, Node* callee)
 
 <*
  catch_unwrap ::= 'catch' (IDENT | type_expr? IDENT '=' catch_chain) | catch_chain
-	catch_chain ::= parse_try_chain_expr (',' parse_try_chain_expr)*
+ catch_chain ::= parse_try_chain_expr (',' parse_try_chain_expr)*
  @require scope.ctx.current.kind == CATCH
 *>
 fn Node* parse_catch_expr(ContextScope scope) => @pool()
 {
 	ParseContext* ctx = scope.ctx;
-	CatchExpr* node = ctx.ast.alloc_node(CatchExpr, ctx.current.range);
+	CatchExpr* node   = ctx.ast.alloc_node(CatchExpr, ctx.current.range);
 	advance(ctx);
 	defer node.range.end = ctx.current.range.end;
 
@@ -865,8 +883,7 @@ fn Node* parse_catch_expr(ContextScope scope) => @pool()
 			}
 
 			exprs.push(sub_expr);
-		}
-		while (consume(ctx, COMMA));
+		} while (consume(ctx, COMMA));
 
 		node.exprs = alloc::clone_slice(ctx.allocator, exprs.array_view());
 		return node;
@@ -918,7 +935,7 @@ fn Node* parse_catch_expr(ContextScope scope) => @pool()
 fn Node* parse_cond_expr(ContextScope scope) => @pool()
 {
 	ParseContext* ctx = scope.ctx;
-	CondExpr* node = ctx.ast.alloc_node(CondExpr, ctx.current.range);
+	CondExpr* node    = ctx.ast.alloc_node(CondExpr, ctx.current.range);
 	defer node.range.end = ctx.peek(-1).range.end;
 
 	List{Node*} exprs;
@@ -961,7 +978,7 @@ fn Node* parse_cond_expr(ContextScope scope) => @pool()
 fn Node* parse_try_expr(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
-	TryExpr* node = ctx.ast.alloc_node(TryExpr, ctx.current.range);
+	TryExpr* node     = ctx.ast.alloc_node(TryExpr, ctx.current.range);
 	advance(ctx);
 	defer node.range.end = ctx.peek(-1).range.end;
 
@@ -993,11 +1010,10 @@ fn Node* parse_try_expr(ContextScope scope)
 
 <*
  try_unwrap_chain ::= try ('&&' (try_unwrap | try_chain_expr))*
-
 *>
 fn Node* parse_try_unwrap_chain_expr(ContextScope scope)
 {
-	ParseContext* ctx = scope.ctx;
+	ParseContext* ctx    = scope.ctx;
 	Node* first_try      = parse_try_expr(scope);
 	Node* current        = first_try;
 	TryExpr* current_try = current.as(TryExpr);
@@ -1046,7 +1062,7 @@ fn Node* parse_try_unwrap_chain_expr(ContextScope scope)
 fn Node* parse_ternary_expr(ContextScope scope, Node* left)
 {
 	ParseContext* ctx = scope.ctx;
-	Range start = ctx.current.range;
+	Range start       = ctx.current.range;
 
 	// The condition is already parsed and sits in front of the '?'.
 	Location node_start = left ? left.range.start : start.start;
@@ -1075,7 +1091,7 @@ fn Node* parse_ternary_expr(ContextScope scope, Node* left)
 fn Node* parse_builtin_expr(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
-	Range start = ctx.current.range;
+	Range start       = ctx.current.range;
 	advance(ctx);
 	BuiltinFunction builtin;
 	bool had_error;
@@ -1111,7 +1127,7 @@ fn Node* parse_builtin_expr(ContextScope scope)
 fn Node* parse_splat_expr(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
-	SplatExpr* node = ctx.ast.alloc_node(SplatExpr, ctx.current.range);
+	SplatExpr* node   = ctx.ast.alloc_node(SplatExpr, ctx.current.range);
 	defer node.range.end = ctx.peek(-1).range.end;
 
 	expect(ctx, node, ELLIPSIS);
@@ -1124,7 +1140,7 @@ fn Node* parse_splat_expr(ContextScope scope)
 fn Node* parse_vasplat_expr(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
-	Range start = ctx.current.range;
+	Range start       = ctx.current.range;
 	VasplatExpr* node = ctx.ast.alloc_node(VasplatExpr, start);
 	defer node.range.end = ctx.peek(-1).range.end;
 
@@ -1143,8 +1159,8 @@ fn Node* parse_vasplat_expr(ContextScope scope)
 fn Node* parse_ct_eval_expr(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
-	Range start = ctx.current.range;
-	CtEvalExpr* node = ctx.ast.alloc_node(CtEvalExpr, start);
+	Range start       = ctx.current.range;
+	CtEvalExpr* node  = ctx.ast.alloc_node(CtEvalExpr, start);
 	defer node.range.end = ctx.peek(-1).range.end;
 
 	expect(ctx, node, CT_EVAL);
@@ -1158,14 +1174,14 @@ fn Node* parse_ct_eval_expr(ContextScope scope)
 <*
  lambda_expr ::= "fn" return_type? fn_parameter_list attributes? lambda_body
  lambda_body ::= "{" statement* "}"
-				| "=>" expression
+ | "=>" expression
  @require scope.ctx.current.kind == FN
 *>
 fn Node* parse_lambda_expr(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
-	Range start = ctx.current.range;
-	LambdaExpr* node = ctx.ast.alloc_node(LambdaExpr, start);
+	Range start       = ctx.current.range;
+	LambdaExpr* node  = ctx.ast.alloc_node(LambdaExpr, start);
 	defer node.range.end = ctx.peek(-1).range.end;
 
 	node.visibility = LOCAL;
@@ -1205,8 +1221,8 @@ fn Node* parse_lambda_expr(ContextScope scope)
 
 fn Node* parse_generic_expr(ContextScope scope) => @pool()
 {
-	ParseContext* ctx = scope.ctx;
-	Range start = ctx.current.range;
+	ParseContext* ctx      = scope.ctx;
+	Range start            = ctx.current.range;
 	GenericIdentExpr* node = ctx.ast.alloc_node(GenericIdentExpr, start);
 	defer node.range.end = ctx.peek(-1).range.end;
 	expect(ctx, node, LBRACE);
@@ -1220,8 +1236,7 @@ fn Node* parse_generic_expr(ContextScope scope) => @pool()
 			expect(ctx, node, RBRACE);
 			break;
 		}
-	}
-	while (!ctx.eof() && !consume(ctx, RBRACE));
+	} while (!ctx.eof() && !consume(ctx, RBRACE));
 
 	node.exprs = alloc::clone_slice(ctx.allocator, exprs.array_view());
 	return (Node*)node;
@@ -1231,18 +1246,30 @@ fn Node* parse_group_expr(ContextScope scope)
 {
 	diagnostics::log_debug("parse_group_expr");
 	ParseContext* ctx = scope.ctx;
-	Range start = ctx.current.range;
+	Range start       = ctx.current.range;
 
 	bool had_error;
 	if (!consume(ctx, LPAREN))
 	{
-		diagnostics::error(ctx.context, ctx.current.range, "Expected '%s' got '%s'", ctx.current.kind.description, ctx.current.kind.description);
+		diagnostics::error(
+			ctx.context,
+			ctx.current.range,
+			"Expected '%s' got '%s'",
+			ctx.current.kind.description,
+			ctx.current.kind.description
+		);
 		had_error = true;
 	}
 	Node* inner = parse_expr(scope);
 	if (!consume(ctx, RPAREN))
 	{
-		diagnostics::error(ctx.context, ctx.current.range, "Expected '%s' got '%s'", ctx.current.kind.description, ctx.current.kind.description);
+		diagnostics::error(
+			ctx.context,
+			ctx.current.range,
+			"Expected '%s' got '%s'",
+			ctx.current.kind.description,
+			ctx.current.kind.description
+		);
 		had_error = true;
 	}
 
@@ -1267,7 +1294,6 @@ fn Node* parse_group_expr(ContextScope scope)
 
 <*
  designator_expr ::= ('[' expr ']' | '.' IDENT)*
-
 *>
 fn Node* parse_designator_expr(ContextScope scope)
 {
@@ -1314,8 +1340,8 @@ fn Node* parse_designator_expr(ContextScope scope)
 *>
 fn Node* parse_initializer_list_expr(ContextScope scope) => @pool()
 {
-	ParseContext* ctx = scope.ctx;
-	Range start = ctx.current.range;
+	ParseContext* ctx         = scope.ctx;
+	Range start               = ctx.current.range;
 	InitializerListExpr* node = ctx.ast.alloc_node(InitializerListExpr, start);
 	defer node.range.end = ctx.peek(-1).range.end;
 
@@ -1352,8 +1378,11 @@ fn Node* parse_initializer_list_expr(ContextScope scope) => @pool()
 
 			if (consume(ctx, EQ))
 			{
-				Node* val           = parse_expr(scope);
-				DesignatedInitializerExpr* des_init_node = ctx.ast.alloc_node(DesignatedInitializerExpr, path_token.range);
+				Node* val                                = parse_expr(scope);
+				DesignatedInitializerExpr* des_init_node = ctx.ast.alloc_node(
+					DesignatedInitializerExpr,
+					path_token.range
+				);
 				des_init_node.range.end = ctx.current.range.end;
 
 				des_init_node.path = des_expr;
@@ -1395,8 +1424,8 @@ fn Node* parse_initializer_list_expr(ContextScope scope) => @pool()
 
 fn Node* parse_access_expr(ContextScope scope, Node* left)
 {
-	ParseContext* ctx = scope.ctx;
-	Range start = left.range;
+	ParseContext* ctx      = scope.ctx;
+	Range start            = left.range;
 	TokenKind op_kind      = ctx.current.kind;
 	AccessKind access_kind = (op_kind == TokenKind.SCOPE) ? AccessKind.STATIC : AccessKind.INSTANCE;
 	advance(ctx);
@@ -1464,7 +1493,7 @@ fn Node* parse_range_expr(ContextScope scope, Node* left, Range start)
 	designator_node.path = left;
 	designator_node.data.range = range_node;
 
-	bool is_slice = false;
+	bool is_slice     = false;
 	TokenKind op_kind = TokenKind.EOS;
 
 	// Check if the start of the range is omitted (e.g., `[:5]` or `[..5]`)
@@ -1555,7 +1584,7 @@ fn Node* parse_raise_suffix_expr(ContextScope scope, Node* left, Token left_toke
 		diagnostics::error(ctx.context, left_token.range, "Expected a fault before '~'");
 		return ctx.ast.error(ctx.current.range);
 	}
-	Range start = ctx.current.range;
+	Range start        = ctx.current.range;
 	OptionalExpr* node = ctx.ast.alloc_node(OptionalExpr, start);
 	defer node.range.end = ctx.peek(-1).range.end;
 	expect(ctx, node, BIT_NOT);
@@ -1569,7 +1598,7 @@ fn Node* parse_raise_suffix_expr(ContextScope scope, Node* left, Token left_toke
 fn Node* parse_ct_defined_expr(ContextScope scope) => @pool()
 {
 	ParseContext* ctx = scope.ctx;
-	Range start = ctx.current.range;
+	Range start       = ctx.current.range;
 	advance(ctx);
 	CtDefinedExpr* node = ctx.ast.alloc_node(CtDefinedExpr, start);
 	defer node.range.end = ctx.peek(-1).range.end;
@@ -1599,7 +1628,7 @@ fn Node* parse_ct_defined_expr(ContextScope scope) => @pool()
 fn Node* parse_ct_feature(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
-	Range start = ctx.current.range;
+	Range start       = ctx.current.range;
 	advance(ctx);
 	CtFeatureExpr* node = ctx.ast.alloc_node(CtFeatureExpr, start);
 	defer node.range.end = ctx.peek(-1).range.end;
@@ -1618,7 +1647,7 @@ fn Node* parse_ct_feature(ContextScope scope)
 fn Node* parse_lengthof_expr(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
-	Range start = ctx.current.range;
+	Range start       = ctx.current.range;
 	advance(ctx);
 	LengthofExpr* node = ctx.ast.alloc_node(LengthofExpr, start);
 	defer node.range.end = ctx.peek(-1).range.end;
@@ -1637,7 +1666,7 @@ fn Node* parse_lengthof_expr(ContextScope scope)
 fn Node* parse_ct_stringify_expr(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
-	Range start = ctx.current.range;
+	Range start       = ctx.current.range;
 	advance(ctx);
 	CtStringifyExpr* node = ctx.ast.alloc_node(CtStringifyExpr, start);
 	defer node.range.end = ctx.peek(-1).range.end;
@@ -1655,7 +1684,7 @@ fn Node* parse_ct_stringify_expr(ContextScope scope)
 fn Node* parse_vaarg_expr(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
-	Range start = ctx.current.range;
+	Range start       = ctx.current.range;
 	advance(ctx);
 	VaargExpr* node = ctx.ast.alloc_node(VaargExpr, start);
 	defer node.range.end = ctx.peek(-1).range.end;
@@ -1687,7 +1716,7 @@ fn Node* parse_vaarg_expr(ContextScope scope)
 fn Node* parse_ct_reflect_expr(ContextScope scope)
 {
 	ParseContext* ctx = scope.ctx;
-	Range start = ctx.current.range;
+	Range start       = ctx.current.range;
 	advance(ctx);
 	CtReflectExpr* node = ctx.ast.alloc_node(CtReflectExpr, start);
 	defer node.range.end = ctx.peek(-1).range.end;
