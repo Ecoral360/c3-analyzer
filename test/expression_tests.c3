@@ -621,3 +621,58 @@ fn void ct_reflect_expr()
 	test::eq(parser_tests::count_kind(mod, MODULE_DECL), 1);
 	test::eq(parser_tests::count_kind(mod, MACRO_DECL), 1);
 }
+
+<*
+ '\uNNNN' and '\UNNNNNNNN' hold a code point - the value c3c gives them - not
+ the bytes it encodes to.
+*>
+fn void unicode_escapes_in_char_literals()
+{
+	String source_code = `
+		module hello;
+
+		int a = '\u0041';
+		int b = '\u00e9';
+		int c = '\uFFFF';
+		int d = '\U0001F600';
+		int e = '\x41';
+	`;
+	parser_tests::start_counting_diags();
+	defer parser_tests::stop_counting_diags();
+
+	AnalyzerContext* context = context::new(tmem);
+	context::process(context, source_code, "test");
+	test::eq(parser_tests::error_diag_count, 0);
+
+	Module* mod = context.modules.get("hello")!!;
+
+	test::eq((ulong)mod.nodes[1].as(VarDecl).init_expr.as(LiteralExpr).integer, (ulong)65);
+	test::eq((ulong)mod.nodes[2].as(VarDecl).init_expr.as(LiteralExpr).integer, (ulong)233);
+	test::eq((ulong)mod.nodes[3].as(VarDecl).init_expr.as(LiteralExpr).integer, (ulong)65535);
+	test::eq((ulong)mod.nodes[4].as(VarDecl).init_expr.as(LiteralExpr).integer, (ulong)128512);
+
+	// The escape already supported keeps working.
+	test::eq((ulong)mod.nodes[5].as(VarDecl).init_expr.as(LiteralExpr).integer, (ulong)65);
+}
+
+<*
+ Both widths are exact, and every digit has to be one.
+*>
+fn void malformed_unicode_escapes_are_reported()
+{
+	String source_code = `
+		module hello;
+
+		int a = '\u12';
+		int b = '\U0001F6';
+		int c = '\uZZZZ';
+		int d = '\u004100';
+	`;
+	parser_tests::start_counting_diags();
+	defer parser_tests::stop_counting_diags();
+
+	AnalyzerContext* context = context::new(tmem);
+	context::process(context, source_code, "test");
+
+	test::eq(parser_tests::error_diag_count, 4);
+}

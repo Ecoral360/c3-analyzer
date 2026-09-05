@@ -489,6 +489,7 @@ fn Node* parse_literal_expr(ContextScope scope) => @pool()
 					case '0': literal.integer = (uint128)'\0'; break;
 					case 'a':  literal.integer = (uint128)0x07; break; // Alert
 					case 'b':  literal.integer = (uint128)0x08; break; // Backspace
+					case 'e':  literal.integer = (uint128)0x1B; break; // Escape
 					case 'f':  literal.integer = (uint128)0x0C; break; // Form feed
 					case 'v':  literal.integer = (uint128)0x0B; break; // Vertical tab
 					case 'x':
@@ -504,6 +505,47 @@ fn Node* parse_literal_expr(ContextScope scope) => @pool()
 						// Combine them into a single byte/integer value
 						// (hi << 4) | lo
 						literal.integer = (uint128)((char.from_hex(hi) << 4) | char.from_hex(lo));
+						break;
+					case 'u':
+					case 'U':
+						// '\uNNNN' and '\UNNNNNNNN' carry a code point, four or
+						// eight hex digits wide, and the literal holds that value
+						usz digit_count = clean_char[1] == 'u' ? 4 : 8;
+
+						if (clean_char.len != 2 + digit_count)
+						{
+							diagnostics::error(
+								ctx.context,
+								token.range,
+								"A '\\%c' escape takes exactly %s hex digits",
+								clean_char[1],
+								digit_count
+							);
+							advance(ctx);
+							return ctx.ast.error(start);
+						}
+
+						uint128 code_point;
+
+						foreach (digit : clean_char[2..])
+						{
+							if (!digit.is_xdigit())
+							{
+								diagnostics::error(
+									ctx.context,
+									token.range,
+									"'%c' is not a hex digit in the '\\%c' escape",
+									digit,
+									clean_char[1]
+								);
+								advance(ctx);
+								return ctx.ast.error(start);
+							}
+
+							code_point = (code_point << 4) | (uint128)digit.from_hex();
+						}
+
+						literal.integer = code_point;
 						break;
 					default:
 						diagnostics::error(ctx.context, token.range, "Unsupported escape sequence '\\%c'", clean_char[1]);
