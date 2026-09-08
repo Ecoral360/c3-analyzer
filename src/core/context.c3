@@ -64,8 +64,8 @@ fn void free(AnalyzerContext* ctx)
 
 <*
  process from a buffer
+
  @param path : "uri/path to the file or 'virtual' file"
- @require buffer.len > 0
 *>
 fn bool process(AnalyzerContext* context, String buffer, String path) => @pool()
 {

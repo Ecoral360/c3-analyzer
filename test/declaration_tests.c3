@@ -993,3 +993,30 @@ fn void postfix_and_ternary_start_at_their_left_operand()
 	test::eq(ternary.range.start.column, ternary.cond.range.start.column);
 	test::eq(ternary.range.end.column, ternary.else_expr.range.end.column);
 }
+
+<*
+ An empty buffer used to abort on a '@require buffer.len > 0'. An editor hands
+ one over whenever a file is created or emptied, and the keystrokes that follow
+ have to keep working on the same context.
+*>
+fn void an_empty_buffer_parses_to_an_empty_ast()
+{
+	parser_tests::start_counting_diags();
+	defer parser_tests::stop_counting_diags();
+
+	AnalyzerContext* context = context::new(tmem);
+
+	context::process(context, "", "test");
+	test::eq(parser_tests::error_diag_count, 0);
+
+	// Typing the first characters of a declaration into that same file only
+	// reports diagnostics - it does not take the analyzer down.
+	context::process(context, "f", "test");
+	context::process(context, "fn", "test");
+	context::process(context, "fn void f() {}", "test");
+
+	parser_tests::start_counting_diags();
+	context::process(context, "module hello;", "test");
+	test::eq(parser_tests::error_diag_count, 0);
+	test::ne(context.modules.get("hello")!!, null);
+}
