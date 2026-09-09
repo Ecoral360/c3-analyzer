@@ -31,6 +31,11 @@ fn Module* register(AnalyzerContext* ctx, String name)
 	mod.node_map.init(ctx.allocator);
 
 	ctx.modules.set(name, mod);
+	while (try idx = name.rindex_of("::"))
+	{
+		name = name[..idx - 1];
+		(void) register(ctx, name);
+	}
 
 	return mod;
 }
