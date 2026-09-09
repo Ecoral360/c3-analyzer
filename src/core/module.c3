@@ -14,7 +14,7 @@ import std::io;
  @param [in] name
  @require name.len > 0
 *>
-fn Module* new(AnalyzerContext* ctx, String name)
+fn Module* register(AnalyzerContext* ctx, String name)
 {
 	if (try Module* mod = ctx.modules.get(name))
 	{

@@ -14,7 +14,7 @@ import std::io;
 <*
  If target.os or target.arch is `UNKNOWN` it will be inferred
 *>
-fn AnalyzerContext* new(Allocator alloc, Target target = {})
+fn AnalyzerContext* new(Allocator alloc, Target target = { })
 {
 	AnalyzerContext* ctx = alloc::new(alloc, AnalyzerContext);
 
@@ -137,7 +137,7 @@ fn bool process(AnalyzerContext* context, String buffer, String path) => @pool()
 
 	foreach (SourceFile* sf : context.files.value_iter())
 	{
-	    sema::analyze_source_file(sema_ctx, sf);
+		sema::analyze_source_file(sema_ctx, sf);
 	}
 
 	return success;
