@@ -314,7 +314,7 @@ fn void a_block_local_still_clashes_with_the_function_local()
 *>
 fn void resolve_climbs_past_a_hidden_binding()
 {
-	Scope* file = scope::new(tmem, { }, null, FILE);
+	Scope* file = scope::new(tmem, { }, null, MODULE);
 	Scope* outer_fn = scope::new(tmem, { }, file, FUNCTION);
 	Scope* block = scope::new(tmem, { }, outer_fn, BLOCK);
 	Scope* lambda = scope::new(tmem, { }, block, FUNCTION);

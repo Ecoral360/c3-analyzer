@@ -70,6 +70,17 @@ fn void register(AnalyzerContext* context, SourceFile* sf) => @pool()
 {
 	Module* current_mod;
 
+	if (sf.ast.statements.size == 0)
+	{
+		Path? path = path::tnew(sf.path);
+		if (catch err = path)
+		{
+			diagnostics::log_error("Failed to infer module name: %s", err);
+			return;
+		}
+		current_mod = mod::register(context, path.basename());
+	}
+
 	foreach (Node* statement : sf.ast.statements)
 	{
 		if (!statement) continue;
@@ -78,7 +89,7 @@ fn void register(AnalyzerContext* context, SourceFile* sf) => @pool()
 		if (statement.kind == MODULE_DECL)
 		{
 			ModuleDecl* mod_decl = statement.as(ModuleDecl);
-			PathExpr* path = mod_decl.path.as(PathExpr);
+			PathExpr* path       = mod_decl.path.as(PathExpr);
 			current_mod = mod::register(context, path.path.text);
 		}
 
@@ -125,30 +136,35 @@ fn void register_type(AnalyzerContext* context, Module* mod, Node* node)
 	switch (node.kind)
 	{
 		case STRUCT_DECL:
-		{
-			StructDecl* decl = node.as(StructDecl);
-			name = decl.name;
-		}
+
+			{
+				StructDecl* decl = node.as(StructDecl);
+				name = decl.name;
+			}
 		case ENUM_DECL:
-		{
-			EnumDecl* decl = node.as(EnumDecl);
-			name = decl.name;
-		}
+
+			{
+				EnumDecl* decl = node.as(EnumDecl);
+				name = decl.name;
+			}
 		case TYPEDEF_DECL:
-		{
-			TypedefDecl* decl = node.as(TypedefDecl);
-			name = decl.name;
-		}
+
+			{
+				TypedefDecl* decl = node.as(TypedefDecl);
+				name = decl.name;
+			}
 		case ALIAS_DECL:
-		{
-			AliasDecl* decl = node.as(AliasDecl);
-			name = decl.name;
-		}
+
+			{
+				AliasDecl* decl = node.as(AliasDecl);
+				name = decl.name;
+			}
 		case VAR_DECL:
-		{
-			VarDecl* decl = node.as(VarDecl);
-			name = decl.name;
-		}
+
+			{
+				VarDecl* decl = node.as(VarDecl);
+				name = decl.name;
+			}
 		default:
 			return;
 	}

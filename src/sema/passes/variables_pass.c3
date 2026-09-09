@@ -10,17 +10,30 @@ fn void run_variable_pass(SemaContext* ctx) => @pool()
 	SourceFile* sf = ctx.context.current_source_file;
 	String[] lines = sf.content.tsplit("\n");
 
-	Range range = {
-		.start = { },
-		.end = { .line = lines.len - 1, .column = lines[^1].len - 1 },
-	};
-
-	ctx.comptime_scope.range = range;
-	ctx.runtime_scope.range = range;
-
 	foreach (root_node : sf.ast.statements)
 	{
 		if (!root_node) continue;
+
+		if (root_node.kind == MODULE_DECL)
+		{
+			ModuleDecl* mod_decl = root_node.as(ModuleDecl);
+			PathExpr* expr       = mod_decl.path.as(PathExpr);
+			String full_path     = expr.path.text;
+
+			ctx.current_module.comptime_scope.range.end = root_node.range.start;
+			ctx.current_module.runtime_scope.range.end = root_node.range.start;
+
+			ctx.set_current_module(full_path);
+
+			Range range = {
+				.start = root_node.range.start,
+				.end = { },
+			};
+
+			ctx.current_module.comptime_scope.range = range;
+			ctx.current_module.runtime_scope.range = range;
+			continue;
+		}
 
 		switch (root_node.kind)
 		{
@@ -37,23 +50,27 @@ fn void run_variable_pass(SemaContext* ctx) => @pool()
 
 		cursor::visit(root_node, null, { &sema_on_enter, &sema_on_exit }, ctx);
 	}
+
+	Location end = { .line = lines.len - 1, .column = lines[^1].len - 1 };
+	ctx.current_module.comptime_scope.range.end = end;
+	ctx.current_module.runtime_scope.range.end = end;
 }
 
 fn void push_rt_scope(SemaContext* ctx, Node* node, ScopeKind kind = BLOCK)
 {
 	diagnostics::log_debug("[VariablePass]: Pushed new runtime scope for %s at %s", node.kind.description, node.range);
 
-	Scope* new_scope = scope::new(ctx.allocator, node.range, ctx.runtime_scope, kind);
+	Scope* new_scope = scope::new(ctx.allocator, node.range, ctx.current_module.runtime_scope, kind);
 
-	ctx.runtime_scope.children.push(new_scope);
-	ctx.runtime_scope = new_scope;
+	ctx.current_module.runtime_scope.children.push(new_scope);
+	ctx.current_module.runtime_scope = new_scope;
 }
 
 fn void pop_rt_scope(SemaContext* ctx)
 {
-	if (ctx.runtime_scope.parent)
+	if (ctx.current_module.runtime_scope.parent)
 	{
-		ctx.runtime_scope = ctx.runtime_scope.parent;
+		ctx.current_module.runtime_scope = ctx.current_module.runtime_scope.parent;
 	}
 }
 
@@ -61,17 +78,17 @@ fn void push_ct_scope(SemaContext* ctx, Node* node, ScopeKind kind = BLOCK)
 {
 	diagnostics::log_debug("[VariablePass]: Pushed new comptime scope for %s at %s", node.kind.description, node.range);
 
-	Scope* new_scope = scope::new(ctx.allocator, node.range, ctx.comptime_scope, kind);
+	Scope* new_scope = scope::new(ctx.allocator, node.range, ctx.current_module.comptime_scope, kind);
 
-	ctx.comptime_scope.children.push(new_scope);
-	ctx.comptime_scope = new_scope;
+	ctx.current_module.comptime_scope.children.push(new_scope);
+	ctx.current_module.comptime_scope = new_scope;
 }
 
 fn void pop_ct_scope(SemaContext* ctx)
 {
-	if (ctx.comptime_scope.parent)
+	if (ctx.current_module.comptime_scope.parent)
 	{
-		ctx.comptime_scope = ctx.comptime_scope.parent;
+		ctx.current_module.comptime_scope = ctx.current_module.comptime_scope.parent;
 	}
 }
 
@@ -159,7 +176,8 @@ fn ChildVisitResult sema_on_enter(Node* node, Node* parent, void* user_data) @lo
 
 		if (!decl.name) break VAR;
 
-		Scope* scope = decl.var_flags.is_comptime ? ctx.comptime_scope : ctx.runtime_scope;
+		Scope* scope = decl.var_flags.is_comptime ? ctx.current_module.comptime_scope
+			: ctx.current_module.runtime_scope;
 
 		// A name already in view is a redefinition, with one exception: a
 		// declaration inside a function may shadow a global. Two globals of the
@@ -198,7 +216,8 @@ fn BindingKind binding_of(Scope* scope, VarDecl* decl) @local
 {
 	String name = decl.name.text;
 
-	switch {
+	switch
+	{
 		case scope.kind == MODULE:
 		case decl.var_flags.is_const:
 		case decl.var_flags.is_static:

@@ -8,16 +8,22 @@ import analyzer::core::diagnostics;
 import std::collections::map;
 import std::collections::list;
 import std::collections::set;
-
-alias ModuleName = String;
+import std::io::path;
 
 struct SemaContext
 {
 	AnalyzerContext* context;
 	Allocator allocator;
+	SemaModuleContext* current_module;
+	HashMap{String, SemaModuleContext*} modules;
+}
+
+struct SemaModuleContext
+{
+	Module* mod;
 	Scope* runtime_scope;
 	Scope* comptime_scope;
-	HashMap{ModuleName, ImportInfo} imports;
+	HashMap{String, ImportInfo} imports;
 }
 
 fn SemaContext* new(AnalyzerContext* context)
@@ -26,11 +32,43 @@ fn SemaContext* new(AnalyzerContext* context)
 
 	ctx.context = context;
 	ctx.allocator = context.allocator;
-	ctx.runtime_scope = scope::new(ctx.allocator, { }, null, MODULE);
-	ctx.comptime_scope = scope::new(ctx.allocator, { }, null, MODULE);
-	ctx.imports.init(context.allocator);
+	ctx.modules.init(ctx.allocator);
 
 	return ctx;
+}
+
+fn SemaModuleContext* SemaContext.set_current_module(&self, String name)
+{
+	if (try sema_mod = self.modules.get(name))
+	{
+		self.current_module = sema_mod;
+		return sema_mod;
+	}
+
+	Module* mod = self.context.modules.get(name) ?? null;
+	if (!mod) return null;
+
+	SemaModuleContext* sema_mod = alloc::new(self.allocator, SemaModuleContext);
+
+	sema_mod.mod = mod;
+	sema_mod.runtime_scope = scope::new(self.allocator, { }, null, MODULE);
+	sema_mod.comptime_scope = scope::new(self.allocator, { }, null, MODULE);
+	sema_mod.imports.init(self.allocator);
+
+	self.modules.set(name, sema_mod);
+	self.current_module = sema_mod;
+	return sema_mod;
+}
+
+fn SemaModuleContext* set_default_module(SemaContext* ctx, SourceFile* sf) @local
+{
+	Path? path = path::tnew(sf.path);
+	if (catch err = path)
+	{
+		diagnostics::log_error("Failed to infer module name: %s", err);
+		return null;
+	}
+	return ctx.set_current_module(path.basename());
 }
 
 <*
@@ -40,74 +78,11 @@ fn void analyze_source_file(SemaContext* ctx, SourceFile* sf)
 {
 	ctx.context.current_source_file = sf;
 
-	ctx.runtime_scope = scope::new(ctx.allocator, { }, null, MODULE);
-	ctx.comptime_scope = scope::new(ctx.allocator, { }, null, MODULE);
+	set_default_module(ctx, sf);
+	// ctx.runtime_scope = scope::new(ctx.allocator, { }, null, FILE);
+	// ctx.comptime_scope = scope::new(ctx.allocator, { }, null, FILE);
 
-	analyze_imports(ctx);
+	run_import_pass(ctx);
 
 	run_variable_pass(ctx);
-}
-
-fn void analyze_imports(SemaContext* ctx)
-{
-	foreach (Node* node : ctx.context.current_source_file.ast.statements)
-	{
-		if (!node) continue;
-		if (node.kind != IMPORT_DECL) continue;
-
-		ImportDecl* imp = node.as(ImportDecl);
-
-		foreach (Node* path : imp.paths)
-		{
-			if (path.kind != PATH_EXPR) continue; // stops a crash if the path is invalid
-
-			PathExpr* expr   = path.as(PathExpr);
-			String full_path = expr.path.text;
-
-			if (!ctx.context.modules.has_key(expr.path.text))
-			{
-				diagnostics::error(ctx.context, expr.range, "No module '%s' found", expr.path.text);
-				continue;
-			}
-
-			if (ctx.imports.has_key(expr.path.text))
-			{
-				ImportInfo existing = ctx.imports.get(expr.path.text)!!;
-				diagnostics::note(ctx.context, existing.node.range, "Previous import of '%s' was here", expr.path.text);
-				diagnostics::error(ctx.context, expr.range, "Module '%s' is already imported", expr.path.text);
-				continue;
-			}
-
-			diagnostics::log_debug("[AnalyzeImports]: Added import '%s'", expr.path.text);
-			ctx.imports.set(expr.path.text, { expr.path.text, node });
-
-			if (!cursor::has_attribute(imp, NORECURSE, null))
-			{
-				sz offset = 0;
-				while (try idx = full_path[offset..].index_of("::"))
-				{
-					sz break_pos         = offset + idx;
-					String parent_prefix = full_path[:break_pos];
-
-					if (!ctx.imports.has_key(parent_prefix) && ctx.context.modules.has_key(parent_prefix))
-					{
-						diagnostics::log_debug("[AnalyzeImports]: Added recursive import '%s'", parent_prefix);
-						ctx.imports.set(parent_prefix, { full_path, node });
-					}
-
-					offset = break_pos + 2;
-				}
-			}
-
-			if (try idx = full_path.rindex_of("::"))
-			{
-				String leaf = full_path[idx + 2..];
-				if (!ctx.imports.has_key(leaf) && ctx.context.modules.has_key(leaf))
-				{
-					diagnostics::log_debug("[AnalyzeImports]: Added leaf import '%s'", leaf);
-					ctx.imports.set(leaf, { full_path, node });
-				}
-			}
-		}
-	}
 }
