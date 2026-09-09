@@ -348,8 +348,11 @@ fn bool parse(ParseContext* ctx, SourceFile* source_file) => @pool()
 		Node* node = parse_top_level_statement(ctx);
 		if (ctx.pos == pos)
 		{
-			diagnostics::error(ctx.context, ctx.current.range, "Parser failed to advance in parse_top_level_statement. Returning!");
-			break;
+			// Nothing consumed the token, so skip it rather than dropping the rest of the file
+			diagnostics::error(ctx.context, ctx.current.range, "Unexpected '%s'", ctx.current.value);
+			ctx.ast.statements.push(ctx.ast.error(ctx.current.range));
+			advance(ctx);
+			continue;
 		}
 		ctx.ast.statements.push(node);
 		if (ctx.contract && node.kind != CONTRACT_DECL)
@@ -469,7 +472,17 @@ fn Node* parse_top_level_statement(ParseContext* ctx)
 			CtAssertDecl* ctassert = node.as(CtAssertDecl);
 			ctassert.stmt = stmt;
 		default:
+			if (ctx.is(EOS))
+			{
+				diagnostics::error(ctx.context, ctx.current.range, "';' wasn't expected here, try removing it");
+				node = ctx.ast.error(ctx.current.range);
+				advance(ctx);
+				break;
+			}
+
+			Range junk = ctx.current.range;
 			synchronize(ctx, DECLARATION);
+			node = ctx.ast.error({ junk.start, ctx.peek(-1).range.end });
 			break;
 	}
 

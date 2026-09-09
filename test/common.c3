@@ -34,6 +34,8 @@ fn int count_kind(Module* mod, NodeKind kind)
 }
 
 int error_diag_count;
+String last_error_message;
+char[512] last_error_buffer;
 
 <*
  Count ERROR diagnostics instead of printing them, so a test can assert that
@@ -42,7 +44,20 @@ int error_diag_count;
 *>
 fn void count_error_diags(SourceFile* file, Range range, DiagnosticLevel level, String message)
 {
-	if (level == DiagnosticLevel.ERROR) error_diag_count++;
+	if (level != DiagnosticLevel.ERROR) return;
+
+	error_diag_count++;
+
+	// The message is only valid for the length of the call, so keep a copy a
+	// test can still read once processing is over.
+	usz len = message.len < last_error_buffer.len ? message.len : last_error_buffer.len;
+
+	for (usz i = 0; i < len; i++)
+	{
+		last_error_buffer[i] = message[i];
+	}
+
+	last_error_message = (String)last_error_buffer[:len];
 }
 
 <*
@@ -51,6 +66,7 @@ fn void count_error_diags(SourceFile* file, Range range, DiagnosticLevel level, 
 fn void start_counting_diags()
 {
 	error_diag_count = 0;
+	last_error_message = "";
 	diagnostics::callback = &count_error_diags;
 }
 

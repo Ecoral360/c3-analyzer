@@ -1103,3 +1103,51 @@ fn void unterminated_excuse_block_is_reported()
 
 	test::eq(parser_tests::error_diag_count, 1);
 }
+
+<*
+ A stray ';' at file scope used to stop the parse: the token started no
+ declaration, nothing consumed it, and the loop gave up on the rest of the
+ file. It is reported and skipped now, so what follows still parses.
+*>
+fn void a_stray_semicolon_does_not_end_the_parse()
+{
+	String source_code = "module hello;\nexcuse { FOO };\nfn void after() {}\n";
+
+	parser_tests::start_counting_diags();
+	defer parser_tests::stop_counting_diags();
+
+	AnalyzerContext* context = context::new(tmem);
+	context::process(context, source_code, "test");
+
+	// Only the ';' is wrong, and it is named as such.
+	test::eq(parser_tests::error_diag_count, 1);
+	test::eq(parser_tests::last_error_message, "';' wasn't expected here, try removing it");
+
+	Module* mod = context.modules.get("hello")!!;
+
+	test::eq(parser_tests::count_kind(mod, FAULTDEF_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, FN_DECL), 1);
+	test::eq(parser_tests::count_kind(mod, ERROR), 1);
+}
+
+<*
+ The same holds for a run of them, and for junk that starts no declaration at
+ all: every one is reported, and the declaration after them survives.
+*>
+fn void junk_at_file_scope_is_skipped_one_token_at_a_time()
+{
+	String source_code = "module hello;\n;\n;\nfn void after() {}\n";
+
+	parser_tests::start_counting_diags();
+	defer parser_tests::stop_counting_diags();
+
+	AnalyzerContext* context = context::new(tmem);
+	context::process(context, source_code, "test");
+
+	test::eq(parser_tests::error_diag_count, 2);
+
+	Module* mod = context.modules.get("hello")!!;
+
+	test::eq(parser_tests::count_kind(mod, FN_DECL), 1);
+	test::eq(mod.nodes[^1].as(FnDecl).name.text, "after");
+}
