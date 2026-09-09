@@ -1297,8 +1297,6 @@ fn Node* parse_defer_stmt(ContextScope scope)
 	advance(ctx);
 	DeferStmt* node = ctx.ast.alloc_node(DeferStmt, start);
 	defer node.range.end = ctx.peek(-1).range.end;
-	DeferKind kind = NORMAL;
-
 	diagnostics::log_debug("parse_defer");
 
 	if (consume(ctx, TRY))
@@ -1309,37 +1307,32 @@ fn Node* parse_defer_stmt(ContextScope scope)
 	{
 		node.defer_kind = CATCH;
 	}
-	else if (consume(ctx, LPAREN))
+	// Only '(' followed by 'catch' opens a defer kind. Any other '(' belongs to
+	// the deferred statement itself - a cast, as in 'defer (void)foo();', or a
+	// parenthesised expression.
+	else if (ctx.is(LPAREN) && ctx.peek(1).kind == CATCH)
 	{
-		if (consume(ctx, CATCH))
+		advance(ctx); // '('
+		advance(ctx); // 'catch'
+
+		node.ident = parse_expr(scope);
+
+		// Validate that we actually got an identifier
+		if (!node.ident || node.ident.kind != IDENT_EXPR)
 		{
-			node.ident = parse_expr(scope);
-
-			// Validate that we actually got an identifier
-			if (!node.ident || node.ident.kind != IDENT_EXPR)
-			{
-				diagnostics::error(ctx.context, ctx.current.range, "Expected identifier after 'catch'");
-				node.flags.has_error = true;
-			}
-
-			node.defer_kind = CATCH_VAR;
-
-			if (!consume(ctx, RPAREN))
-			{
-				diagnostics::error(ctx.context, ctx.current.range, "Expected ')'");
-				node.flags.has_error = true;
-				skip_until(ctx, { RPAREN });
-			}
+			diagnostics::error(ctx.context, ctx.current.range, "Expected identifier after 'catch'");
+			node.flags.has_error = true;
 		}
-		else
+
+		node.defer_kind = CATCH_VAR;
+
+		if (!consume(ctx, RPAREN))
 		{
-			diagnostics::error(ctx.context, ctx.current.range, "Expected 'catch' inside parenthesis");
+			diagnostics::error(ctx.context, ctx.current.range, "Expected ')'");
 			node.flags.has_error = true;
 			skip_until(ctx, { RPAREN });
 		}
 	}
-
-	node.defer_kind = kind;
 
 	node.body = parse_stmt(scope);
 

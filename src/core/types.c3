@@ -107,7 +107,7 @@ struct TypeInfo
 enum BindingKind : char
 {
 	GLOBAL, // declared at file scope
-	RUNTIME, // parameter, local, local constant, static local
+	RUNTIME, // parameter, local
 }
 
 struct VariableInfo

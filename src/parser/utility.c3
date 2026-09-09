@@ -37,15 +37,7 @@ fn bool is_type(ParseContext* ctx)
 {
 	TokenKind kind = ctx.current.kind;
 
-	if (is_type_primitive(kind)) return true;
-	if (kind == TYPE_IDENT) return true;
-
-	// if (kind == IDENT && ctx.peek(1).kind == SCOPE)
-	// {
-	// 	return true;
-	// }
-
-	return false;
+	return is_type_primitive(kind) || kind == TYPE_IDENT || kind == CT_TYPEFROM || kind == CT_TYPEOF;
 }
 
 fn bool is_alias_name_kind(TokenKind kind)
@@ -103,7 +95,7 @@ fn void append_node_array(List{Node*}* list, NodeArray nodes)
 
 <*
  Parse attributes at the current token and append them into an existing list.
- @require(scope.ctx != null) : "Parser context to consume attributes from."
+ @require (scope.ctx != null) : "Parser context to consume attributes from."
  @param [&inout] parent_node : "Node receiving visibility and has-attributes side effects."
  @param [&inout] list : "Destination list for parsed ATTRIBUTE_DECL nodes."
 *>
@@ -303,7 +295,7 @@ fn bool token_type_ends_case(TokenKind kind)
 
 fn bool check_if_typed_parameter(ParseContext* ctx)
 {
-	TokenKind first  = ctx.current.kind;
+	TokenKind first = ctx.current.kind;
 
 	if (is_type(ctx))
 	{

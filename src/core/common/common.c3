@@ -394,6 +394,8 @@ enum InOutModifier : char
 	IN,
 	OUT,
 	INOUT,
+	DROP,
+	OWN,
 }
 
 enum Visibility : char

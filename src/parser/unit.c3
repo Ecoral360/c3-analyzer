@@ -160,15 +160,21 @@ fn Node* parse_contract_param(ContextScope scope)
 		{
 			case "in":
 				node.modifier = IN;
-				break;
+
 			case "inout":
 				node.modifier = INOUT;
-				break;
+
 			case "out":
 				node.modifier = OUT;
-				break;
+
+			case "drop":
+				node.modifier = DROP;
+
+			case "own":
+				node.modifier = OWN;
+
 			default:
-				diagnostics::error(ctx.context, ctx.current.range, "Expected 'in', 'out', or 'inout'");
+				diagnostics::error(ctx.context, ctx.current.range, "Expected 'in', 'out', 'inout', 'drop', or 'own'");
 				node.flags.has_error = true;
 		}
 
@@ -202,6 +208,51 @@ fn Node* parse_contract_param(ContextScope scope)
 		node.ident = ctx.ident(ctx.current);
 		advance(ctx);
 	}
+
+	if (consume(ctx, COLON))
+	{
+		if (ctx.is(STRING_LITERAL))
+		{
+			node.description = ctx.ident(ctx.current);
+			advance(ctx);
+		}
+		else
+		{
+			diagnostics::error(ctx.context, ctx.current.range, "Expected string description after ':'");
+			node.flags.has_error = true;
+		}
+	}
+	else if (ctx.is(STRING_LITERAL))
+	{
+		diagnostics::error(ctx.context, ctx.current.range, "Expected ':' before description string");
+		node.description = ctx.ident(ctx.current);
+		advance(ctx);
+		node.flags.has_error = true;
+	}
+
+	return (Node*)node;
+}
+
+fn Node* parse_contract_require(ContextScope scope)
+{
+	ParseContext* ctx     = scope.ctx;
+	ContractRequire* node = ctx.ast.alloc_node(ContractRequire, ctx.current.range);
+	defer node.range.end = ctx.peek(-1).range.end;
+
+	if (consume(ctx, LBRACKET))
+	{
+		node.param_pinpoint = ctx.ident(ctx.current);
+		advance(ctx);
+
+		if (!consume(ctx, RBRACKET))
+		{
+			diagnostics::error(ctx.context, ctx.current.range, "Expected ']' after require param");
+			node.flags.has_error = true;
+			skip_until(ctx, { IDENT, CT_IDENT, TYPE_IDENT, CT_TYPE_IDENT, HASH_IDENT, ELLIPSIS });
+		}
+	}
+
+	node.expr = parse_contract_expr(scope);
 
 	if (consume(ctx, COLON))
 	{

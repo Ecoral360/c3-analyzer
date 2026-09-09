@@ -121,3 +121,15 @@ fn SemaContext* analyze_source(AnalyzerContext* context, String source_code, Str
 
 	return sema_ctx;
 }
+
+<*
+ Lex a buffer on its own and hand back every token, the trailing EOF included.
+*>
+fn Token[] lex_all(AnalyzerContext* context, String source_code)
+{
+	Lexer* lex = lexer::new(context, source_code);
+
+	lexer::tokenize(lex);
+
+	return lex.tokens.to_tarray();
+}

@@ -262,10 +262,9 @@ fn void typeof_typefrom()
 
 	AccessExpr* access = type.expr.as(AccessExpr);
 
-	CallExpr* left = access.left.as(CallExpr);
-	TypeExpr* callee = left.callee.as(TypeExpr);
-	test::eq(callee.unresolved.name.text, "$Typeof");
-	test::eq(callee.type_kind, TypeExprKind.TYPE_IDENTIFIER);
+	TypeExpr* left= access.left.as(TypeExpr);
+	test::eq(left.type_kind, TypeExprKind.TYPE_TYPEOF);
+	test::eq(left.expr.kind, NodeKind.IDENT_EXPR);
 
 	IdentExpr* member = access.member.as(IdentExpr);
 	test::eq(member.ident.text, "inner");

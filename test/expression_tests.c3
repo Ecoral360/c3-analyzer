@@ -3,6 +3,7 @@ module expr_tests @test;
 import parser_tests;
 
 import analyzer::parser;
+import analyzer::lexer;
 import analyzer::core;
 import std::io;
 import std::collections::list;
@@ -675,4 +676,85 @@ fn void malformed_unicode_escapes_are_reported()
 	context::process(context, source_code, "test");
 
 	test::eq(parser_tests::error_diag_count, 4);
+}
+
+<*
+ Every numeric literal c3c accepts has to come out of the lexer whole, and with
+ the kind that says whether it is an integer or a float. The forms below were
+ each checked against c3c: it compiles all of them.
+*>
+fn void numeric_literals_lex_as_one_token()
+{
+	String[] sources = {
+		// Decimal integers, with separators and the integer suffixes.
+		"123", "0", "007", "1_000", "1_000_000", "1u", "1U", "1L", "1uL", "1ll", "1LL", "1ull", "1ULL",
+		// Hex, binary and octal integers, with separators and suffixes.
+		"0x1F", "0XFF", "0xff", "0xFF_FF", "0x1_F", "0xFFl",
+		"0b1010", "0B1010", "0b1_0", "0b11u",
+		"0o777", "0O777", "0o7_7", "0o17u",
+		// Floats: a point, an exponent, or just a float suffix.
+		"1.0", "1.", "0.5", "1e10", "1E10", "1e+10", "1e-10", "1.5e-3", "1.e3", "1.0e3f",
+		"1.0f", "1.0F", "1f", "1.0d", "1D",
+		// Hex floats, whose exponent is written in decimal after a 'p'.
+		"0x1p3", "0x1P3", "0x1.8p3", "0x1.8p-3", "0x1.8P3",
+	};
+
+	TokenKind[] kinds = {
+		INT_DECIMAL_LITERAL, INT_DECIMAL_LITERAL, INT_DECIMAL_LITERAL, INT_DECIMAL_LITERAL,
+		INT_DECIMAL_LITERAL, INT_DECIMAL_LITERAL, INT_DECIMAL_LITERAL, INT_DECIMAL_LITERAL,
+		INT_DECIMAL_LITERAL, INT_DECIMAL_LITERAL, INT_DECIMAL_LITERAL, INT_DECIMAL_LITERAL,
+		INT_DECIMAL_LITERAL,
+
+		INT_HEX_LITERAL, INT_HEX_LITERAL, INT_HEX_LITERAL, INT_HEX_LITERAL, INT_HEX_LITERAL,
+		INT_HEX_LITERAL,
+		INT_BIN_LITERAL, INT_BIN_LITERAL, INT_BIN_LITERAL, INT_BIN_LITERAL,
+		INT_OCTAL_LITERAL, INT_OCTAL_LITERAL, INT_OCTAL_LITERAL, INT_OCTAL_LITERAL,
+
+		FLOAT_DECIMAL_LITERAL, FLOAT_DECIMAL_LITERAL, FLOAT_DECIMAL_LITERAL, FLOAT_DECIMAL_LITERAL,
+		FLOAT_DECIMAL_LITERAL, FLOAT_DECIMAL_LITERAL, FLOAT_DECIMAL_LITERAL, FLOAT_DECIMAL_LITERAL,
+		FLOAT_DECIMAL_LITERAL, FLOAT_DECIMAL_LITERAL, FLOAT_DECIMAL_LITERAL, FLOAT_DECIMAL_LITERAL,
+		FLOAT_DECIMAL_LITERAL, FLOAT_DECIMAL_LITERAL, FLOAT_DECIMAL_LITERAL,
+
+		FLOAT_HEX_LITERAL, FLOAT_HEX_LITERAL, FLOAT_HEX_LITERAL, FLOAT_HEX_LITERAL, FLOAT_HEX_LITERAL,
+	};
+
+	test::eq(sources.len, kinds.len);
+
+	AnalyzerContext* context = context::new(tmem);
+
+	foreach (i, source : sources)
+	{
+		Token[] tokens = parser_tests::lex_all(context, source);
+
+		// The literal and the EOF that follows it, nothing else: a literal cut
+		// in two would show up here as a third token.
+		test::eq(tokens.len, 2);
+		test::eq(tokens[0].kind, kinds[i]);
+		test::eq(tokens[0].value, source);
+		test::eq(tokens[1].kind, TokenKind.EOF);
+	}
+}
+
+<*
+ A '.' that opens a range still ends the number in front of it.
+*>
+fn void a_range_after_a_number_is_not_part_of_it()
+{
+	AnalyzerContext* context = context::new(tmem);
+
+	Token[] ints = parser_tests::lex_all(context, "1..2");
+
+	test::eq(ints.len, 4);
+	test::eq(ints[0].kind, TokenKind.INT_DECIMAL_LITERAL);
+	test::eq(ints[0].value, "1");
+	test::eq(ints[1].kind, TokenKind.DOTDOT);
+	test::eq(ints[2].value, "2");
+
+	Token[] floats = parser_tests::lex_all(context, "1.0..2.0");
+
+	test::eq(floats.len, 4);
+	test::eq(floats[0].kind, TokenKind.FLOAT_DECIMAL_LITERAL);
+	test::eq(floats[0].value, "1.0");
+	test::eq(floats[1].kind, TokenKind.DOTDOT);
+	test::eq(floats[2].value, "2.0");
 }

@@ -83,7 +83,7 @@ fn Node* parse_contract_decl(ContextScope scope) => @pool()
 			if (attr == constants::KW_AT_REQUIRE)
 			{
 				diagnostics::log_debug("parse_contract_decl - @require");
-				requires.push(parse_contract_expr(scope));
+				requires.push(parse_contract_require(scope));
 			}
 			else if (attr == constants::KW_AT_ENSURE)
 			{
@@ -648,9 +648,9 @@ fn Node* parse_var_decl(ContextScope scope, Node* type = null)
 		if (flags.is_var)
 		{
 			advance(ctx); // Consume 'var'
-			flags.is_comptime = true;
+			// flags.is_comptime = true;
 		}
-		else if (is_type_primitive(ctx.current.kind) || ctx.is(IDENT) || ctx.is(TYPE_IDENT))
+		else if (ctx.is(IDENT) || is_type(ctx))
 		{
 			type_node = parse_type_expr(scope.with_only_flags(flags), null);
 			if (type_node && type_node.kind == ERROR)
@@ -671,7 +671,7 @@ fn Node* parse_var_decl(ContextScope scope, Node* type = null)
 	{
 		Token t = ctx.current;
 
-		if (t.kind != IDENT && t.kind != CONST_IDENT && t.kind != CT_IDENT)
+		if (t.kind != IDENT && t.kind != CONST_IDENT && t.kind != CT_IDENT && t.kind != CT_TYPE_IDENT)
 		{
 			diagnostics::error(ctx.context, ctx.current.range, "Expected variable name");
 			skip_until(ctx, { COMMA, EOS });

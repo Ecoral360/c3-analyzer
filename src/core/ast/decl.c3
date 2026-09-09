@@ -13,6 +13,14 @@ struct ContractParam
 	bool by_ref;
 }
 
+struct ContractRequire
+{
+	inline Node node;
+	Ident* param_pinpoint;
+	Node* expr;
+	Ident* description;
+}
+
 struct ContractDecl
 {
 	inline Node node;

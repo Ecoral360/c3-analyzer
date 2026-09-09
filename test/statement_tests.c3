@@ -945,3 +945,89 @@ fn int foo(int a)
 		"a case is outside the switch"
 	);
 }
+
+<*
+ A '(' after 'defer' only opens a defer kind when 'catch' follows it. Otherwise
+ it belongs to the deferred statement - a cast, or a parenthesised expression -
+ and used to be eaten as a malformed '(catch ...)'.
+*>
+fn void defer_accepts_a_statement_that_starts_with_a_parenthesis()
+{
+	String source_code = `
+		module hello;
+
+		fn int? foo() { return 1; }
+		fn int bar() { return 2; }
+
+		fn void baz()
+		{
+			defer (void) foo();
+			defer (void)foo();
+			defer (bar() + 1);
+		}
+	`;
+	parser_tests::start_counting_diags();
+	defer parser_tests::stop_counting_diags();
+
+	AnalyzerContext* context = context::new(tmem);
+	context::process(context, source_code, "test");
+	test::eq(parser_tests::error_diag_count, 0);
+
+	Module* mod = context.modules.get("hello")!!;
+	NodeArray body = mod.nodes[3].as(FnDecl).body.as(CompoundStmt).statements;
+
+	test::eq(body.len, 3);
+
+	foreach (stmt : body)
+	{
+		DeferStmt* defer_stmt = stmt.as(DeferStmt);
+
+		// None of these is a 'defer (catch err)'.
+		test::eq(defer_stmt.defer_kind, DeferKind.NORMAL);
+		test::eq(defer_stmt.ident, null);
+		test::ne(defer_stmt.body, null);
+	}
+
+	// The cast is still a cast, and it kept its operand.
+	test::eq(body[0].as(DeferStmt).body.as(ExprStmt).expr_stmt.kind, NodeKind.CAST_EXPR);
+}
+
+<*
+ The kind of a defer is recorded on the node: it used to be overwritten with
+ NORMAL right before the statement was parsed.
+*>
+fn void defer_records_which_kind_it_is()
+{
+	String source_code = `
+		module hello;
+
+		fn int? foo() { return 1; }
+
+		fn void baz()
+		{
+			defer foo()!!;
+			defer try foo()!!;
+			defer catch foo()!!;
+			defer (catch err) foo()!!;
+		}
+	`;
+	parser_tests::start_counting_diags();
+	defer parser_tests::stop_counting_diags();
+
+	AnalyzerContext* context = context::new(tmem);
+	context::process(context, source_code, "test");
+	test::eq(parser_tests::error_diag_count, 0);
+
+	Module* mod = context.modules.get("hello")!!;
+	NodeArray body = mod.nodes[2].as(FnDecl).body.as(CompoundStmt).statements;
+
+	test::eq(body.len, 4);
+	test::eq(body[0].as(DeferStmt).defer_kind, DeferKind.NORMAL);
+	test::eq(body[1].as(DeferStmt).defer_kind, DeferKind.TRY);
+	test::eq(body[2].as(DeferStmt).defer_kind, DeferKind.CATCH);
+	test::eq(body[3].as(DeferStmt).defer_kind, DeferKind.CATCH_VAR);
+
+	// Only the '(catch err)' form binds a name.
+	test::eq(body[3].as(DeferStmt).ident.kind, NodeKind.IDENT_EXPR);
+	test::eq(body[0].as(DeferStmt).ident, null);
+}

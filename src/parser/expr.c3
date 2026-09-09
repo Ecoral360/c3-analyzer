@@ -71,7 +71,7 @@ fn Node* parse_type_expr(ContextScope scope, Node* path_expr = null)
 	TypeExpr* current_type = ctx.ast.alloc_node(TypeExpr, start);
 	defer current_type.range.end = ctx.peek(-1).range.end;
 
-	if (consume(ctx, CT_TYPEFROM))
+	if (consume(ctx, CT_TYPEFROM) || consume(ctx, CT_TYPEOF))
 	{
 		current_type.type_kind = (ctx.peek(-1).kind == CT_TYPEFROM) ? TYPE_TYPEFROM : TYPE_TYPEOF;
 		expect(ctx, current_type, LPAREN);

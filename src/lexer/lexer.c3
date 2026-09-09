@@ -242,13 +242,27 @@ fn TokenKind lookup_keyword(String text)
 	{
 		// Top-Level Explicit Keywords
 		case "alias": return ALIAS;
-		case "attrdef": return ATTRDEF;
+
+		case "attrmacro":
+		case "attrdef": 
+			return ATTRDEF;
+
 		case "bitstruct": return BITSTRUCT;
 		case "const": return CONST;
-		case "constdef": return CONSTDEF;
-		case "enum": return ENUM;
+
+		case "cenum":
+		case "constset":
+		case "constdef":
+			return CONSTDEF;
+
 		case "faultdef": return FAULTDEF;
-		case "excuse": return EXCUSE;
+		case "enum": return ENUM;
+
+		case "faultset":
+		case "faultconst":
+		case "excuse": 
+			return EXCUSE;
+
 		case "fn": return FN;
 		case "import": return IMPORT;
 		case "interface": return INTERFACE;
@@ -344,11 +358,83 @@ fn Token lex_identifier(Lexer* self)
 	return self.emit_range(kind, start_index);
 }
 
+<*
+ Step over an exponent - 'e10', 'E+7', 'p-3'. The digits are decimal even for a
+ hex float, and a '_' is not one of them.
+
+ @require self.current == 'e' || self.current == 'E' || self.current == 'p' || self.current == 'P'
+*>
+fn void scan_exponent(Lexer* self) @local
+{
+	advance(self); // 'e', 'E', 'p' or 'P'
+
+	if (self.current == '+' || self.current == '-') advance(self);
+
+	while (self.current != 0 && ascii::is_digit(self.current))
+	{
+		advance(self);
+	}
+}
+
+<*
+ Whether what follows the 'e'/'p' really is an exponent, so that '1e' or a
+ method call written on a literal is left alone instead of being swallowed.
+*>
+fn bool Lexer.has_exponent(&self)
+{
+	char next = self.peek();
+
+	if (ascii::is_digit(next)) return true;
+	if (next != '+' && next != '-') return false;
+
+	return ascii::is_digit(self.peek(2));
+}
+
+<*
+ Consume the suffix of a numeric literal.
+
+ c3c takes 'u'/'U' and 'l'/'L' (either doubled) on integers, and 'f'/'F' and
+ 'd'/'D' to mark a float. Anything alphanumeric that follows is c3c's error to
+ report, not a reason to cut the token in half here: an identifier glued to a
+ number is never valid C3, so the whole run belongs to the literal.
+*>
+fn TokenKind Lexer.scan_number_suffix(&self, TokenKind kind)
+{
+	switch (ascii::to_lower(self.current))
+	{
+		case 'f':
+		case 'd':
+			// A float marker turns an otherwise integral literal into a float.
+			switch (kind)
+			{
+				case INT_DECIMAL_LITERAL: kind = FLOAT_DECIMAL_LITERAL;
+				case INT_HEX_LITERAL: kind = FLOAT_HEX_LITERAL;
+				default:
+			}
+			advance(self);
+		case 'u':
+		case 'i':
+		case 'l':
+			advance(self);
+		default:
+			// Not a suffix. Letters glued to a number are still part of the
+			// literal - c3c reads the same run before calling it invalid - so
+			// keep them in one token instead of handing back an identifier.
+			break;
+	}
+
+	while (self.current != 0 && (ascii::is_alnum(self.current) || self.current == '_'))
+	{
+		advance(self);
+	}
+
+	return kind;
+}
+
 fn Token lex_number(Lexer* self)
 {
-	Location start = self.location;
 	int start_index = self.index;
-	TokenKind kind = INT_DECIMAL_LITERAL;
+	TokenKind kind  = INT_DECIMAL_LITERAL;
 
 	// Hex: 0x
 	if (self.current == '0' && (ascii::to_lower(self.peek()) == 'x'))
@@ -361,7 +447,7 @@ fn Token lex_number(Lexer* self)
 			advance(self);
 		}
 
-		if (self.current != 0 && self.current == '.' && self.peek() != '.') // && ascii::is_xdigit(self.peek_next()))
+		if (self.current == '.' && self.peek() != '.')
 		{
 			kind = FLOAT_HEX_LITERAL;
 			advance(self);
@@ -371,19 +457,11 @@ fn Token lex_number(Lexer* self)
 			}
 		}
 
-		if (self.current != 0 && (self.current == 'p' || self.current == 'P'))
+		// '0x1p3' is a float even without a '.': the exponent makes it one.
+		if ((self.current == 'p' || self.current == 'P') && self.has_exponent())
 		{
-			char next = self.peek();
-			if (ascii::is_xdigit(next) || next == '-' || next == '+')
-			{
-				kind = FLOAT_HEX_LITERAL;
-				advance(self);
-				if (next == '-' || next == '+') advance(self);
-				while (!self.eof() && (ascii::is_xdigit(self.peek()) || self.peek() == '_'))
-				{
-					advance(self);
-				}
-			}
+			kind = FLOAT_HEX_LITERAL;
+			scan_exponent(self);
 		}
 	} // Binary: 0b
 	else if (self.current == '0' && (ascii::to_lower(self.peek()) == 'b'))
@@ -399,7 +477,7 @@ fn Token lex_number(Lexer* self)
 	{
 		kind = INT_OCTAL_LITERAL;
 		advance(self, 2);
-		while (self.current != 0 && (ascii::is_odigit(self.current) || self.peek() == '_'))
+		while (self.current != 0 && (ascii::is_odigit(self.current) || self.current == '_'))
 		{
 			advance(self);
 		}
@@ -414,8 +492,8 @@ fn Token lex_number(Lexer* self)
 			advance(self);
 		}
 
-		// Real/Float check
-		if (self.current != 0 && self.current == '.' && self.peek() != '.') // && ascii::is_digit(self.peek_next()))
+		// Real/Float check - '1..2' is a range, so a second '.' ends the number.
+		if (self.current == '.' && self.peek() != '.')
 		{
 			kind = FLOAT_DECIMAL_LITERAL;
 			advance(self);
@@ -425,32 +503,14 @@ fn Token lex_number(Lexer* self)
 			}
 		}
 
-		if (self.current != 0 && (self.current == 'e' || self.current == 'E'))
+		if ((self.current == 'e' || self.current == 'E') && self.has_exponent())
 		{
-			char next = self.peek();
-			if (ascii::is_digit(next) || next == '-' || next == '+')
-			{
-				kind = FLOAT_DECIMAL_LITERAL;
-				advance(self);
-				if (next == '-' || next == '+') advance(self);
-				while (self.current != 0 && (ascii::is_digit(self.current) || self.current == '_'))
-				{
-					advance(self);
-				}
-			}
+			kind = FLOAT_DECIMAL_LITERAL;
+			scan_exponent(self);
 		}
 	}
 
-	// Handle Suffixes (e.g., 1u, 1.0f, 0xFFu64)
-	char c = (char)ascii::to_lower(self.current);
-	if (c == 'u' || c == 'i' || c == 'f' || c == 'l')
-	{
-		advance(self);
-		while (self.current != 0 && ascii::is_alnum(self.current))
-		{
-			advance(self);
-		}
-	}
+	kind = self.scan_number_suffix(kind);
 
 	return self.emit_range(kind, start_index);
 }

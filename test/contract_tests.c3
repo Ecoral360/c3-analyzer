@@ -40,8 +40,9 @@ fn void contract_with_expr_checks()
 	test::eq(decl.params.len, 1);
 
 	{
-		Node* req_expr     = decl.requires[0];
-		ContractExpr* expr = req_expr.as(ContractExpr);
+		ContractRequire* req_expr     = decl.requires[0].as(ContractRequire);
+		ContractExpr* expr = req_expr.expr.as(ContractExpr);
+
 		ExprList* list     = expr.exprs.as(ExprList);
 		BinaryExpr* bin    = list.exprs[0].as(BinaryExpr);
 		test::eq(bin.left.as(IdentExpr).ident.text, "a");
@@ -161,8 +162,8 @@ fn void contract_with_deprecated()
 	}
 
 	{
-		Node* req_expr     = decl.requires[0];
-		ContractExpr* expr = req_expr.as(ContractExpr);
+		ContractRequire* req_expr     = decl.requires[0].as(ContractRequire);
+		ContractExpr* expr = req_expr.expr.as(ContractExpr);
 		ExprList* list     = expr.exprs.as(ExprList);
 		BinaryExpr* bin    = list.exprs[0].as(BinaryExpr);
 		test::eq(bin.left.as(IdentExpr).ident.text, "a");
