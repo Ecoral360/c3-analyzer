@@ -23,7 +23,7 @@ fn void run_variable_pass(SemaContext* ctx) => @pool()
 			ctx.current_module.comptime_scope.range.end = root_node.range.start;
 			ctx.current_module.runtime_scope.range.end = root_node.range.start;
 
-			ctx.set_current_module(full_path);
+			ctx.enter_module_section(full_path, root_node.range.start);
 
 			Range range = {
 				.start = root_node.range.start,
@@ -51,7 +51,7 @@ fn void run_variable_pass(SemaContext* ctx) => @pool()
 		cursor::visit(root_node, null, { &sema_on_enter, &sema_on_exit }, ctx);
 	}
 
-	Location end = { .line = lines.len - 1, .column = lines[^1].len - 1 };
+	Location end = { .line = ((int)lines.len ?: 1) - 1, .column = ((int)lines[^1].len ?: 1) - 1 };
 	ctx.current_module.comptime_scope.range.end = end;
 	ctx.current_module.runtime_scope.range.end = end;
 }

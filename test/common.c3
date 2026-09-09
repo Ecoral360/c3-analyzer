@@ -104,3 +104,20 @@ fn SourceFile* parse_source(AnalyzerContext* context, String source_code, String
 
 	return sf;
 }
+
+<*
+ Run the full pipeline the way 'context::process' does, but hand back the
+ SemaContext it builds - the sections, scopes and imports a sema test wants to
+ look at live there and are otherwise dropped when processing ends.
+*>
+fn SemaContext* analyze_source(AnalyzerContext* context, String source_code, String path = "test")
+{
+	SourceFile* sf = parse_source(context, source_code, path);
+
+	registry::register(context, sf);
+
+	SemaContext* sema_ctx = sema::new(context);
+	sema::analyze_source_file(sema_ctx, sf);
+
+	return sema_ctx;
+}

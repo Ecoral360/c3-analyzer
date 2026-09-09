@@ -6,6 +6,7 @@ import analyzer::core;
 import analyzer::sema;
 
 import std::io;
+import std::collections::list;
 
 <*
  A contract is parsed as a child of the declaration it documents, but it is
@@ -360,4 +361,142 @@ fn void two_globals_of_the_same_name_clash()
 	context::process(context, source_code, "test");
 
 	test::eq(parser_tests::error_diag_count, 1);
+}
+
+<*
+ One file can hold several module declarations, and the same name can open
+ more than once. Each of those sections gets its own SemaModuleContext, with
+ its own range, its own imports and its own module scope.
+
+ The fixture, by line:
+
+   0: module a;
+   1: import b;
+   2: int x;
+   3: module b;
+   4: int y;
+   5: module a;
+   6: int z;
+*>
+fn void every_module_section_gets_its_own_context()
+{
+	String source_code = "module a;\nimport b;\nint x;\nmodule b;\nint y;\nmodule a;\nint z;\n";
+
+	AnalyzerContext* context = context::new(tmem);
+	SemaContext* sema_ctx = parser_tests::analyze_source(context, source_code);
+
+	// Two names, three sections: 'a' opens twice.
+	test::eq(sema_ctx.modules.len(), 2);
+
+	List{SemaModuleContext*} a_sections = sema_ctx.modules.get("a")!!;
+	List{SemaModuleContext*} b_sections = sema_ctx.modules.get("b")!!;
+
+	test::eq(a_sections.len(), 2);
+	test::eq(b_sections.len(), 1);
+
+	// Both sections of 'a' point at the one Module the registry made for it.
+	test::eq(a_sections[0].mod, a_sections[1].mod);
+	test::ne(a_sections[0], a_sections[1]);
+	test::ne(a_sections[0].mod, b_sections[0].mod);
+
+	// A section starts on its own 'module' declaration and ends where the next
+	// one begins; the last one runs to the end of the file.
+	test::eq(a_sections[0].range.start.line, 0);
+	test::eq(a_sections[0].range.end.line, 3);
+	test::eq(b_sections[0].range.start.line, 3);
+	test::eq(b_sections[0].range.end.line, 5);
+	test::eq(a_sections[1].range.start.line, 5);
+
+	// The trailing newline makes an eighth, empty line, and that is where the
+	// file - and so the last section - ends.
+	test::eq(a_sections[1].range.end.line, 7);
+
+	// The last section parsed is the one left current.
+	test::eq(sema_ctx.current_module, a_sections[1]);
+}
+
+<*
+ A global belongs to the section it was written in, not to every section of
+ that module.
+*>
+fn void a_global_lands_in_the_scope_of_its_own_section()
+{
+	String source_code = "module a;\nimport b;\nint x;\nmodule b;\nint y;\nmodule a;\nint z;\n";
+
+	AnalyzerContext* context = context::new(tmem);
+	SemaContext* sema_ctx = parser_tests::analyze_source(context, source_code);
+
+	SemaModuleContext* first_a = sema_ctx.modules.get("a")!![0];
+	SemaModuleContext* second_a = sema_ctx.modules.get("a")!![1];
+	SemaModuleContext* only_b = sema_ctx.modules.get("b")!![0];
+
+	test::eq(scope::has_variable(first_a.runtime_scope, "x"), true);
+	test::eq(scope::has_variable(only_b.runtime_scope, "y"), true);
+	test::eq(scope::has_variable(second_a.runtime_scope, "z"), true);
+
+	// Nothing leaks sideways between the sections.
+	test::eq(scope::has_variable(first_a.runtime_scope, "y"), false);
+	test::eq(scope::has_variable(first_a.runtime_scope, "z"), false);
+	test::eq(scope::has_variable(second_a.runtime_scope, "x"), false);
+	test::eq(scope::has_variable(only_b.runtime_scope, "x"), false);
+}
+
+<*
+ Imports are recorded on the section that wrote them, so the same import in a
+ later section of the same module is a new import, not a duplicate.
+*>
+fn void imports_belong_to_a_section_not_to_a_module()
+{
+	String source_code = "module a;\nimport b;\nmodule b;\nmodule a;\nimport b;\n";
+
+	parser_tests::start_counting_diags();
+	defer parser_tests::stop_counting_diags();
+
+	AnalyzerContext* context = context::new(tmem);
+	SemaContext* sema_ctx = parser_tests::analyze_source(context, source_code);
+
+	test::eq(parser_tests::error_diag_count, 0);
+
+	List{SemaModuleContext*} a_sections = sema_ctx.modules.get("a")!!;
+
+	test::eq(a_sections.len(), 2);
+	test::eq(a_sections[0].imports.has_key("b"), true);
+	test::eq(a_sections[1].imports.has_key("b"), true);
+	test::eq(sema_ctx.modules.get("b")!![0].imports.has_key("b"), false);
+}
+
+<*
+ Repeating an import inside one section is still a duplicate.
+*>
+fn void a_repeated_import_in_one_section_is_reported()
+{
+	String source_code = "module a;\nimport b;\nimport b;\nmodule b;\n";
+
+	parser_tests::start_counting_diags();
+	defer parser_tests::stop_counting_diags();
+
+	AnalyzerContext* context = context::new(tmem);
+	SemaContext* sema_ctx = parser_tests::analyze_source(context, source_code);
+
+	test::eq(parser_tests::error_diag_count, 1);
+	test::eq(parser_tests::last_error_message, "Module 'b' is already imported");
+	test::eq(sema_ctx.modules.get("a")!![0].imports.len(), 1);
+}
+
+<*
+ A file that declares no module still gets one section, named after the file.
+*>
+fn void a_file_without_a_module_declaration_has_one_section()
+{
+	String source_code = "int x;\n";
+
+	AnalyzerContext* context = context::new(tmem);
+	SemaContext* sema_ctx = parser_tests::analyze_source(context, source_code, "test");
+
+	test::eq(sema_ctx.modules.len(), 1);
+
+	List{SemaModuleContext*} sections = sema_ctx.modules.get("test")!!;
+
+	test::eq(sections.len(), 1);
+	test::eq(scope::has_variable(sections[0].runtime_scope, "x"), true);
 }

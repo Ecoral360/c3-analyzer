@@ -15,12 +15,13 @@ struct SemaContext
 	AnalyzerContext* context;
 	Allocator allocator;
 	SemaModuleContext* current_module;
-	HashMap{String, SemaModuleContext*} modules;
+	HashMap{String, List{SemaModuleContext*}} modules;
 }
 
 struct SemaModuleContext
 {
 	Module* mod;
+	Range range;
 	Scope* runtime_scope;
 	Scope* comptime_scope;
 	HashMap{String, ImportInfo} imports;
@@ -39,12 +40,6 @@ fn SemaContext* new(AnalyzerContext* context)
 
 fn SemaModuleContext* SemaContext.set_current_module(&self, String name)
 {
-	if (try sema_mod = self.modules.get(name))
-	{
-		self.current_module = sema_mod;
-		return sema_mod;
-	}
-
 	Module* mod = self.context.modules.get(name) ?? null;
 	if (!mod) return null;
 
@@ -55,9 +50,47 @@ fn SemaModuleContext* SemaContext.set_current_module(&self, String name)
 	sema_mod.comptime_scope = scope::new(self.allocator, { }, null, MODULE);
 	sema_mod.imports.init(self.allocator);
 
-	self.modules.set(name, sema_mod);
+	// 'get' hands back a copy of the list header, so pushing to it would drop
+	// the section on the floor - the map has to be updated through a reference.
+	if (try sema_mods = self.modules.get_ref(name))
+	{
+		sema_mods.push(sema_mod);
+	}
+	else
+	{
+		List{SemaModuleContext*} sema_mods;
+		sema_mods.init(self.allocator);
+		sema_mods.push(sema_mod);
+
+		self.modules.set(name, sema_mods);
+	}
+
 	self.current_module = sema_mod;
 	return sema_mod;
+}
+
+<*
+ Enter the section a module declaration opens.
+
+ The import pass records one SemaModuleContext per section and hangs the
+ imports off it, so a later pass has to find that same section back: starting a
+ second one would leave the imports on one object and the scopes on another.
+*>
+fn SemaModuleContext* SemaContext.enter_module_section(&self, String name, Location start)
+{
+	if (try sections = self.modules.get_ref(name))
+	{
+		foreach (section : *sections)
+		{
+			if (section.range.start == start)
+			{
+				self.current_module = section;
+				return section;
+			}
+		}
+	}
+
+	return self.set_current_module(name);
 }
 
 fn SemaModuleContext* set_default_module(SemaContext* ctx, SourceFile* sf) @local
