@@ -135,6 +135,7 @@ fn ChildVisitResult sema_on_enter(Node* node, Node* parent, void* user_data) @lo
 		case MACRO_DECL:
 		case FN_DECL:
 		case ATTRDEF_DECL:
+		case CT_DEFINED_EXPR:
 			push_rt_scope(ctx, node, FUNCTION);
 			push_ct_scope(ctx, node, FUNCTION);
 
@@ -162,9 +163,9 @@ fn ChildVisitResult sema_on_enter(Node* node, Node* parent, void* user_data) @lo
 
 		// A name already in view is a redefinition, with one exception: a
 		// declaration inside a function may shadow a global. Two globals of the
-		// same name still clash with each other.
+		// same name still clash with each other if they are in the same module.
 		VariableInfo* info = scope::resolve(scope, decl.name.text);
-		if (info && (scope.kind == FILE || info.binding != GLOBAL))
+		if (info && (scope.kind == MODULE || info.binding != GLOBAL))
 		{
 			diagnostics::note(ctx.context, info.node.range, "Previous definition of '%s' was here", info.name);
 			diagnostics::error(
@@ -198,7 +199,7 @@ fn BindingKind binding_of(Scope* scope, VarDecl* decl) @local
 	String name = decl.name.text;
 
 	switch {
-		case scope.kind == FILE:
+		case scope.kind == MODULE:
 		case decl.var_flags.is_const:
 		case decl.var_flags.is_static:
 		case decl.var_flags.is_thread_local:
@@ -216,6 +217,7 @@ fn ChildVisitResult sema_on_exit(Node* node, Node* parent, void* user_data) @loc
 	{
 		case MACRO_DECL:
 		case FN_DECL:
+		case CT_DEFINED_EXPR:
 			pop_ct_scope(ctx);
 			pop_rt_scope(ctx);
 

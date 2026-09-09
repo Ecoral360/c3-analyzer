@@ -63,6 +63,43 @@ fn void free(AnalyzerContext* ctx)
 }
 
 <*
+ parses from a buffer
+
+ @param path : "uri/path to the file or 'virtual' file"
+*>
+fn bool parse(AnalyzerContext* context, String buffer, String path) => @pool()
+{
+	Lexer* lexer = lexer::new(context, buffer);
+	defer lexer::free(context, lexer);
+
+	// new the SourceFile before tokenizing: the lexer reports its
+	// diagnostics against context.current_source_file, so anything it
+	// finds is lost if that is still unset.
+	SourceFile* source = source_file::new(context, lexer, path);
+	defer source_file::free(context, source);
+	context.current_source_file = source;
+
+	lexer::tokenize(lexer);
+
+	ParseContext* parse_ctx = parser::new(context);
+	defer parser::free(context, parse_ctx);
+
+	return parser::parse(parse_ctx, source);
+}
+
+fn bool parse_file(AnalyzerContext* context, String path) => @pool()
+{
+	String? buffer = (String)file::load(tmem, path);
+	if (catch err = buffer)
+	{
+		diagnostics::log_error("core::process_file - failed to load file (&s) %s", err, path);
+		return false;
+	}
+
+	return parse(context, buffer, path);
+}
+
+<*
  process from a buffer
 
  @param path : "uri/path to the file or 'virtual' file"

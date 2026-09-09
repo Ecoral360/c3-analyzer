@@ -1020,3 +1020,86 @@ fn void an_empty_buffer_parses_to_an_empty_ast()
 	test::eq(parser_tests::error_diag_count, 0);
 	test::ne(context.modules.get("hello")!!, null);
 }
+
+<*
+ 'excuse' names faults like 'faultdef' does, either inline up to a ';' or
+ inside a block, which closes on its '}' and takes no ';' after it.
+*>
+fn void excuse_decl_inline_and_block()
+{
+	String source_code = `
+		module hello;
+
+		excuse SINGLE;
+		excuse FIRST, SECOND;
+		excuse { IN_BLOCK, ALSO_IN_BLOCK }
+		excuse { TRAILING_COMMA, }
+		excuse { ONE }
+		excuse LAST;
+	`;
+	parser_tests::start_counting_diags();
+	defer parser_tests::stop_counting_diags();
+
+	AnalyzerContext* context = context::new(tmem);
+	context::process(context, source_code, "test");
+	test::eq(parser_tests::error_diag_count, 0);
+
+	Module* mod = context.modules.get("hello")!!;
+
+	test::eq(parser_tests::count_kind(mod, FAULTDEF_DECL), 6);
+
+	// Every form collects its names, whichever way it is terminated.
+	test::eq(mod.nodes[1].as(FaultdefDecl).faults.len, 1);
+	test::eq(mod.nodes[2].as(FaultdefDecl).faults.len, 2);
+	test::eq(mod.nodes[3].as(FaultdefDecl).faults.len, 2);
+	test::eq(mod.nodes[4].as(FaultdefDecl).faults.len, 1);
+	test::eq(mod.nodes[5].as(FaultdefDecl).faults.len, 1);
+	test::eq(mod.nodes[6].as(FaultdefDecl).faults.len, 1);
+
+	FaultdefDecl* block = mod.nodes[3].as(FaultdefDecl);
+	test::eq(block.faults[0].as(FaultDecl).name.text, "IN_BLOCK");
+	test::eq(block.faults[1].as(FaultDecl).name.text, "ALSO_IN_BLOCK");
+}
+
+<*
+ A block spans to its '}': the declaration that follows it is a separate node,
+ not something the block swallowed.
+*>
+fn void excuse_block_range_ends_at_the_brace()
+{
+	String source_code = "module hello;\nexcuse { FOO, BAR }\nfn void after() {}\n";
+
+	parser_tests::start_counting_diags();
+	defer parser_tests::stop_counting_diags();
+
+	AnalyzerContext* context = context::new(tmem);
+	context::process(context, source_code, "test");
+	test::eq(parser_tests::error_diag_count, 0);
+
+	Module* mod = context.modules.get("hello")!!;
+
+	FaultdefDecl* block = mod.nodes[1].as(FaultdefDecl);
+	test::eq(block.range.start.line, 1);
+	test::eq(block.range.end.line, 1);
+	test::eq(block.range.end.column, 19); // just past the '}', which ends the line
+
+	// The function after the block is still parsed as its own declaration.
+	test::eq(mod.nodes[2].kind, NodeKind.FN_DECL);
+	test::eq(mod.nodes[2].as(FnDecl).name.text, "after");
+}
+
+<*
+ An unterminated block is reported on the '}' that never came.
+*>
+fn void unterminated_excuse_block_is_reported()
+{
+	String source_code = "module hello;\nexcuse { FOO\n";
+
+	parser_tests::start_counting_diags();
+	defer parser_tests::stop_counting_diags();
+
+	AnalyzerContext* context = context::new(tmem);
+	context::process(context, source_code, "test");
+
+	test::eq(parser_tests::error_diag_count, 1);
+}

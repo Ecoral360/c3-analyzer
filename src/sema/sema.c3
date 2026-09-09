@@ -9,13 +9,15 @@ import std::collections::map;
 import std::collections::list;
 import std::collections::set;
 
+alias ModuleName = String;
+
 struct SemaContext
 {
 	AnalyzerContext* context;
 	Allocator allocator;
 	Scope* runtime_scope;
 	Scope* comptime_scope;
-	HashMap{String, ImportInfo} imports;
+	HashMap{ModuleName, ImportInfo} imports;
 }
 
 fn SemaContext* new(AnalyzerContext* context)
@@ -24,8 +26,8 @@ fn SemaContext* new(AnalyzerContext* context)
 
 	ctx.context = context;
 	ctx.allocator = context.allocator;
-	ctx.runtime_scope = scope::new(ctx.allocator, {}, null, FILE);
-	ctx.comptime_scope = scope::new(ctx.allocator, {}, null, FILE);
+	ctx.runtime_scope = scope::new(ctx.allocator, { }, null, MODULE);
+	ctx.comptime_scope = scope::new(ctx.allocator, { }, null, MODULE);
 	ctx.imports.init(context.allocator);
 
 	return ctx;
@@ -38,8 +40,8 @@ fn void analyze_source_file(SemaContext* ctx, SourceFile* sf)
 {
 	ctx.context.current_source_file = sf;
 
-	ctx.runtime_scope = scope::new(ctx.allocator, {}, null, FILE);
-	ctx.comptime_scope = scope::new(ctx.allocator, {}, null, FILE);
+	ctx.runtime_scope = scope::new(ctx.allocator, { }, null, MODULE);
+	ctx.comptime_scope = scope::new(ctx.allocator, { }, null, MODULE);
 
 	analyze_imports(ctx);
 
@@ -59,7 +61,7 @@ fn void analyze_imports(SemaContext* ctx)
 		{
 			if (path.kind != PATH_EXPR) continue; // stops a crash if the path is invalid
 
-			PathExpr* expr = path.as(PathExpr);
+			PathExpr* expr   = path.as(PathExpr);
 			String full_path = expr.path.text;
 
 			if (!ctx.context.modules.has_key(expr.path.text))
@@ -77,14 +79,14 @@ fn void analyze_imports(SemaContext* ctx)
 			}
 
 			diagnostics::log_debug("[AnalyzeImports]: Added import '%s'", expr.path.text);
-			ctx.imports.set(expr.path.text, {expr.path.text, node});
+			ctx.imports.set(expr.path.text, { expr.path.text, node });
 
 			if (!cursor::has_attribute(imp, NORECURSE, null))
 			{
 				sz offset = 0;
 				while (try idx = full_path[offset..].index_of("::"))
 				{
-					sz break_pos = offset + idx;
+					sz break_pos         = offset + idx;
 					String parent_prefix = full_path[:break_pos];
 
 					if (!ctx.imports.has_key(parent_prefix) && ctx.context.modules.has_key(parent_prefix))

@@ -106,8 +106,8 @@ struct TypeInfo
 *>
 enum BindingKind : char
 {
-	GLOBAL,   // declared at file scope
-	RUNTIME,  // parameter, local, local constant, static local
+	GLOBAL, // declared at file scope
+	RUNTIME, // parameter, local, local constant, static local
 }
 
 struct VariableInfo
@@ -146,9 +146,9 @@ struct Type
 
 		bitstruct builtin : uint
 		{
-			char bitsize        : 0..7;
-			char bytesize       : 8..15;
-			char abi_alignment  : 16..23;
+			char bitsize : 0..7;
+			char bytesize : 8..15;
+			char abi_alignment : 16..23;
 			char pref_alignment : 24..31;
 		}
 	}
@@ -169,6 +169,6 @@ struct AlignData
 
 struct TargetLayout
 {
-    AlignData[BitSizes::len] integers;
-    AlignData[BitSizes::len] floats;
+	AlignData[BitSizes::len] integers;
+	AlignData[BitSizes::len] floats;
 }

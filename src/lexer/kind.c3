@@ -303,6 +303,7 @@ enum TokenKind : char
 	EXTERN,
 	FALSE,
 	FAULTDEF,
+	EXCUSE,
 	FOR,
 	FOREACH,
 	FOREACH_R,

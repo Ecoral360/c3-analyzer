@@ -1220,12 +1220,15 @@ fn Node* parse_bitstruct_decl(ContextScope scope, bool is_nested = false) => @po
 
 <*
  faultdef_decl ::= FAULTDEF CONST_IDENT (',' CONST_IDENT)* ','? ';'
- @require scope.ctx.current.kind == FAULTDEF
+ excuse_decl   ::= EXCUSE (CONST_IDENT (',' CONST_IDENT)* ','? ';'
+ | '{' CONST_IDENT (',' CONST_IDENT)* ','? '}')
+ @require scope.ctx.current.kind == FAULTDEF || scope.ctx.current.kind == EXCUSE
 *>
 fn Node* parse_faultdef_decl(ContextScope scope) => @pool()
 {
 	ParseContext* ctx = scope.ctx;
 	Range start       = ctx.current.range;
+	bool is_excuse    = ctx.is(EXCUSE);
 	advance(ctx);
 	FaultdefDecl* node = ctx.ast.alloc_node(FaultdefDecl, start);
 	defer node.range.end = ctx.peek(-1).range.end;
@@ -1233,7 +1236,9 @@ fn Node* parse_faultdef_decl(ContextScope scope) => @pool()
 	List{Node*} faults;
 	faults.tinit();
 
-	while (!ctx.eof() && !ctx.is(EOS))
+	bool is_excuse_block = is_excuse && consume(ctx, LBRACE);
+
+	while (!ctx.eof() && (is_excuse_block ? !ctx.is(RBRACE) : !ctx.is(EOS)))
 	{
 		if (!ctx.is(CONST_IDENT))
 		{
@@ -1264,13 +1269,29 @@ fn Node* parse_faultdef_decl(ContextScope scope) => @pool()
 		if (!consume(ctx, COMMA)) break;
 	}
 
-	if (!consume(ctx, EOS))
+	// A block form closes on its '}' and takes no ';' after it; every other
+	// form ends on the ';'.
+	if (is_excuse_block)
 	{
-		diagnostics::error(ctx.context, ctx.current.range, "Expected ';' to terminate faultdef");
+		if (!consume(ctx, RBRACE))
+		{
+			diagnostics::error(ctx.context, ctx.current.range, "Expected '}' to terminate an excuse block");
+			node.flags.has_error = true;
+		}
+	}
+	else if (!consume(ctx, EOS))
+	{
+		diagnostics::error(ctx.context, ctx.current.range, "Expected ';' to terminate faultdef or excuse");
 		node.flags.has_error = true;
 	}
 
 	node.faults = alloc::clone_slice(ctx.allocator, faults.array_view());
+
+	if (node.faults.len == 0)
+	{
+		diagnostics::error(ctx.context, ctx.current.range, "Expected a constant name here");
+		node.flags.has_error = true;
+	}
 
 	return (Node*)node;
 }

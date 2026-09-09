@@ -16,6 +16,7 @@ struct Cli @Command({ .name = "c3_parser", .help_on_empty = true })
 	bool json @Seali(arg(short, long, default_value = false, help = "Output as json"));
 	bool no_invalid @Seali(arg(long, default_value = false, help = "Treat invalid node as an error"));
 	bool no_dump @Seali(arg(long, default_value = false, help = "Don't dump the workspace"));
+	bool no_sema @Seali(arg(long, default_value = false, help = "Don't run the semantic analysis"));
 	bool quiet @Seali(arg(short, long, default_value = false, help = "Don't output anything"));
 }
 
@@ -42,6 +43,14 @@ fn int main(String[] args) => @pool()
 
 	if (try file_path = cli.file.get())
 	{
+		if (cli.no_sema)
+		{
+			context::parse_file(
+				context,
+				file_path,
+			);
+			return 0;
+		}
 		context::process_file(context, file_path);
 	}
 
@@ -52,7 +61,7 @@ fn int main(String[] args) => @pool()
 			foreach (Node* node : mod.nodes)
 			{
 				io::printn(node.serialize(indent: 4));
-			};
+			}
 		};
 	}
 

@@ -8,7 +8,8 @@ import std::collections;
 *>
 enum ScopeKind : char
 {
-	FILE,     // globals and file level constants / variables
+	FILE,     // file scope, holds the modules in this file (no variables in it)
+	MODULE,   // globals and module level constants / variables
 	FUNCTION, // fn, macro, lambda, attrdef: a boundary for runtime bindings
 	BLOCK,    // compound statement, loop, non-compound if body
 }

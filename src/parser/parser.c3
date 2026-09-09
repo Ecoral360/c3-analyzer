@@ -435,6 +435,7 @@ fn Node* parse_top_level_statement(ParseContext* ctx)
 		case IMPORT:
 			node = parse_import_decl(scope);
 		case FAULTDEF:
+		case EXCUSE:
 			node = parse_faultdef_decl(scope);
 		case FN:
 			node = parse_fn_decl(scope);

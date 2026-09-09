@@ -248,6 +248,7 @@ fn TokenKind lookup_keyword(String text)
 		case "constdef": return CONSTDEF;
 		case "enum": return ENUM;
 		case "faultdef": return FAULTDEF;
+		case "excuse": return EXCUSE;
 		case "fn": return FN;
 		case "import": return IMPORT;
 		case "interface": return INTERFACE;
