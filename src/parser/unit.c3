@@ -173,8 +173,11 @@ fn Node* parse_contract_param(ContextScope scope)
 			case "own":
 				node.modifier = OWN;
 
+			case "init":
+				node.modifier = INIT;
+
 			default:
-				diagnostics::error(ctx.context, ctx.current.range, "Expected 'in', 'out', 'inout', 'drop', or 'own'");
+				diagnostics::error(ctx.context, ctx.current.range, "Expected 'in', 'out', 'inout', 'drop', 'own', or 'init'");
 				node.flags.has_error = true;
 		}
 
