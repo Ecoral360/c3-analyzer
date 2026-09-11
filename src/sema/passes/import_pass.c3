@@ -9,7 +9,7 @@ import std::collections::map;
 import std::collections::list;
 import std::collections::set;
 
-fn void run_module_import_pass(SemaContext* ctx)
+fn void run_import_pass(SemaContext* ctx)
 {
 	foreach (Node* node : ctx.context.current_source_file.ast.statements)
 	{
@@ -22,17 +22,10 @@ fn void run_module_import_pass(SemaContext* ctx)
 			PathExpr* expr   = mod_decl.path.as(PathExpr);
 			String full_path = expr.path.text;
 
-			if (ctx.current_module)
-			{
-				ctx.current_module.range.end = node.range.start;
-			}
+			ctx.enter_module_section(full_path, node.range.start);
 
-			ctx.set_current_module(full_path);
-
-			ctx.current_module.range.start = node.range.start;
 			continue;
 		}
-
 		if (node.kind != IMPORT_DECL) continue;
 
 		ImportDecl* imp = node.as(ImportDecl);
@@ -91,13 +84,5 @@ fn void run_module_import_pass(SemaContext* ctx)
 				}
 			}
 		}
-	}
-
-	if (ctx.current_module)
-	{
-		SourceFile* sf = ctx.context.current_source_file;
-		String[] lines = sf.content.tsplit("\n");
-		Location end   = { .line = ((int) lines.len ?: 1) - 1, .column = ((int) lines[^1].len ?: 1) - 1 };
-		ctx.current_module.range.end = end;
 	}
 }

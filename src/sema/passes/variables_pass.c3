@@ -36,18 +36,18 @@ fn void run_variable_pass(SemaContext* ctx) => @pool()
 			continue;
 		}
 
-		switch (root_node.kind)
-		{
-			case VAR_DECL:
-			case FN_DECL:
-			case MACRO_DECL:
-			case TYPEDEF_DECL:
-			case ALIAS_DECL:
-			case ATTRDEF_DECL:
-				break;
-			default:
-				continue;
-		}
+		// switch (root_node.kind)
+		// {
+		// 	case VAR_DECL:
+		// 	case FN_DECL:
+		// 	case MACRO_DECL:
+		// 	case TYPEDEF_DECL:
+		// 	case ALIAS_DECL:
+		// 	case ATTRDEF_DECL:
+		// 		break;
+		// 	default:
+		// 		continue;
+		// }
 
 		cursor::visit(root_node, null, { &sema_on_enter, &sema_on_exit }, ctx);
 	}
@@ -177,6 +177,14 @@ fn ChildVisitResult sema_on_enter(Node* node, Node* parent, void* user_data) @lo
 		case COMPOUND_STMT:
 			push_rt_scope(ctx, node);
 
+		case CALL_EXPR:
+			CallExpr* call_expr = node.as(CallExpr);
+			if (call_expr.macro_body_expr)
+			{
+				push_rt_scope(ctx, node);
+				push_ct_scope(ctx, node);
+			}
+
 		default:
 	}
 
@@ -269,6 +277,15 @@ fn ChildVisitResult sema_on_exit(Node* node, Node* parent, void* user_data) @loc
 		case WHILE_STMT:
 		case COMPOUND_STMT:
 			pop_rt_scope(ctx);
+
+		case CALL_EXPR:
+			CallExpr* call_expr = node.as(CallExpr);
+			if (call_expr.macro_body_expr)
+			{
+				pop_ct_scope(ctx);
+				pop_rt_scope(ctx);
+			}
+
 		default:
 	}
 

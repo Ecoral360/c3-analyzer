@@ -115,7 +115,8 @@ fn void analyze_source_file(SemaContext* ctx, SourceFile* sf)
 	// ctx.runtime_scope = scope::new(ctx.allocator, { }, null, FILE);
 	// ctx.comptime_scope = scope::new(ctx.allocator, { }, null, FILE);
 
-	run_module_import_pass(ctx);
+	run_module_feature_pass(ctx);
+	run_import_pass(ctx);
 
 	run_variable_pass(ctx);
 }
