@@ -17,8 +17,10 @@ fn void run_variable_pass(SemaContext* ctx) => @pool()
 		if (root_node.kind == MODULE_DECL)
 		{
 			ModuleDecl* mod_decl = root_node.as(ModuleDecl);
-			PathExpr* expr       = mod_decl.path.as(PathExpr);
-			String full_path     = expr.path.text;
+			if (!mod_decl.path || mod_decl.path.kind != PATH_EXPR) continue;
+
+			PathExpr* expr   = mod_decl.path.as(PathExpr);
+			String full_path = expr.path.text;
 
 			ctx.current_module.comptime_scope.range.end = root_node.range.start;
 			ctx.current_module.runtime_scope.range.end = root_node.range.start;

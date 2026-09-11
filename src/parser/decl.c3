@@ -29,6 +29,13 @@ fn Node* parse_module_decl(ContextScope scope)
 		return (Node*)node;
 	}
 
+	if (node.path.kind != PATH_EXPR)
+	{
+		node.flags.has_error = true;
+		synchronize(ctx, DECLARATION);
+		return (Node*)node;
+	}
+
 	if (ctx.is(LESS))
 	{
 		node.generics = parse_generic_decl(scope);

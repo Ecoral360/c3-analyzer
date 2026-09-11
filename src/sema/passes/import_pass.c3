@@ -17,8 +17,10 @@ fn void run_import_pass(SemaContext* ctx)
 		if (node.kind == MODULE_DECL)
 		{
 			ModuleDecl* mod_decl = node.as(ModuleDecl);
-			PathExpr* expr       = mod_decl.path.as(PathExpr);
-			String full_path     = expr.path.text;
+			if (!mod_decl.path || mod_decl.path.kind != PATH_EXPR) continue;
+
+			PathExpr* expr   = mod_decl.path.as(PathExpr);
+			String full_path = expr.path.text;
 
 			if (ctx.current_module)
 			{

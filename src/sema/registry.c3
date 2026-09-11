@@ -89,7 +89,10 @@ fn void register(AnalyzerContext* context, SourceFile* sf) => @pool()
 		if (statement.kind == MODULE_DECL)
 		{
 			ModuleDecl* mod_decl = statement.as(ModuleDecl);
-			PathExpr* path       = mod_decl.path.as(PathExpr);
+			// A half typed `module ` names no module to register.
+			if (!mod_decl.path || mod_decl.path.kind != PATH_EXPR) continue;
+
+			PathExpr* path = mod_decl.path.as(PathExpr);
 			current_mod = mod::register(context, path.path.text);
 		}
 
