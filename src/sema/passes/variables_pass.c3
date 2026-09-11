@@ -4,6 +4,7 @@ import analyzer::core;
 import analyzer::cursor;
 
 import std::collections::list;
+import std::collections::map;
 
 fn void run_variable_pass(SemaContext* ctx) => @pool()
 {
@@ -36,18 +37,22 @@ fn void run_variable_pass(SemaContext* ctx) => @pool()
 			continue;
 		}
 
-		// switch (root_node.kind)
-		// {
-		// 	case VAR_DECL:
-		// 	case FN_DECL:
-		// 	case MACRO_DECL:
-		// 	case TYPEDEF_DECL:
-		// 	case ALIAS_DECL:
-		// 	case ATTRDEF_DECL:
-		// 		break;
-		// 	default:
-		// 		continue;
-		// }
+		switch (root_node.kind)
+		{
+			case ENUM_DECL:
+			case STRUCT_DECL:
+				continue;
+
+			// case VAR_DECL:
+			// case FN_DECL:
+			// case MACRO_DECL:
+			// case TYPEDEF_DECL:
+			// case ALIAS_DECL:
+			// case ATTRDEF_DECL:
+			// 	break;
+			default:
+				// continue;
+		}
 
 		cursor::visit(root_node, null, { &sema_on_enter, &sema_on_exit }, ctx);
 	}
@@ -132,20 +137,42 @@ fn ChildVisitResult sema_on_enter(Node* node, Node* parent, void* user_data) @lo
 
 		case CT_IF_STMT:
 			CtIfStmt* if_stmt = node.as(CtIfStmt);
+			Scope* rt_scope = ctx.current_module.runtime_scope;
+			HashMap{String, VariableInfo*} before;
+			before.tinit_from_map(&rt_scope.variables);
+
 			push_ct_scope(ctx, node);
 			foreach (child : if_stmt.then_stmts)
 			{
 				cursor::visit(child, node, { &sema_on_enter, &sema_on_exit }, ctx);
 			}
 			pop_ct_scope(ctx);
+
 			if (if_stmt.else_stmts.len > 0)
 			{
+				// Set the then branch's variables aside while the else branch is
+				// analyzed, and bring them back once it is done.
+				HashMap{String, VariableInfo*} then_vars;
+				then_vars.tinit();
+				foreach (name : rt_scope.variables.tkeys())
+				{
+					if (before.has_key(name)) continue;
+					then_vars.set(name, rt_scope.variables.get(name)!!);
+					rt_scope.variables.remove(name);
+				}
+
 				push_ct_scope(ctx, node);
 				foreach (child : if_stmt.else_stmts)
 				{
 					cursor::visit(child, node, { &sema_on_enter, &sema_on_exit }, ctx);
 				}
 				pop_ct_scope(ctx);
+
+				foreach (name : then_vars.tkeys())
+				{
+					if (rt_scope.variables.has_key(name)) continue;
+					rt_scope.variables.set(name, then_vars.get(name)!!);
+				}
 			}
 			return CONTINUE;
 

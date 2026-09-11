@@ -553,3 +553,131 @@ fn void a_repeated_param_in_a_fn_type_is_reported()
 	test::eq(parser_tests::error_diag_count, 1);
 	test::eq(parser_tests::last_error_message, "Variable 'a' is being redefined in the same scope");
 }
+
+<*
+ Only one branch of a '$if' is compiled, so its then and else branches may
+ declare the same variable, nested '$if's included. c3c accepts both functions.
+*>
+fn void ct_if_branches_may_declare_the_same_variable()
+{
+	String source_code = `
+		module hello;
+
+		fn void foo()
+		{
+			$if true:
+				int a = 1;
+			$else
+				int a = 2;
+			$endif
+		}
+
+		fn void bar()
+		{
+			$if true:
+				$if false:
+					int b;
+				$else
+					int b;
+				$endif
+			$else
+				int b;
+			$endif
+		}
+	`;
+	parser_tests::start_counting_diags();
+	defer parser_tests::stop_counting_diags();
+
+	AnalyzerContext* context = context::new(tmem);
+	context::process(context, source_code, "test");
+
+	test::eq(parser_tests::error_diag_count, 0);
+}
+
+<*
+ A '$if' branch opens no runtime scope: what it declares is in view after the
+ '$endif', whichever branch declared it.
+*>
+fn void a_ct_if_branch_variable_is_in_view_after_the_endif()
+{
+	String source_code = `
+		module hello;
+
+		fn void foo()
+		{
+			$if true:
+				int a;
+			$else
+				int b;
+			$endif
+		}
+	`;
+	parser_tests::start_counting_diags();
+	defer parser_tests::stop_counting_diags();
+
+	AnalyzerContext* context = context::new(tmem);
+	SemaContext* sema_ctx = parser_tests::analyze_source(context, source_code);
+
+	test::eq(parser_tests::error_diag_count, 0);
+
+	Scope* fn_scope = sema_ctx.modules.get("hello")!![0].runtime_scope.children[0];
+	test::eq(fn_scope.kind, ScopeKind.FUNCTION);
+	Scope* body = fn_scope.children[0];
+	test::eq(body.children.len(), 0);
+	test::eq(scope::has_variable(body, "a"), true);
+	test::eq(scope::has_variable(body, "b"), true);
+}
+
+<*
+ So a branch variable still clashes with the same name declared before the
+ '$if', after it, or twice in one branch. c3c reports each of these once.
+*>
+fn void a_ct_if_branch_variable_still_clashes_outside_the_if()
+{
+	String source_code = `
+		module hello;
+
+		fn void before()
+		{
+			int a;
+			$if true:
+				int a;
+			$endif
+		}
+
+		fn void before_else()
+		{
+			int a;
+			$if false:
+			$else
+				int a;
+			$endif
+		}
+
+		fn void after()
+		{
+			$if true:
+				int a;
+			$else
+				int a;
+			$endif
+			int a;
+		}
+
+		fn void within()
+		{
+			$if false:
+			$else
+				int a;
+				int a;
+			$endif
+		}
+	`;
+	parser_tests::start_counting_diags();
+	defer parser_tests::stop_counting_diags();
+
+	AnalyzerContext* context = context::new(tmem);
+	context::process(context, source_code, "test");
+
+	test::eq(parser_tests::error_diag_count, 4);
+}
