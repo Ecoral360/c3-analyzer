@@ -152,6 +152,7 @@ fn ChildVisitResult sema_on_enter(Node* node, Node* parent, void* user_data) @lo
 		case MACRO_DECL:
 		case FN_DECL:
 		case ATTRDEF_DECL:
+		case BODY_PARAM_DECL:
 		case CT_DEFINED_EXPR:
 			push_rt_scope(ctx, node, FUNCTION);
 			push_ct_scope(ctx, node, FUNCTION);
@@ -166,10 +167,12 @@ fn ChildVisitResult sema_on_enter(Node* node, Node* parent, void* user_data) @lo
 		case LAMBDA_EXPR:
 			push_rt_scope(ctx, node, FUNCTION);
 
-		case FOR_STMT:
 		case CT_FOR_STMT:
-		case FOREACH_STMT:
 		case CT_FOREACH_STMT:
+			push_ct_scope(ctx, node);
+
+		case FOR_STMT:
+		case FOREACH_STMT:
 		case WHILE_STMT:
 		case COMPOUND_STMT:
 			push_rt_scope(ctx, node);
@@ -243,6 +246,7 @@ fn ChildVisitResult sema_on_exit(Node* node, Node* parent, void* user_data) @loc
 	{
 		case MACRO_DECL:
 		case FN_DECL:
+		case BODY_PARAM_DECL:
 		case CT_DEFINED_EXPR:
 			pop_ct_scope(ctx);
 			pop_rt_scope(ctx);
@@ -254,12 +258,14 @@ fn ChildVisitResult sema_on_exit(Node* node, Node* parent, void* user_data) @loc
 				pop_rt_scope(ctx);
 			}
 
+		case CT_FOR_STMT:
+		case CT_FOREACH_STMT:
+			pop_ct_scope(ctx);
+
 		case LAMBDA_EXPR:
 		case ATTRDEF_DECL:
 		case FOR_STMT:
-		case CT_FOR_STMT:
 		case FOREACH_STMT:
-		case CT_FOREACH_STMT:
 		case WHILE_STMT:
 		case COMPOUND_STMT:
 			pop_rt_scope(ctx);

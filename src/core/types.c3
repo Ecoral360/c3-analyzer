@@ -36,11 +36,12 @@ struct Lookup
 
 struct AnalyzerContext
 {
+	Allocator allocator;
 	HashMap{String, SourceFile*} files;
 	HashMap{String, Module*} modules;
 	Lookup* lookup;
 	Registry* registry;
-	Allocator allocator;
+	HashSet{String} enabled_features;
 	SourceFile* current_source_file;
 	Target target;
 }
