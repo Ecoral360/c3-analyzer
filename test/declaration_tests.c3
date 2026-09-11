@@ -1151,3 +1151,91 @@ fn void junk_at_file_scope_is_skipped_one_token_at_a_time()
 	test::eq(parser_tests::count_kind(mod, FN_DECL), 1);
 	test::eq(mod.nodes[^1].as(FnDecl).name.text, "after");
 }
+
+<*
+ A function type is only written as the target of a type alias: 'fn', a return
+ type, a parameter list and attributes, with no name. c3c accepts all of these.
+ Attributes before the '=' belong to the alias, those after the ')' to the type.
+*>
+fn void alias_fn_type_expression()
+{
+	String source_code = `module hello;
+alias Callback = fn void();
+alias Unary = fn int(int);
+alias MaybeInt = fn int?(String s);
+alias Printf = fn void(String fmt, args...);
+alias Defaulted = fn void(int x = 3);
+alias Nested = fn void(Callback cb);
+alias Old = fn int(int a, int b) @deprecated;
+alias Priv @private = fn void();`;
+
+	parser_tests::start_counting_diags();
+	defer parser_tests::stop_counting_diags();
+
+	AnalyzerContext* context = context::new(tmem);
+	context::process(context, source_code, "test");
+
+	test::eq(parser_tests::error_diag_count, 0);
+
+	Module* mod = context.modules.get("hello")!!;
+	test::eq(mod.nodes.len(), 9);
+	test::eq(parser_tests::count_kind(mod, ALIAS_DECL), 8);
+
+	AliasDecl* callback_alias = mod.nodes[1].as(AliasDecl);
+	test::eq(callback_alias.alias_kind, AliasDeclKind.TYPE_ALIAS);
+	test::eq(callback_alias.target.kind, NodeKind.TYPE_EXPR);
+	TypeExpr* callback = callback_alias.target.as(TypeExpr);
+	test::eq(callback.type_kind, TypeExprKind.TYPE_FUNCTION);
+	test::eq(callback.func.ret_type.as(TypeExpr).unresolved.name.text, "void");
+	test::eq(callback.func.params.len, 0);
+	test::eq(callback.func.attributes.len, 0);
+	// From 'fn' to ')', the ';' belongs to the alias.
+	test::eq(callback.range.start.line, 1);
+	test::eq(callback.range.start.column, 17);
+	test::eq(callback.range.end.column, 26);
+	test::eq(callback_alias.range.end.column, 27);
+
+	TypeExpr* unary = mod.nodes[2].as(AliasDecl).target.as(TypeExpr);
+	test::eq(unary.type_kind, TypeExprKind.TYPE_FUNCTION);
+	test::eq(unary.func.params.len, 1);
+	VarDecl* unnamed = unary.func.params[0].as(VarDecl);
+	test::eq(unnamed.var_kind, VarDeclKind.VAR_PARAM);
+	test::eq(unnamed.name, null);
+	test::eq(unnamed.type.as(TypeExpr).unresolved.name.text, "int");
+
+	TypeExpr* maybe_int = mod.nodes[3].as(AliasDecl).target.as(TypeExpr);
+	TypeExpr* optional_ret = maybe_int.func.ret_type.as(TypeExpr);
+	test::eq(optional_ret.optional, true);
+	test::eq(optional_ret.unresolved.name.text, "int");
+	test::eq(maybe_int.func.params[0].as(VarDecl).name.text, "s");
+
+	TypeExpr* printf = mod.nodes[4].as(AliasDecl).target.as(TypeExpr);
+	test::eq(printf.func.params.len, 2);
+	VarDecl* fmt = printf.func.params[0].as(VarDecl);
+	test::eq(fmt.name.text, "fmt");
+	test::eq(fmt.var_flags.is_variadic, false);
+	VarDecl* args = printf.func.params[1].as(VarDecl);
+	test::eq(args.name.text, "args");
+	test::eq(args.var_flags.is_variadic, true);
+
+	VarDecl* defaulted = mod.nodes[5].as(AliasDecl).target.as(TypeExpr).func.params[0].as(VarDecl);
+	test::eq(defaulted.name.text, "x");
+	test::ne(defaulted.init_expr, null);
+
+	VarDecl* nested = mod.nodes[6].as(AliasDecl).target.as(TypeExpr).func.params[0].as(VarDecl);
+	test::eq(nested.type.as(TypeExpr).unresolved.name.text, "Callback");
+
+	AliasDecl* old_alias = mod.nodes[7].as(AliasDecl);
+	TypeExpr* old = old_alias.target.as(TypeExpr);
+	test::eq(old.func.params.len, 2);
+	test::eq(old.func.attributes.len, 1);
+	test::eq(old_alias.attributes.len, 0);
+	// The type's range takes in its attributes.
+	test::eq(old.range.start.column, 12);
+	test::eq(old.range.end.column, 44);
+
+	AliasDecl* priv_alias = mod.nodes[8].as(AliasDecl);
+	test::eq(priv_alias.attributes.len, 1);
+	test::eq(priv_alias.target.as(TypeExpr).type_kind, TypeExprKind.TYPE_FUNCTION);
+	test::eq(priv_alias.target.as(TypeExpr).func.attributes.len, 0);
+}

@@ -572,7 +572,10 @@ fn Node* parse_param_decl(ContextScope scope, ParamParseFlags flags = { })
 				diagnostics::error(ctx.context, ctx.current.range, "Expected parameter name or type.");
 				node.flags.has_error = true;
 				skip_until(ctx, { COMMA, RPAREN });
+				break;
 			}
+			// An unnamed parameter, as in a function type: 'fn int(int)'
+			node.var_kind = VAR_PARAM;
 	}
 
 	if (ctx.is(AT_IDENT))

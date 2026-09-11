@@ -8,7 +8,6 @@ import std::collections::list;
 fn void run_variable_pass(SemaContext* ctx) => @pool()
 {
 	SourceFile* sf = ctx.context.current_source_file;
-	String[] lines = sf.content.tsplit("\n");
 
 	foreach (root_node : sf.ast.statements)
 	{
@@ -53,9 +52,8 @@ fn void run_variable_pass(SemaContext* ctx) => @pool()
 		cursor::visit(root_node, null, { &sema_on_enter, &sema_on_exit }, ctx);
 	}
 
-	Location end = { .line = ((int)lines.len ?: 1) - 1, .column = ((int)lines[^1].len ?: 1) - 1 };
-	ctx.current_module.comptime_scope.range.end = end;
-	ctx.current_module.runtime_scope.range.end = end;
+	ctx.current_module.comptime_scope.range.end = ctx.current_module.range.end;
+	ctx.current_module.runtime_scope.range.end = ctx.current_module.range.end;
 }
 
 fn void push_rt_scope(SemaContext* ctx, Node* node, ScopeKind kind = BLOCK)
@@ -158,6 +156,13 @@ fn ChildVisitResult sema_on_enter(Node* node, Node* parent, void* user_data) @lo
 			push_rt_scope(ctx, node, FUNCTION);
 			push_ct_scope(ctx, node, FUNCTION);
 
+		case TYPE_EXPR:
+			TypeExpr* type_expr = node.as(TypeExpr);
+			if (type_expr.type_kind == TYPE_FUNCTION)
+			{
+				push_rt_scope(ctx, node, FUNCTION);
+			}
+
 		case LAMBDA_EXPR:
 			push_rt_scope(ctx, node, FUNCTION);
 
@@ -241,6 +246,13 @@ fn ChildVisitResult sema_on_exit(Node* node, Node* parent, void* user_data) @loc
 		case CT_DEFINED_EXPR:
 			pop_ct_scope(ctx);
 			pop_rt_scope(ctx);
+
+		case TYPE_EXPR:
+			TypeExpr* type_expr = node.as(TypeExpr);
+			if (type_expr.type_kind == TYPE_FUNCTION)
+			{
+				pop_rt_scope(ctx);
+			}
 
 		case LAMBDA_EXPR:
 		case ATTRDEF_DECL:

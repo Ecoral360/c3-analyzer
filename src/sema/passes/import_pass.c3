@@ -9,7 +9,7 @@ import std::collections::map;
 import std::collections::list;
 import std::collections::set;
 
-fn void run_import_pass(SemaContext* ctx)
+fn void run_module_import_pass(SemaContext* ctx)
 {
 	foreach (Node* node : ctx.context.current_source_file.ast.statements)
 	{

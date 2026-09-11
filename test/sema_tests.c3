@@ -500,3 +500,56 @@ fn void a_file_without_a_module_declaration_has_one_section()
 	test::eq(sections.len(), 1);
 	test::eq(scope::has_variable(sections[0].runtime_scope, "x"), true);
 }
+
+<*
+ The parameters of a function type belong to that type, as a lambda's do: two
+ aliases may reuse a parameter name, and neither clashes with a global of the
+ same name, declared before or after them. c3c accepts all of this.
+*>
+fn void fn_type_params_are_scoped_to_the_fn_type()
+{
+	String source_code = `
+		module hello;
+		int before;
+		alias Free = fn void(void* before, int after);
+		alias Unfree = fn void(void* before, int after);
+		int after;
+	`;
+
+	parser_tests::start_counting_diags();
+	defer parser_tests::stop_counting_diags();
+
+	AnalyzerContext* context = context::new(tmem);
+	SemaContext* sema_ctx = parser_tests::analyze_source(context, source_code);
+
+	test::eq(parser_tests::error_diag_count, 0);
+
+	Scope* file_scope = sema_ctx.modules.get("hello")!![0].runtime_scope;
+	test::eq(scope::has_variable(file_scope, "before"), true);
+	test::eq(scope::has_variable(file_scope, "after"), true);
+
+	test::eq(file_scope.children.len(), 2);
+	foreach (fn_scope : file_scope.children)
+	{
+		test::eq(fn_scope.kind, ScopeKind.FUNCTION);
+		test::eq(scope::has_variable(fn_scope, "before"), true);
+		test::eq(scope::has_variable(fn_scope, "after"), true);
+	}
+}
+
+<*
+ Inside one function type a repeated parameter name is still a redefinition.
+*>
+fn void a_repeated_param_in_a_fn_type_is_reported()
+{
+	String source_code = "module hello;\nalias Dup = fn void(int a, int a);\n";
+
+	parser_tests::start_counting_diags();
+	defer parser_tests::stop_counting_diags();
+
+	AnalyzerContext* context = context::new(tmem);
+	parser_tests::analyze_source(context, source_code);
+
+	test::eq(parser_tests::error_diag_count, 1);
+	test::eq(parser_tests::last_error_message, "Variable 'a' is being redefined in the same scope");
+}
