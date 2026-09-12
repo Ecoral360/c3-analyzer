@@ -1493,6 +1493,7 @@ fn Node* parse_ct_foreach_var(ContextScope scope)
 	VarDecl* node = ctx.ast.alloc_node(VarDecl, ctx.current.range);
 	defer node.range.end = ctx.peek(-1).range.end;
 	node.var_kind = VAR_LOCAL;
+	node.var_flags.is_comptime = true;
 
 	if (ctx.is(CT_IDENT))
 	{

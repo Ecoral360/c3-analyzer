@@ -1031,3 +1031,46 @@ fn void defer_records_which_kind_it_is()
 	test::eq(body[3].as(DeferStmt).ident.kind, NodeKind.IDENT_EXPR);
 	test::eq(body[0].as(DeferStmt).ident, null);
 }
+
+<*
+ The index and the value of a '$foreach' are '$name' compile time variables,
+ as 'var $i' is in a '$for'. Without the flag they land in the runtime scope.
+*>
+fn void ct_foreach_header_vars_are_comptime()
+{
+	String source_code = `
+		module hello;
+		macro foo($indices)
+		{
+			$foreach $x, $c : $indices:
+			$endforeach
+
+			$foreach $v : $indices:
+			$endforeach
+		}
+	`;
+	parser_tests::start_counting_diags();
+	defer parser_tests::stop_counting_diags();
+
+	AnalyzerContext* context = context::new(tmem);
+	context::process(context, source_code, "test");
+	test::eq(parser_tests::error_diag_count, 0);
+
+	Module* mod = context.modules.get("hello")!!;
+	NodeArray body = mod.nodes[1].as(MacroDecl).body.as(CompoundStmt).statements;
+
+	CtForeachStmt* with_index = body[0].as(CtForeachStmt);
+	VarDecl* index = with_index.index.as(VarDecl);
+	test::eq(index.name.text, "$x");
+	test::eq(index.var_flags.is_comptime, true);
+	VarDecl* value = with_index.value.as(VarDecl);
+	test::eq(value.name.text, "$c");
+	test::eq(value.var_flags.is_comptime, true);
+
+	// With one name it is the value, and there is no index.
+	CtForeachStmt* value_only = body[1].as(CtForeachStmt);
+	test::eq(value_only.index, null);
+	VarDecl* only = value_only.value.as(VarDecl);
+	test::eq(only.name.text, "$v");
+	test::eq(only.var_flags.is_comptime, true);
+}

@@ -763,6 +763,15 @@ fn void an_inlined_loop_body_may_declare_variables_in_a_block()
 			$endforeach
 		}
 
+		fn void comptime_of_every_form()
+		{
+			$for var $i = 0; $i < 2; $i++:
+				var $a = $i;
+				int $b = 1;
+				var $Type = int;
+			$endfor
+		}
+
 		fn void inside_a_lambda()
 		{
 			$for var $i = 0; $i < 2; $i++:
@@ -780,6 +789,37 @@ fn void an_inlined_loop_body_may_declare_variables_in_a_block()
 				}
 			$endfor
 			int b;
+		}
+	`;
+	parser_tests::start_counting_diags();
+	defer parser_tests::stop_counting_diags();
+
+	AnalyzerContext* context = context::new(tmem);
+	context::process(context, source_code, "test");
+
+	test::eq(parser_tests::error_diag_count, 0);
+}
+
+<*
+ The index and the value of a '$foreach' are compile-time variables, so a
+ '$foreach' nested in another compile-time loop is not caught by that rule.
+*>
+fn void a_ct_foreach_header_may_sit_inside_another_comptime_loop()
+{
+	String source_code = `
+		module hello;
+
+		macro foo($indices)
+		{
+			$for var $i = 0; $i < 2; $i++:
+				$foreach $x, $c : $indices:
+				$endforeach
+			$endfor
+
+			$foreach $y : $indices:
+				$foreach $z, $w : $indices:
+				$endforeach
+			$endforeach
 		}
 	`;
 	parser_tests::start_counting_diags();
