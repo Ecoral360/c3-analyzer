@@ -51,7 +51,7 @@ fn void run_variable_pass(SemaContext* ctx) => @pool()
 			// case ATTRDEF_DECL:
 			// 	break;
 			default:
-				// continue;
+			// continue;
 		}
 
 		cursor::visit(root_node, null, { &sema_on_enter, &sema_on_exit }, ctx);
@@ -176,6 +176,55 @@ fn ChildVisitResult sema_on_enter(Node* node, Node* parent, void* user_data) @lo
 			}
 			return CONTINUE;
 
+		case CT_SWITCH_STMT:
+			CtSwitchStmt* switch_stmt = node.as(CtSwitchStmt);
+			Scope* case_rt_scope = ctx.current_module.runtime_scope;
+			HashMap{String, VariableInfo*} outer_vars;
+			outer_vars.tinit_from_map(&case_rt_scope.variables);
+
+			HashMap{String, VariableInfo*} case_vars;
+			case_vars.tinit();
+
+			foreach (case_node : switch_stmt.cases)
+			{
+				Node* body = case_node.kind == DEFAULT_STMT
+					? case_node.as(DefaultStmt).body
+					: case_node.as(CaseStmt).body;
+
+				push_ct_scope(ctx, case_node);
+				if (body && body.kind == COMPOUND_STMT)
+				{
+					foreach (stmt : body.as(CompoundStmt).statements)
+					{
+						cursor::visit(stmt, node, { &sema_on_enter, &sema_on_exit }, ctx);
+					}
+				}
+				else if (body)
+				{
+					cursor::visit(body, node, { &sema_on_enter, &sema_on_exit }, ctx);
+				}
+				pop_ct_scope(ctx);
+
+				// Set this case's variables aside so the next case may reuse the
+				// names, and bring all of them back after the last one.
+				foreach (name : case_rt_scope.variables.tkeys())
+				{
+					if (outer_vars.has_key(name)) continue;
+					if (!case_vars.has_key(name))
+					{
+						case_vars.set(name, case_rt_scope.variables.get(name)!!);
+					}
+					case_rt_scope.variables.remove(name);
+				}
+			}
+
+			foreach (name : case_vars.tkeys())
+			{
+				if (case_rt_scope.variables.has_key(name)) continue;
+				case_rt_scope.variables.set(name, case_vars.get(name)!!);
+			}
+			return CONTINUE;
+
 		case MACRO_DECL:
 		case FN_DECL:
 		case ATTRDEF_DECL:
@@ -196,7 +245,69 @@ fn ChildVisitResult sema_on_enter(Node* node, Node* parent, void* user_data) @lo
 
 		case CT_FOR_STMT:
 		case CT_FOREACH_STMT:
+			// The ct scope is popped by 'sema_on_exit', which runs even though
+			// this returns CONTINUE.
 			push_ct_scope(ctx, node);
+
+			Node* loop_body;
+			if (node.kind == CT_FOR_STMT)
+			{
+				CtForStmt* for_stmt = node.as(CtForStmt);
+				if (try init = for_stmt.init.get())
+				{
+					cursor::visit(init, node, { &sema_on_enter, &sema_on_exit }, ctx);
+				}
+				if (for_stmt.cond)
+				{
+					cursor::visit(for_stmt.cond, node, { &sema_on_enter, &sema_on_exit }, ctx);
+				}
+				if (try incr = for_stmt.incr.get())
+				{
+					cursor::visit(incr, node, { &sema_on_enter, &sema_on_exit }, ctx);
+				}
+				loop_body = for_stmt.body;
+			}
+			else
+			{
+				CtForeachStmt* foreach_stmt = node.as(CtForeachStmt);
+				if (foreach_stmt.index)
+				{
+					cursor::visit(foreach_stmt.index, node, { &sema_on_enter, &sema_on_exit }, ctx);
+				}
+				if (foreach_stmt.value)
+				{
+					cursor::visit(foreach_stmt.value, node, { &sema_on_enter, &sema_on_exit }, ctx);
+				}
+				if (foreach_stmt.expr)
+				{
+					cursor::visit(foreach_stmt.expr, node, { &sema_on_enter, &sema_on_exit }, ctx);
+				}
+				loop_body = foreach_stmt.body;
+			}
+
+			// Walk the body's statements rather than the body itself: the body
+			// opens no scope of its own, while a '{ }' block inside it does, one
+			// per iteration.
+			Node* outer_loop        = ctx.inlined_loop;
+			Scope* outer_loop_scope = ctx.inlined_loop_scope;
+			ctx.inlined_loop        = node;
+			ctx.inlined_loop_scope  = ctx.current_module.runtime_scope;
+
+			if (loop_body && loop_body.kind == COMPOUND_STMT)
+			{
+				foreach (stmt : loop_body.as(CompoundStmt).statements)
+				{
+					cursor::visit(stmt, node, { &sema_on_enter, &sema_on_exit }, ctx);
+				}
+			}
+			else if (loop_body)
+			{
+				cursor::visit(loop_body, node, { &sema_on_enter, &sema_on_exit }, ctx);
+			}
+
+			ctx.inlined_loop       = outer_loop;
+			ctx.inlined_loop_scope = outer_loop_scope;
+			return CONTINUE;
 
 		case FOR_STMT:
 		case FOREACH_STMT:
@@ -223,6 +334,23 @@ fn ChildVisitResult sema_on_enter(Node* node, Node* parent, void* user_data) @lo
 
 		Scope* scope = decl.var_flags.is_comptime ? ctx.current_module.comptime_scope
 			: ctx.current_module.runtime_scope;
+
+		// The body of a '$for' or '$foreach' is inlined once per iteration, so a
+		// runtime variable declared straight in it is declared again on the next
+		// iteration. A '{ }' block inside the body opens a scope of its own every
+		// iteration and is fine, and so is a compile time variable, which lands
+		// in the comptime scope rather than this one.
+		if (ctx.inlined_loop && scope == ctx.inlined_loop_scope)
+		{
+			diagnostics::error(
+				ctx.context,
+				decl.range,
+				"Variable '%s' cannot be declared in a '%s' body, which is inlined for every iteration; put it in a '{ }' block or outside the loop",
+				decl.name.text,
+				ctx.inlined_loop.kind == CT_FOR_STMT ? "$for" : "$foreach"
+			);
+			break VAR;
+		}
 
 		// A name already in view is a redefinition, with one exception: a
 		// declaration inside a function may shadow a global. Two globals of the

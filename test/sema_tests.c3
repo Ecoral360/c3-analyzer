@@ -681,3 +681,245 @@ fn void a_ct_if_branch_variable_still_clashes_outside_the_if()
 
 	test::eq(parser_tests::error_diag_count, 4);
 }
+
+<*
+ A '$for' or '$foreach' body is inlined once per iteration, so a runtime
+ variable declared straight in it would be declared again on the next one. c3c
+ reports each of these, as long as the loop runs more than once.
+*>
+fn void a_runtime_variable_cannot_be_declared_in_an_inlined_loop()
+{
+	String source_code = `
+		module hello;
+
+		fn void in_for()
+		{
+			$for var $i = 0; $i < 2; $i++:
+				int a;
+			$endfor
+		}
+
+		fn void in_foreach()
+		{
+			$foreach $x : {1, 2}:
+				int a;
+			$endforeach
+		}
+
+		fn void in_a_nested_ct_if()
+		{
+			$foreach $x : {1, 2}:
+				$if true:
+					int a;
+				$endif
+			$endforeach
+		}
+
+		fn void in_a_nested_ct_case()
+		{
+			$for var $i = 0; $i < 2; $i++:
+				$switch 1:
+					$case 1:
+						int a;
+				$endswitch
+			$endfor
+		}
+	`;
+	parser_tests::start_counting_diags();
+	defer parser_tests::stop_counting_diags();
+
+	AnalyzerContext* context = context::new(tmem);
+	context::process(context, source_code, "test");
+
+	test::eq(parser_tests::error_diag_count, 4);
+	test::eq(
+		parser_tests::last_error_message,
+		"Variable 'a' cannot be declared in a '$for' body, which is inlined for every iteration; put it in a '{ }' block or outside the loop"
+	);
+}
+
+<*
+ A '{ }' block inside the body opens a scope of its own on every iteration, and
+ a compile-time variable is fine as it is. c3c accepts all of these.
+*>
+fn void an_inlined_loop_body_may_declare_variables_in_a_block()
+{
+	String source_code = `
+		module hello;
+
+		fn void in_a_block()
+		{
+			$for var $i = 0; $i < 2; $i++:
+				{
+					int a;
+				}
+			$endfor
+		}
+
+		fn void comptime_only()
+		{
+			$foreach $x : {1, 2}:
+				var $a = $x;
+			$endforeach
+		}
+
+		fn void inside_a_lambda()
+		{
+			$for var $i = 0; $i < 2; $i++:
+				{
+					var f = fn void() { int b; };
+				}
+			$endfor
+		}
+
+		fn void after_the_loop()
+		{
+			$for var $i = 0; $i < 2; $i++:
+				{
+					int a;
+				}
+			$endfor
+			int b;
+		}
+	`;
+	parser_tests::start_counting_diags();
+	defer parser_tests::stop_counting_diags();
+
+	AnalyzerContext* context = context::new(tmem);
+	context::process(context, source_code, "test");
+
+	test::eq(parser_tests::error_diag_count, 0);
+}
+
+<*
+ A '$case' is a branch of the same kind: only one of them is compiled, so any
+ two cases, '$default' included, may declare the same variable.
+*>
+fn void ct_switch_cases_may_declare_the_same_variable()
+{
+	String source_code = `
+		module hello;
+
+		fn void foo()
+		{
+			$switch 1:
+				$case 1:
+					int a;
+				$case 2:
+					int a;
+				$default:
+					int a;
+			$endswitch
+		}
+
+		fn void bar()
+		{
+			$switch 1:
+				$case 1:
+					$switch 2:
+						$case 2:
+							int b;
+					$endswitch
+				$case 2:
+					int b;
+			$endswitch
+		}
+	`;
+	parser_tests::start_counting_diags();
+	defer parser_tests::stop_counting_diags();
+
+	AnalyzerContext* context = context::new(tmem);
+	context::process(context, source_code, "test");
+
+	test::eq(parser_tests::error_diag_count, 0);
+}
+
+<*
+ A case body opens no runtime scope either, so what a case declares is in view
+ after the '$endswitch'.
+*>
+fn void a_ct_switch_case_variable_is_in_view_after_the_endswitch()
+{
+	String source_code = `
+		module hello;
+
+		fn void foo()
+		{
+			$switch 1:
+				$case 1:
+					int a;
+				$case 2:
+					int b;
+			$endswitch
+		}
+	`;
+	parser_tests::start_counting_diags();
+	defer parser_tests::stop_counting_diags();
+
+	AnalyzerContext* context = context::new(tmem);
+	SemaContext* sema_ctx = parser_tests::analyze_source(context, source_code);
+
+	test::eq(parser_tests::error_diag_count, 0);
+
+	Scope* body = sema_ctx.modules.get("hello")!![0].runtime_scope.children[0].children[0];
+	test::eq(body.children.len(), 0);
+	test::eq(scope::has_variable(body, "a"), true);
+	test::eq(scope::has_variable(body, "b"), true);
+}
+
+<*
+ And it still clashes with the same name declared before the '$switch', after
+ it, or twice in one case. c3c reports each of these once.
+*>
+fn void a_ct_switch_case_variable_still_clashes_outside_the_switch()
+{
+	String source_code = `
+		module hello;
+
+		fn void before()
+		{
+			int a;
+			$switch 1:
+				$case 1:
+					int a;
+			$endswitch
+		}
+
+		fn void after()
+		{
+			$switch 1:
+				$case 1:
+					int a;
+				$case 2:
+					int a;
+			$endswitch
+			int a;
+		}
+
+		fn void within()
+		{
+			$switch 1:
+				$case 1:
+					int a;
+					int a;
+			$endswitch
+		}
+
+		fn void in_default()
+		{
+			$switch 9:
+				$case 1:
+				$default:
+					int a;
+					int a;
+			$endswitch
+		}
+	`;
+	parser_tests::start_counting_diags();
+	defer parser_tests::stop_counting_diags();
+
+	AnalyzerContext* context = context::new(tmem);
+	context::process(context, source_code, "test");
+
+	test::eq(parser_tests::error_diag_count, 4);
+}

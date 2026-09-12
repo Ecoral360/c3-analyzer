@@ -16,6 +16,12 @@ struct SemaContext
 	Allocator allocator;
 	SemaModuleContext* current_module;
 	HashMap{String, List{SemaModuleContext*}} modules;
+
+	// The '$for' or '$foreach' whose body is being analyzed, and the scope it
+	// sits in. Its body is inlined once per iteration, so a runtime variable
+	// declared straight in that scope would be declared again on the next one.
+	Node* inlined_loop;
+	Scope* inlined_loop_scope;
 }
 
 struct SemaModuleContext
