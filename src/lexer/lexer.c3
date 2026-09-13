@@ -400,10 +400,12 @@ fn bool Lexer.has_exponent(&self)
 *>
 fn TokenKind Lexer.scan_number_suffix(&self, TokenKind kind)
 {
-	switch (ascii::to_lower(self.current))
+	switch (self.current)
 	{
 		case 'f':
 		case 'd':
+		case 'F':
+		case 'D':
 			// A float marker turns an otherwise integral literal into a float.
 			switch (kind)
 			{
@@ -415,11 +417,11 @@ fn TokenKind Lexer.scan_number_suffix(&self, TokenKind kind)
 		case 'u':
 		case 'i':
 		case 'l':
+		case 'U':
+		case 'I':
+		case 'L':
 			advance(self);
 		default:
-			// Not a suffix. Letters glued to a number are still part of the
-			// literal - c3c reads the same run before calling it invalid - so
-			// keep them in one token instead of handing back an identifier.
 			break;
 	}
 

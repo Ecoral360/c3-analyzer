@@ -38,6 +38,7 @@ fn AnalyzerContext* new(Allocator alloc, Target target = { })
 	$if $feat(SEMA):
 		ctx.lookup = lookup::new(ctx, alloc);
 		ctx.registry = registry::new(alloc);
+		ctx.enabled_features.init(alloc);
 	$endif
 
 	return ctx;

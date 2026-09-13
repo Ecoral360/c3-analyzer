@@ -379,7 +379,9 @@ fn Node* parse_literal_expr(ContextScope scope) => @pool()
 				{
 					clean_string = clean_string[:^3];
 				}
-				if (clean_string.ends_with("f") || clean_string.ends_with("d"))
+				if (clean_string.ends_with(
+					"f"
+				) || clean_string.ends_with("d") || clean_string.ends_with("F") || clean_string.ends_with("D"))
 				{
 					if (token.kind == FLOAT_HEX_LITERAL)
 					{
@@ -414,7 +416,7 @@ fn Node* parse_literal_expr(ContextScope scope) => @pool()
 			if (token_text.starts_with("b64"))
 			{
 				String payload = token_text[4:^5];
-				String clean = payload.treplace(" ", "").treplace("\t", "").treplace("\n", "").treplace("\r", "");
+				String clean   = payload.treplace(" ", "").treplace("\t", "").treplace("\n", "").treplace("\r", "");
 				diagnostics::log_debug(clean);
 				char[]? b64 = base64::decode(tmem, clean);
 				if (catch err = b64)
@@ -429,7 +431,7 @@ fn Node* parse_literal_expr(ContextScope scope) => @pool()
 			else if (token_text.starts_with("x"))
 			{
 				String payload = token_text[2:^3];
-				String clean = payload.treplace(" ", "").treplace("\t", "").treplace("\n", "").treplace("\r", "");
+				String clean   = payload.treplace(" ", "").treplace("\t", "").treplace("\n", "").treplace("\r", "");
 				diagnostics::log_debug("%s", clean);
 				if (clean.len % 2 != 0)
 				{
@@ -480,12 +482,7 @@ fn Node* parse_literal_expr(ContextScope scope) => @pool()
 				switch (clean_char[1])
 				{
 					case 'z':
-						diagnostics::error(
-							ctx.context,
-							token.range,
-							"Please ztop the program",
-							clean_char[1]
-						);
+						diagnostics::error(ctx.context, token.range, "Please ztop the program", clean_char[1]);
 						advance(ctx);
 						return ctx.ast.error(start);
 
@@ -1378,7 +1375,7 @@ fn Node* parse_initializer_list_expr(ContextScope scope) => @pool()
 
 			if (consume(ctx, EQ))
 			{
-				Node* val                                = parse_expr(scope);
+				Node* val = parse_expr(scope);
 				DesignatedInitializerExpr* des_init_node = ctx.ast.alloc_node(
 					DesignatedInitializerExpr,
 					path_token.range
