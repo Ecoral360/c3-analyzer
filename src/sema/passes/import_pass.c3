@@ -14,18 +14,9 @@ fn void run_import_pass(SemaContext* ctx)
 	foreach (Node* node : ctx.context.current_source_file.ast.statements)
 	{
 		if (!node) continue;
-		if (node.kind == MODULE_DECL)
-		{
-			ModuleDecl* mod_decl = node.as(ModuleDecl);
-			if (!mod_decl.path || mod_decl.path.kind != PATH_EXPR) continue;
 
-			PathExpr* expr   = mod_decl.path.as(PathExpr);
-			String full_path = expr.path.text;
+		if (ctx.handle_module_node(node)) continue;
 
-			ctx.enter_module_section(full_path, node.range.start);
-
-			continue;
-		}
 		if (node.kind != IMPORT_DECL) continue;
 
 		ImportDecl* imp = node.as(ImportDecl);

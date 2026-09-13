@@ -7,6 +7,7 @@ import analyzer::sema;
 
 import std::io;
 import std::collections::list;
+import std::collections::map;
 
 <*
  A contract is parsed as a child of the declaration it documents, but it is
@@ -829,6 +830,77 @@ fn void a_ct_foreach_header_may_sit_inside_another_comptime_loop()
 	context::process(context, source_code, "test");
 
 	test::eq(parser_tests::error_diag_count, 0);
+}
+
+<*
+ 'imports_module' answers for the module that was imported and for anything
+ under it: with 'a::b' imported, 'a::b::c' is in view, as it is in c3c. A
+ module that only shares the start of a segment, like 'a::bb', is not.
+*>
+fn void imports_module_matches_a_module_and_what_is_under_it()
+{
+	SemaModuleContext section;
+	section.imports.tinit();
+	section.imports.set("a::b", { "a::b", null });
+
+	test::eq(section.imports_module("a::b"), true);
+	test::eq(section.imports_module("a::b::c"), true);
+	test::eq(section.imports_module("a::b::c::d"), true);
+
+	test::eq(section.imports_module("a"), false);
+	test::eq(section.imports_module("a::bb"), false);
+	test::eq(section.imports_module("a::bb::c"), false);
+	test::eq(section.imports_module("other"), false);
+	test::eq(section.imports_module(""), false);
+}
+
+<*
+ An empty section imports nothing, and one import does not answer for another.
+*>
+fn void imports_module_answers_no_when_nothing_matches()
+{
+	SemaModuleContext section;
+	section.imports.tinit();
+
+	test::eq(section.imports_module("a"), false);
+	test::eq(section.imports_module("a::b"), false);
+
+	section.imports.set("x::y", { "x::y", null });
+	section.imports.set("q", { "q", null });
+
+	test::eq(section.imports_module("x::y::z"), true);
+	test::eq(section.imports_module("q::r"), true);
+	test::eq(section.imports_module("x"), false);
+	test::eq(section.imports_module("y"), false);
+	test::eq(section.imports_module("qq"), false);
+}
+
+<*
+ Over a real file it answers from what the import pass recorded, which holds
+ the import itself and the parent modules it went through.
+*>
+fn void imports_module_sees_what_the_import_pass_recorded()
+{
+	String source_code = "module a;\nmodule a::b;\nmodule a::b::c;\nmodule hello;\nimport a::b;\n";
+
+	parser_tests::start_counting_diags();
+	defer parser_tests::stop_counting_diags();
+
+	AnalyzerContext* context = context::new(tmem);
+	SemaContext* sema_ctx = parser_tests::analyze_source(context, source_code);
+
+	test::eq(parser_tests::error_diag_count, 0);
+
+	SemaModuleContext* section = sema_ctx.modules.get("hello")!![0];
+
+	// The import itself, the parent the pass recorded on the way, and the
+	// module under it.
+	test::eq(section.imports_module("a::b"), true);
+	test::eq(section.imports_module("a"), true);
+	test::eq(section.imports_module("a::b::c"), true);
+
+	test::eq(section.imports_module("hello"), false);
+	test::eq(section.imports_module("z"), false);
 }
 
 <*

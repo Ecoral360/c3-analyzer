@@ -27,13 +27,8 @@ fn void run_variable_pass(SemaContext* ctx) => @pool()
 
 			ctx.enter_module_section(full_path, root_node.range.start);
 
-			Range range = {
-				.start = root_node.range.start,
-				.end = { },
-			};
-
-			ctx.current_module.comptime_scope.range = range;
-			ctx.current_module.runtime_scope.range = range;
+			ctx.current_module.comptime_scope.range.start = root_node.range.start;
+			ctx.current_module.runtime_scope.range.start = root_node.range.start;
 			continue;
 		}
 
@@ -187,9 +182,8 @@ fn ChildVisitResult sema_on_enter(Node* node, Node* parent, void* user_data) @lo
 
 			foreach (case_node : switch_stmt.cases)
 			{
-				Node* body = case_node.kind == DEFAULT_STMT
-					? case_node.as(DefaultStmt).body
-					: case_node.as(CaseStmt).body;
+				Node* body = case_node.kind == DEFAULT_STMT ? case_node.as(DefaultStmt)
+					.body : case_node.as(CaseStmt).body;
 
 				push_ct_scope(ctx, case_node);
 				if (body && body.kind == COMPOUND_STMT)
@@ -288,10 +282,10 @@ fn ChildVisitResult sema_on_enter(Node* node, Node* parent, void* user_data) @lo
 			// Walk the body's statements rather than the body itself: the body
 			// opens no scope of its own, while a '{ }' block inside it does, one
 			// per iteration.
-			Node* outer_loop        = ctx.inlined_loop;
+			Node* outer_loop = ctx.inlined_loop;
 			Scope* outer_loop_scope = ctx.inlined_loop_scope;
-			ctx.inlined_loop        = node;
-			ctx.inlined_loop_scope  = ctx.current_module.runtime_scope;
+			ctx.inlined_loop = node;
+			ctx.inlined_loop_scope = ctx.current_module.runtime_scope;
 
 			if (loop_body && loop_body.kind == COMPOUND_STMT)
 			{
@@ -305,7 +299,7 @@ fn ChildVisitResult sema_on_enter(Node* node, Node* parent, void* user_data) @lo
 				cursor::visit(loop_body, node, { &sema_on_enter, &sema_on_exit }, ctx);
 			}
 
-			ctx.inlined_loop       = outer_loop;
+			ctx.inlined_loop = outer_loop;
 			ctx.inlined_loop_scope = outer_loop_scope;
 			return CONTINUE;
 

@@ -33,13 +33,50 @@ fn void run_module_feature_pass(SemaContext* ctx)
 			continue;
 		}
 
+		switch (node.kind)
+		{
+			case ATTRDEF_DECL:
+			case ATTRIBUTE_DECL:
+			case STRUCT_DECL:
+			case ENUM_DECL:
+			case VAR_DECL:
+			case MODULE_DECL:
+			case IMPORT_DECL:
+			case ALIAS_DECL:
+			case TYPEDEF_DECL:
+			case FN_DECL:
+			case MACRO_DECL:
+			case FAULT_DECL:
+			case FAULTDEF_DECL:
+			case GENERIC_DECL:
+			case INTERFACE_DECL:
+			case CT_EXPAND_DECL:
+				break;
+
+			default:
+				continue;
+		}
+
+		cursor::visit(node, null, { &sema_on_enter, &sema_on_exit }, ctx);
 	}
 
 	if (ctx.current_module)
 	{
 		SourceFile* sf = ctx.context.current_source_file;
 		String[] lines = sf.content.tsplit("\n");
-		Location end   = { .line = ((int) lines.len ?: 1) - 1, .column = ((int) lines[^1].len ?: 1) - 1 };
+		Location end   = { .line = ((int)lines.len ?: 1) - 1, .column = ((int)lines[^1].len ?: 1) - 1 };
 		ctx.current_module.range.end = end;
 	}
+}
+
+fn ChildVisitResult sema_on_enter(Node* node, Node* parent, void* user_data) @local
+{
+	SemaContext* ctx = (SemaContext*)user_data;
+	return CONTINUE;
+}
+
+fn ChildVisitResult sema_on_exit(Node* node, Node* parent, void* user_data) @local
+{
+	SemaContext* ctx = (SemaContext*)user_data;
+	return CONTINUE;
 }

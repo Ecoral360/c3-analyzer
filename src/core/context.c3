@@ -58,6 +58,7 @@ fn void free(AnalyzerContext* ctx)
 		// frees tolerate a null argument.
 		registry::free(ctx.allocator, ctx.registry);
 		lookup::free(ctx.lookup);
+		ctx.enabled_features.free();
 	$endif
 
 	alloc::free(ctx.allocator, ctx);

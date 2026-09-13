@@ -194,24 +194,8 @@ fn String literal_spelling(LiteralExpr* literal, Allocator allocator) @local
 *>
 fn bool has_attribute(Node* node, AttributeKind kind, Node** out_attribute)
 {
-	NodeArray temp;
-	switch (node.kind)
-	{
-		case STRUCT_DECL:
-			StructDecl* s = node.as(StructDecl);
-			temp = s.attributes;
-			break;
-		case INTERFACE_DECL:
-			InterfaceDecl* inter = node.as(InterfaceDecl);
-			temp = inter.attributes;
-			break;
-		case FN_DECL:
-			FnDecl* func = node.as(FnDecl);
-			temp = func.attributes;
-			break;
-		default:
-			return false;
-	}
+	NodeArray? temp = attributes(node);
+	if (catch temp) return false;
 
 	foreach (attr : temp)
 	{
@@ -484,6 +468,57 @@ fn ContractDecl*? contract(Node* node)
 	}
 
 	return null;
+}
+
+<*
+ Get the attributes attached to a declaration.
+*>
+fn NodeArray? attributes(Node* node)
+{
+	if (!node) return NOT_FOUND~;
+
+	switch (node.kind)
+	{
+		case MODULE_DECL:
+			return node.as(ModuleDecl).attributes;
+
+		case FN_DECL:
+			return node.as(FnDecl).attributes;
+
+		case MACRO_DECL:
+			return node.as(MacroDecl).attributes;
+
+		case VAR_DECL:
+			return node.as(VarDecl).attributes;
+
+		case STRUCT_DECL:
+			return node.as(StructDecl).attributes;
+
+		case FAULT_DECL:
+			return node.as(FaultDecl).attributes;
+
+		case INTERFACE_DECL:
+			return node.as(InterfaceDecl).attributes;
+
+		case ENUM_DECL:
+			return node.as(EnumDecl).attributes;
+
+		case ALIAS_DECL:
+			return node.as(AliasDecl).attributes;
+
+		case TYPEDEF_DECL:
+			return node.as(TypedefDecl).attributes;
+
+		case ATTRDEF_DECL:
+			return node.as(AttrdefDecl).attributes;
+
+		case CT_EXPAND_DECL:
+			return node.as(CtExpandDecl).attributes;
+
+		default:
+	}
+
+	return NOT_FOUND~;
 }
 
 <*
