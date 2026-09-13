@@ -43,7 +43,12 @@ fn bool SemaModuleContext.imports_module(&self, String module_name)
 		sz break_pos         = offset + idx;
 		String parent_prefix = module_name[:break_pos];
 
-		if (self.imports.has_key(parent_prefix)) return true;
+		// An 'import x @norecurse' covers x but nothing under it, so a match on
+		// one is not an answer: another import may still cover this module.
+		if (try info = self.imports.get(parent_prefix))
+		{
+			if (!info.norecurse) return true;
+		}
 
 		offset = break_pos + 2;
 	}

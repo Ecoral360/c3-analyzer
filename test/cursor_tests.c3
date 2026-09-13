@@ -141,6 +141,39 @@ fn void lineage_of_a_top_level_declaration()
 	test::eq(chain[1].kind, NodeKind.PATH_EXPR);
 }
 
+<*
+ An import carries attributes like any other declaration, and 'has_attribute'
+ has to reach them: the import pass reads '@norecurse' off the IMPORT_DECL
+ through it.
+*>
+fn void has_attribute_finds_an_attribute_on_an_import()
+{
+	String source_code = "module hello;\nimport a @norecurse;\nimport b;\n";
+
+	AnalyzerContext* context = context::new(tmem);
+	SourceFile* sf = parser_tests::parse_source(context, source_code);
+
+	Node* with_attribute;
+	Node* plain;
+	foreach (stmt : sf.ast.statements)
+	{
+		if (stmt.kind != IMPORT_DECL) continue;
+
+		if (!with_attribute)
+		{
+			with_attribute = stmt;
+			continue;
+		}
+		plain = stmt;
+	}
+
+	test::ne(with_attribute, null);
+	test::ne(plain, null);
+
+	test::eq(cursor::has_attribute(with_attribute, NORECURSE, null), true);
+	test::eq(cursor::has_attribute(plain, NORECURSE, null), false);
+}
+
 /*
 import parser_tests;
 

@@ -43,9 +43,10 @@ fn void run_import_pass(SemaContext* ctx)
 			}
 
 			diagnostics::log_debug("[AnalyzeImports]: Added import '%s'", expr.path.text);
-			ctx.current_module.imports.set(expr.path.text, { expr.path.text, node });
+			bool norecurse = cursor::has_attribute(imp, NORECURSE, null);
+			ctx.current_module.imports.set(expr.path.text, { expr.path.text, node, norecurse });
 
-			if (!cursor::has_attribute(imp, NORECURSE, null))
+			if (!norecurse)
 			{
 				sz offset = 0;
 				while (try idx = full_path[offset..].index_of("::"))
@@ -58,7 +59,10 @@ fn void run_import_pass(SemaContext* ctx)
 					) && ctx.context.modules.has_key(parent_prefix))
 					{
 						diagnostics::log_debug("[AnalyzeImports]: Added recursive import '%s'", parent_prefix);
-						ctx.current_module.imports.set(parent_prefix, { full_path, node });
+						// A parent is in view because something below it was
+						// imported, so it brings in itself only: with
+						// 'import a::b', 'a::in_a' resolves but 'a::z::in_z' does not.
+						ctx.current_module.imports.set(parent_prefix, { full_path, node, true });
 					}
 
 					offset = break_pos + 2;
@@ -71,7 +75,7 @@ fn void run_import_pass(SemaContext* ctx)
 				if (!ctx.current_module.imports.has_key(leaf) && ctx.context.modules.has_key(leaf))
 				{
 					diagnostics::log_debug("[AnalyzeImports]: Added leaf import '%s'", leaf);
-					ctx.current_module.imports.set(leaf, { full_path, node });
+					ctx.current_module.imports.set(leaf, { full_path, node, norecurse });
 				}
 			}
 		}

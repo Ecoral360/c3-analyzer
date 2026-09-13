@@ -841,7 +841,7 @@ fn void imports_module_matches_a_module_and_what_is_under_it()
 {
 	SemaModuleContext section;
 	section.imports.tinit();
-	section.imports.set("a::b", { "a::b", null });
+	section.imports.set("a::b", { "a::b", null, false });
 
 	test::eq(section.imports_module("a::b"), true);
 	test::eq(section.imports_module("a::b::c"), true);
@@ -865,8 +865,8 @@ fn void imports_module_answers_no_when_nothing_matches()
 	test::eq(section.imports_module("a"), false);
 	test::eq(section.imports_module("a::b"), false);
 
-	section.imports.set("x::y", { "x::y", null });
-	section.imports.set("q", { "q", null });
+	section.imports.set("x::y", { "x::y", null, false });
+	section.imports.set("q", { "q", null, false });
 
 	test::eq(section.imports_module("x::y::z"), true);
 	test::eq(section.imports_module("q::r"), true);
@@ -901,6 +901,99 @@ fn void imports_module_sees_what_the_import_pass_recorded()
 
 	test::eq(section.imports_module("hello"), false);
 	test::eq(section.imports_module("z"), false);
+}
+
+<*
+ An import marked '@norecurse' puts the module itself in view and nothing under
+ it, which is what c3c does: with 'import a @norecurse', 'a::in_a' resolves and
+ 'a::b::in_b' does not. A match on one is not the end of the search, since
+ another import may still cover the module asked about.
+*>
+fn void imports_module_does_not_walk_through_a_norecurse_import()
+{
+	SemaModuleContext section;
+	section.imports.tinit();
+	section.imports.set("a", { "a", null, true });
+
+	test::eq(section.imports_module("a"), true);
+	test::eq(section.imports_module("a::b"), false);
+	test::eq(section.imports_module("a::b::c"), false);
+
+	// An import that does recurse still answers for what is under it.
+	section.imports.set("a::b", { "a::b", null, false });
+
+	test::eq(section.imports_module("a::b"), true);
+	test::eq(section.imports_module("a::b::c"), true);
+	test::eq(section.imports_module("a::z"), false);
+}
+
+<*
+ Over a real file: '@norecurse' covers the module alone, and a plain import
+ beside it still covers what is under that one. c3c accepts 'a::b::c::in_c'
+ for this pair of imports, in either order.
+*>
+fn void a_norecurse_import_covers_only_itself()
+{
+	String source_code = "module a;\nmodule a::b;\nmodule a::b::c;\nmodule hello;\nimport a @norecurse;\n";
+
+	parser_tests::start_counting_diags();
+	defer parser_tests::stop_counting_diags();
+
+	AnalyzerContext* context = context::new(tmem);
+	SemaContext* sema_ctx = parser_tests::analyze_source(context, source_code);
+
+	test::eq(parser_tests::error_diag_count, 0);
+
+	SemaModuleContext* section = sema_ctx.modules.get("hello")!![0];
+
+	test::eq(section.imports.get("a")!!.norecurse, true);
+	test::eq(section.imports_module("a"), true);
+	test::eq(section.imports_module("a::b"), false);
+	test::eq(section.imports_module("a::b::c"), false);
+}
+
+fn void a_plain_import_beside_a_norecurse_one_still_covers_what_is_under_it()
+{
+	String source_code =
+		"module a;\nmodule a::b;\nmodule a::b::c;\nmodule hello;\nimport a @norecurse;\nimport a::b;\n";
+
+	parser_tests::start_counting_diags();
+	defer parser_tests::stop_counting_diags();
+
+	AnalyzerContext* context = context::new(tmem);
+	SemaContext* sema_ctx = parser_tests::analyze_source(context, source_code);
+
+	test::eq(parser_tests::error_diag_count, 0);
+
+	SemaModuleContext* section = sema_ctx.modules.get("hello")!![0];
+
+	test::eq(section.imports_module("a"), true);
+	test::eq(section.imports_module("a::b"), true);
+	test::eq(section.imports_module("a::b::c"), true);
+}
+
+<*
+ A parent the pass recorded on the way to a child import is in view itself, but
+ brings in nothing else under it: c3c resolves 'a::in_a' for 'import a::b', and
+ refuses 'a::z::in_z'.
+*>
+fn void a_parent_recorded_from_a_child_import_covers_only_itself()
+{
+	String source_code = "module a;\nmodule a::b;\nmodule a::z;\nmodule hello;\nimport a::b;\n";
+
+	parser_tests::start_counting_diags();
+	defer parser_tests::stop_counting_diags();
+
+	AnalyzerContext* context = context::new(tmem);
+	SemaContext* sema_ctx = parser_tests::analyze_source(context, source_code);
+
+	test::eq(parser_tests::error_diag_count, 0);
+
+	SemaModuleContext* section = sema_ctx.modules.get("hello")!![0];
+
+	test::eq(section.imports_module("a"), true);
+	test::eq(section.imports_module("a::b"), true);
+	test::eq(section.imports_module("a::z"), false);
 }
 
 <*

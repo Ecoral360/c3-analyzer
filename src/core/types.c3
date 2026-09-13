@@ -86,11 +86,12 @@ struct ImportInfo
 {
 	String path;
 	Node* node;
+	bool norecurse;
 }
 
 fn bool ImportInfo.eq(self, ImportInfo other) @operator(==)
 {
-	return self.path == other.path && self.node == other.node;
+	return self.path == other.path && self.node == other.node && self.norecurse == other.norecurse;
 }
 
 struct TypeInfo

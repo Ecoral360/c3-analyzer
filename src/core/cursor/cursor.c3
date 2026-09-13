@@ -482,6 +482,9 @@ fn NodeArray? attributes(Node* node)
 		case MODULE_DECL:
 			return node.as(ModuleDecl).attributes;
 
+		case IMPORT_DECL:
+			return node.as(ImportDecl).attributes;
+
 		case FN_DECL:
 			return node.as(FnDecl).attributes;
 
