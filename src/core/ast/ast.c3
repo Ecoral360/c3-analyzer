@@ -17,6 +17,12 @@ bitstruct NodeFlags : ushort
 	bool is_extern;
 	bool has_attributes;
 	bool has_error;
+	<* 
+		True when that node should be excluded from analysis
+		For example, if a @feat test is not passed or if the node 
+		is in a dead branch
+  *>
+	bool excluded;
 }
 
 struct Node

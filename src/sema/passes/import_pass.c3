@@ -43,7 +43,7 @@ fn void run_import_pass(SemaContext* ctx)
 			}
 
 			diagnostics::log_debug("[AnalyzeImports]: Added import '%s'", expr.path.text);
-			bool norecurse = cursor::has_attribute(imp, NORECURSE, null);
+			bool norecurse = @ok(cursor::get_attribute(imp, NORECURSE));
 			ctx.current_module.imports.set(expr.path.text, { expr.path.text, node, norecurse });
 
 			if (!norecurse)

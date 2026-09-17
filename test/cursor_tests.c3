@@ -170,8 +170,8 @@ fn void has_attribute_finds_an_attribute_on_an_import()
 	test::ne(with_attribute, null);
 	test::ne(plain, null);
 
-	test::eq(cursor::has_attribute(with_attribute, NORECURSE, null), true);
-	test::eq(cursor::has_attribute(plain, NORECURSE, null), false);
+	test::eq(@ok(cursor::get_attribute(with_attribute, NORECURSE)), true);
+	test::eq(@ok(cursor::get_attribute(plain, NORECURSE)), false);
 }
 
 /*

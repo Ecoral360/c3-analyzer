@@ -192,26 +192,21 @@ fn String literal_spelling(LiteralExpr* literal, Allocator allocator) @local
 <*
  Checks if cursor has a specific attribute
 *>
-fn bool has_attribute(Node* node, AttributeKind kind, Node** out_attribute)
+fn Node*? get_attribute(Node* node, AttributeKind kind)
 {
 	NodeArray? temp = attributes(node);
-	if (catch temp) return false;
+	if (catch temp) return NOT_FOUND~;
 
 	foreach (attr : temp)
 	{
 		AttributeDecl* attr_decl = attr.as(AttributeDecl);
 		if (attr_decl.attribute_kind == kind)
 		{
-			if (out_attribute)
-			{
-				*out_attribute = attr;
-			}
-
-			return true;
+			return attr;
 		}
 	}
 
-	return false;
+	return NOT_FOUND~;
 }
 
 macro Node* find_innermost_from_nodes(SourceFile* sf, int offset, ...) @local

@@ -12,9 +12,7 @@ import std::collections::list;
 *>
 fn bool node_has_if_attribute(SemaContext* ctx, Node* node, Node** out_expr)
 {
-	Node* attr_node = null;
-
-	if (cursor::has_attribute(node, AttributeKind.IF, &attr_node))
+	if (try attr_node = cursor::get_attribute(node, AttributeKind.IF))
 	{
 		AttributeDecl* attr_decl = attr_node.as(AttributeDecl);
 
